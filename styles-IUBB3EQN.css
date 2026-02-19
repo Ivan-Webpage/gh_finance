@@ -1,0 +1,1 @@
+html,body{height:100%;margin:0}*{box-sizing:border-box}body{overflow:hidden}main,main>div{min-width:0}main table{min-width:100%}main .overflow-x-auto{-webkit-overflow-scrolling:touch}@media (max-width: 1023px){main{overscroll-behavior:contain}main [class*=max-w-]{max-width:100%!important}}
