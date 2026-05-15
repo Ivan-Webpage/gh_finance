@@ -1,0 +1,21 @@
+# 開發環境 Dockerfile - 支援熱更新
+FROM node:20-alpine
+
+# 設置工作目錄
+WORKDIR /app
+
+# 複製 package 文件
+COPY package*.json ./
+
+# 安裝所有依賴（包括 devDependencies）
+RUN npm install
+
+# 複製應用程式代碼
+COPY . .
+
+# 暴露 Angular 開發服務器端口
+EXPOSE 4200
+
+# 使用開發模式運行，支援熱更新
+# 添加 --host 0.0.0.0 以允許外部訪問
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

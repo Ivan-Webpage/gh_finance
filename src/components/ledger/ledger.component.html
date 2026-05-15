@@ -1,0 +1,551 @@
+<div class="space-y-6">
+  <h1 class="text-3xl font-bold text-gray-900">流水帳</h1>
+
+  <!-- 加載狀態提示 -->
+  @if (isLoading()) {
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="hourglass-outline" class="text-blue-600 text-xl animate-spin"></ion-icon>
+      <span class="text-blue-700">正在加載數據...</span>
+    </div>
+  }
+
+  <!-- 錯誤信息 -->
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- Tabs -->
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+        <button (click)="changeView('details')"
+                [class]="activeView() === 'details' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          流水帳細項
+        </button>
+        <button (click)="changeView('add')"
+                [class]="activeView() === 'add' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          新增帳務
+        </button>
+      </nav>
+    </div>
+
+    <div class="pt-6">
+      <!-- Ledger Details View -->
+      @if (activeView() === 'details') {
+        <div class="space-y-4">
+          <!-- Filters -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+             <div class="flex items-center gap-2">
+                <label for="startDate" class="text-sm font-medium text-gray-600 shrink-0">從:</label>
+                <div class="relative w-full">
+                  <input type="date" id="startDate" [(ngModel)]="startDate" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white pr-10">
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <ion-icon name="calendar-outline" class="text-gray-400"></ion-icon>
+                  </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="endDate" class="text-sm font-medium text-gray-600 shrink-0">至:</label>
+                <div class="relative w-full">
+                  <input type="date" id="endDate" [(ngModel)]="endDate" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white pr-10">
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <ion-icon name="calendar-outline" class="text-gray-400"></ion-icon>
+                  </div>
+                </div>
+            </div>
+            <div>
+              <select [(ngModel)]="selectedItem" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+                <option value="">所有項目</option>
+                @for(item of modalAvailableItems(); track item) { <option [value]="item">{{ item }}</option> }
+              </select>
+            </div>
+             <div>
+              <select [(ngModel)]="selectedCategory" [disabled]="!selectedItem()" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
+                <option value="">所有科目</option>
+                @for(cat of filterAvailableCategories(); track cat) { <option [value]="cat">{{ cat }}</option> }
+              </select>
+            </div>
+             <div class="lg:col-span-2">
+              <select [(ngModel)]="selectedVendor" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+                <option value="">所有賣方</option>
+                @for(vendor of filterOptions().vendorNames; track vendor) { <option [value]="vendor">{{ vendor }}</option> }
+              </select>
+            </div>
+            <div>
+               <input type="text" [(ngModel)]="entryIdFilter" placeholder="搜尋ID..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white" inputmode="numeric" pattern="[0-9]*">
+            </div>
+            <div>
+               <input type="text" [(ngModel)]="descriptionFilter" placeholder="搜尋說明關鍵字..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+            </div>
+            <div class="flex items-center gap-2 lg:col-span-4 justify-end">
+              <button (click)="applyFilters()" [disabled]="isLoading()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                @if (isLoading()) {
+                  <ion-icon name="hourglass-outline" class="animate-spin"></ion-icon>
+                  <span>套用中...</span>
+                } @else {
+                  <ion-icon name="filter-outline"></ion-icon>
+                  <span>套用</span>
+                }
+              </button>
+              <button (click)="resetFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+              </button>
+            </div>
+          </div>
+          <!-- Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left whitespace-nowrap">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                <tr>
+                  <th class="px-4 py-3">
+                    <div class="flex items-center justify-center gap-2">
+                      <input 
+                        type="checkbox"
+                        [checked]="areAllApproved()"
+                        (change)="toggleAllApprovals($event)"
+                        title="全部簽核/取消簽核"
+                        class="rounded h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 cursor-pointer">
+                      <span>簽核</span>
+                    </div>
+                  </th>
+                  <th (click)="sortData('entry_date')" class="px-4 py-3 cursor-pointer">日期 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+                  <th (click)="sortData('item_group')" class="px-4 py-3 cursor-pointer">項目 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+                  <th (click)="sortData('subject_name')" class="px-4 py-3 cursor-pointer">科目 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+                  <th (click)="sortData('amount')" class="px-4 py-3 cursor-pointer text-right">金額 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+                  <th (click)="sortData('invoice_no')" class="px-4 py-3 cursor-pointer">發票號碼 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+                  <th (click)="sortData('vendor_tax_id')" class="px-4 py-3 cursor-pointer">賣方統編 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+                  <th (click)="sortData('vendor_name')" class="px-4 py-3 cursor-pointer">賣方名稱 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+                  <th class="px-4 py-3">說明</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(tx of pagedTransactions(); track tx.entry_id) {
+                  <tr (click)="openEditModal(tx)" class="border-b hover:bg-gray-50 cursor-pointer" [class.bg-red-50]="!tx.is_sigh_off">
+                    <td class="px-4 py-2 text-center"><input type="checkbox" [checked]="tx.is_sigh_off" class="rounded h-4 w-4 text-indigo-500 border-gray-300 cursor-not-allowed" disabled></td>
+                    <td class="px-4 py-2">{{ tx.entry_date?.substring(0, 10) || tx.entry_date }}</td>
+                    <td class="px-4 py-2">{{ tx.item_group }}</td>
+                    <td class="px-4 py-2">{{ tx.subject_name }}</td>
+                    <td class="px-4 py-2 text-right">{{ formatCurrency(tx.amount) }}</td>
+                    <td class="px-4 py-2">{{ tx.invoice_no }}</td>
+                    <td class="px-4 py-2">{{ tx.vendor_tax_id }}</td>
+                    <td class="px-4 py-2">{{ tx.vendor_name }}</td>
+                    <td class="px-4 py-2 truncate max-w-xs">{{ tx.description }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="9" class="text-center py-8 text-gray-500">無符合條件的流水帳資料。</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
+            <div class="text-sm text-gray-600">
+              第 {{ currentPage() }} / {{ totalPages() }} 頁，共 {{ totalRecords() }} 筆
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" (click)="goToPrevPage()" [disabled]="currentPage() === 1" class="px-3 py-1.5 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                上一頁
+              </button>
+              <button type="button" (click)="goToNextPage()" [disabled]="currentPage() === totalPages()" class="px-3 py-1.5 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                下一頁
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+      <!-- Add New Entry View -->
+      @if (activeView() === 'add') {
+        @if (!newlyCreatedEntry()) {
+          <!-- Add Form -->
+          <form [formGroup]="ledgerForm" (ngSubmit)="handleFormSubmit()" class="space-y-6 max-w-4xl mx-auto" novalidate>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label for="date" class="block text-sm font-medium text-gray-700">日期*</label>
+                <div class="relative mt-1">
+                  <input type="date" id="date" formControlName="entry_date" class="block w-full border bg-gray-50 rounded-md shadow-sm p-2 pr-10" [class.border-red-500]="isInvalid('entry_date')">
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <ion-icon name="calendar-outline" class="text-gray-400"></ion-icon>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label for="item" class="block text-sm font-medium text-gray-700">項目*</label>
+                <select id="item" formControlName="item_group" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('item_group')">
+                  <option value="" disabled>請選擇項目</option>
+                  @for(item of modalAvailableItems(); track item) { <option [value]="item">{{ item }}</option> }
+                </select>
+              </div>
+               <div>
+                <label for="category" class="block text-sm font-medium text-gray-700">科目*</label>
+                <select id="category" formControlName="subject_name" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('subject_name')">
+                  <option value="" disabled>請選擇科目</option>
+                  @for(cat of formAvailableSubjects(); track cat) { <option [value]="cat">{{ cat }}</option> }
+                </select>
+              </div>
+               <div>
+                <label for="amount" class="block text-sm font-medium text-gray-700">金額*</label>
+                <input type="number" id="amount" formControlName="amount" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2 text-right" [class.border-red-500]="isInvalid('amount')" placeholder="正數為收入，負數為該項目對沖">
+              </div>
+              <div>
+                <label for="invoiceNumber" class="block text-sm font-medium text-gray-700">發票號碼</label>
+                <input type="text" id="invoiceNumber" formControlName="invoice_no" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+              </div>
+               <div>
+                <label for="vendorTaxId" class="block text-sm font-medium text-gray-700">賣方統編</label>
+                <input type="text" id="vendorTaxId" formControlName="vendor_tax_id" inputmode="numeric" pattern="\d*" maxlength="8" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" (input)="onVendorTaxIdInput($event)">
+              </div>
+               <div class="md:col-span-2">
+                <label for="vendorName" class="block text-sm font-medium text-gray-700">賣方名稱</label>
+                <input type="text" id="vendorName" formControlName="vendor_name" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+              </div>
+               <div class="md:col-span-2">
+                <label for="description" class="block text-sm font-medium text-gray-700">說明</label>
+                <textarea id="description" formControlName="description" rows="3" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2"></textarea>
+              </div>
+            </div>
+            <div class="flex justify-end gap-4">
+              <button type="button" (click)="resetForm()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">取消</button>
+              <button type="submit" [disabled]="isViewer()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">送出</button>
+            </div>
+          </form>
+        } @else {
+          <!-- Shipment Items Management for newly created entry -->
+          <div class="max-w-4xl mx-auto">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+              <ion-icon name="checkmark-circle-outline" class="text-blue-600 text-xl"></ion-icon>
+              <span class="text-blue-700">流水帳已成功新增！您現在可以關聯進貨資料。</span>
+            </div>
+
+            <div class="mt-8">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-4 flex-grow">
+                  <h4 class="text-lg font-semibold text-gray-900">關聯進貨資料：{{ shipmentItems().length }}筆</h4>
+                  @if (saveSuccessMessage()) {
+                    <div class="flex items-center gap-2 px-3 py-1.5 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md">
+                      <ion-icon name="checkmark-circle-outline" class="text-green-600"></ion-icon>
+                      <span>{{ saveSuccessMessage() }}</span>
+                    </div>
+                  }
+                </div>
+                <div class="flex items-center gap-2">
+                  @if (isLoadingShipmentItems()) {
+                    <div class="flex items-center gap-2 text-sm text-blue-600">
+                      <ion-icon name="refresh-outline" class="animate-spin"></ion-icon>
+                      <span>載入中...</span>
+                    </div>
+                  }
+                  <button type="button" (click)="addNewShipmentItem()" [disabled]="isLoadingShipmentItems() || !newlyCreatedEntry()?.entry_id" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                    <ion-icon name="add-outline"></ion-icon>
+                    <span>新增進貨單</span>
+                  </button>
+                </div>
+              </div>
+
+              @if (shipmentItemsError()) {
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">
+                  <div class="flex items-center gap-2">
+                    <ion-icon name="alert-circle-outline"></ion-icon>
+                    <span>{{ shipmentItemsError() }}</span>
+                  </div>
+                </div>
+              }
+
+              @if (!isLoadingShipmentItems() && shipmentItems().length === 0) {
+                <div class="text-sm text-gray-500">此流水帳尚未關聯進貨資料。</div>
+              }
+
+              @if (shipmentItems().length > 0) {
+                <div class="space-y-4">
+                  @for(item of shipmentItems(); track item.shipment_id) {
+                    <div [class]="'border rounded-lg p-4 ' + (newShipmentItemIds().includes(item.shipment_id) ? 'bg-yellow-50' : 'bg-gray-50')">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label class="block text-xs font-medium text-gray-600">品項名稱</label>
+                          <input type="text" [(ngModel)]="item.itemName" name="shipmentItemName{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2">
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-gray-600">數量</label>
+                          <input type="number" [(ngModel)]="item.qty" name="shipmentQty{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2 text-right" step="0.01">
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-gray-600">單位</label>
+                          <input type="text" [(ngModel)]="item.unit" name="shipmentUnit{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2">
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-gray-600">單價</label>
+                          <input type="number" [(ngModel)]="item.unitPrice" name="shipmentUnitPrice{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2 text-right" step="0.01">
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-gray-600">小計</label>
+                          <input type="text" [value]="item.lineAmount ?? '-'" class="mt-1 block w-full border bg-gray-100 rounded-md shadow-sm p-2 text-right" readonly>
+                        </div>
+                        <div class="md:col-span-2">
+                          <label class="block text-xs font-medium text-gray-600">備註</label>
+                          <textarea [(ngModel)]="item.remark" name="shipmentRemark{{ item.shipment_id }}" rows="2" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2"></textarea>
+                        </div>
+                      </div>
+                      <div class="flex justify-end gap-2 mt-3">
+                        <button type="button" (click)="deleteShipmentItem(item)" class="px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                          <ion-icon name="trash-outline"></ion-icon>
+                          <span>刪除</span>
+                        </button>
+                        <button type="button" (click)="saveShipmentItem(item)" [disabled]="isSavingShipmentItem(item.shipment_id)" class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                          @if (isSavingShipmentItem(item.shipment_id)) {
+                            儲存中...
+                          } @else {
+                            儲存進貨資料
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="flex justify-end gap-4 mt-6 pt-6 border-t">
+                <button type="button" (click)="resetAddView()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">返回新增表單</button>
+                <button type="button" (click)="changeView('details')" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">完成</button>
+              </div>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">修改流水帳 ID：{{ editingTransaction()?.entry_id }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+         <form [formGroup]="ledgerForm" (ngSubmit)="handleFormSubmit()" class="space-y-6" novalidate>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="modal-date" class="block text-sm font-medium text-gray-700">日期*</label>
+              <div class="relative mt-1">
+                <input type="date" id="modal-date" formControlName="entry_date" class="block w-full border bg-gray-50 rounded-md shadow-sm p-2 pr-10" [class.border-red-500]="isInvalid('entry_date')">
+                 <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <ion-icon name="calendar-outline" class="text-gray-400"></ion-icon>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label for="modal-item" class="block text-sm font-medium text-gray-700">項目*</label>
+              <select id="modal-item" formControlName="item_group" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('item_group')">
+                @for(item of modalAvailableItems(); track item) { <option [value]="item">{{ item }}</option> }
+              </select>
+            </div>
+             <div>
+              <label for="modal-category" class="block text-sm font-medium text-gray-700">科目*</label>
+              <select id="modal-category" formControlName="subject_name" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('subject_name')">
+                <option value="">請選擇科目</option>
+                @for(cat of formAvailableSubjects(); track cat) { <option [value]="cat">{{ cat }}</option> }
+              </select>
+            </div>
+             <div>
+              <label for="modal-amount" class="block text-sm font-medium text-gray-700">金額*</label>
+              <input type="number" id="modal-amount" formControlName="amount" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2 text-right" [class.border-red-500]="isInvalid('amount')">
+            </div>
+            <div>
+              <label for="modal-invoiceNumber" class="block text-sm font-medium text-gray-700">發票號碼</label>
+              <input type="text" id="modal-invoiceNumber" formControlName="invoice_no" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+            </div>
+             <div>
+              <label for="modal-vendorTaxId" class="block text-sm font-medium text-gray-700">賣方統編</label>
+                <input type="text" id="modal-vendorTaxId" formControlName="vendor_tax_id" inputmode="numeric" pattern="\d*" maxlength="8" 
+                  [class.border-red-500]="isInvalid('vendor_tax_id')" 
+                  class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" 
+                  (input)="onVendorTaxIdInput($event)">
+                @if (isInvalid('vendor_tax_id')) {
+                  <p class="mt-1 text-sm text-red-600">{{ getErrorMessage('vendor_tax_id') }}</p>
+                }
+            </div>
+             <div class="md:col-span-2">
+              <label for="modal-vendorName" class="block text-sm font-medium text-gray-700">賣方名稱</label>
+              <input type="text" id="modal-vendorName" formControlName="vendor_name" readonly class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2 cursor-not-allowed opacity-60">
+            </div>
+             <div class="md:col-span-2">
+              <label for="modal-description" class="block text-sm font-medium text-gray-700">說明</label>
+              <textarea id="modal-description" formControlName="description" rows="3" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2"></textarea>
+            </div>
+            <div class="md:col-span-2">
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" formControlName="is_sigh_off" class="rounded h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                    <span class="text-sm text-gray-700">已簽核</span>
+                </label>
+            </div>
+          </div>
+          <div class="flex justify-end gap-4 pt-4 border-t mt-6">
+            <button type="button" (click)="deleteLedgerEntry()" [disabled]="isViewer()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">刪除</button>
+            <button type="button" (click)="closeModal()" [disabled]="isViewer()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">取消</button>
+            <button type="submit" [disabled]="isViewer()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">修改</button>
+          </div>
+        </form>
+
+        <!-- Ledger Delete Confirmation Modal -->
+        @if (ledgerDeleteConfirmation()) {
+          <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+            <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+              <div class="flex items-center gap-3 mb-4">
+                <ion-icon name="warning-outline" class="text-2xl text-orange-600"></ion-icon>
+                <h3 class="text-lg font-semibold text-gray-900">確認刪除流水帳</h3>
+              </div>
+              <div class="space-y-3 mb-6">
+                <p class="text-gray-700">您確定要刪除此流水帳記錄嗎？此操作無法復原。</p>
+                @if (ledgerDeleteConfirmation()!.relatedShipmentCount > 0) {
+                  <div class="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p class="text-sm text-red-700">
+                      <strong>注意：</strong>此流水帳已關聯
+                      <strong>{{ ledgerDeleteConfirmation()!.relatedShipmentCount }}</strong>
+                      筆進貨單項目，刪除此流水帳時將一併刪除這些進貨單項目。
+                    </p>
+                  </div>
+                }
+              </div>
+              <div class="flex justify-end gap-3">
+                <button (click)="cancelDeleteLedgerEntry()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">取消</button>
+                <button (click)="confirmDeleteLedgerEntry()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">確認刪除</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="mt-8 pt-6 border-t">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-4 flex-grow">
+              <h4 class="text-lg font-semibold text-gray-900">關聯進貨資料：{{ shipmentItems().length }}筆</h4>
+              @if (saveSuccessMessage()) {
+                <div class="flex items-center gap-2 px-3 py-1.5 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md">
+                  <ion-icon name="checkmark-circle-outline" class="text-green-600"></ion-icon>
+                  <span>{{ saveSuccessMessage() }}</span>
+                </div>
+              }
+            </div>
+            <div class="flex items-center gap-2">
+              @if (isLoadingShipmentItems()) {
+                <div class="flex items-center gap-2 text-sm text-blue-600">
+                  <ion-icon name="refresh-outline" class="animate-spin"></ion-icon>
+                  <span>載入中...</span>
+                </div>
+              }
+              <button type="button" (click)="addNewShipmentItem()" [disabled]="isLoadingShipmentItems() || !editingTransaction()?.entry_id" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                <ion-icon name="add-outline"></ion-icon>
+                <span>新增進貨單</span>
+              </button>
+            </div>
+          </div>
+
+          @if (shipmentItemsError()) {
+            <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">
+              <div class="flex items-center gap-2">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                <span>{{ shipmentItemsError() }}</span>
+              </div>
+            </div>
+          }
+
+          @if (!isLoadingShipmentItems() && shipmentItems().length === 0) {
+            <div class="text-sm text-gray-500">此流水帳尚未關聯進貨資料。</div>
+          }
+
+          @if (shipmentItems().length > 0) {
+            <div class="space-y-4">
+              @for(item of shipmentItems(); track item.shipment_id) {
+                <div [class]="'border rounded-lg p-4 ' + (newShipmentItemIds().includes(item.shipment_id) ? 'bg-yellow-50' : 'bg-gray-50')">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600">品項名稱</label>
+                      <input type="text" [(ngModel)]="item.itemName" name="shipmentItemName{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600">數量</label>
+                      <input type="number" [(ngModel)]="item.qty" name="shipmentQty{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2 text-right" step="0.01">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600">單位</label>
+                      <input type="text" [(ngModel)]="item.unit" name="shipmentUnit{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600">單價</label>
+                      <input type="number" [(ngModel)]="item.unitPrice" name="shipmentUnitPrice{{ item.shipment_id }}" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2 text-right" step="0.01">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600">小計</label>
+                      <input type="text" [value]="item.lineAmount ?? '-'" class="mt-1 block w-full border bg-gray-100 rounded-md shadow-sm p-2 text-right" readonly>
+                    </div>
+                    <div class="md:col-span-2">
+                      <label class="block text-xs font-medium text-gray-600">備註</label>
+                      <textarea [(ngModel)]="item.remark" name="shipmentRemark{{ item.shipment_id }}" rows="2" class="mt-1 block w-full border bg-white rounded-md shadow-sm p-2"></textarea>
+                    </div>
+                  </div>
+                  <div class="flex justify-end gap-2 mt-3">
+                    <button type="button" (click)="deleteShipmentItem(item)" class="px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                      <ion-icon name="trash-outline"></ion-icon>
+                      <span>刪除</span>
+                    </button>
+                    <button type="button" (click)="saveShipmentItem(item)" [disabled]="isSavingShipmentItem(item.shipment_id)" class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                      @if (isSavingShipmentItem(item.shipment_id)) {
+                        儲存中...
+                      } @else {
+                        儲存進貨資料
+                      }
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Confirmation Modal -->
+@if (confirmationState(); as state) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4">
+      <div class="p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+          <ion-icon name="help-outline" class="h-6 w-6 text-blue-600"></ion-icon>
+        </div>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">請確認</h3>
+        <p class="mt-2 text-sm text-gray-500">{{ state.message }}</p>
+      </div>
+      <div class="flex justify-center gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelApproval()" class="px-4 py-2 border rounded-md">取消</button>
+        <button type="button" (click)="confirmApproval()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">確認</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete Shipment Item Confirmation Modal -->
+@if (deleteConfirmation(); as confirmation) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4">
+      <div class="p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+          <ion-icon name="trash-outline" class="h-6 w-6 text-red-600"></ion-icon>
+        </div>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">確認刪除</h3>
+        <p class="mt-2 text-sm text-gray-500">您確定要刪除進貨單項目「{{ confirmation.itemName }}」嗎？</p>
+        <p class="mt-1 text-xs text-gray-400">此操作無法復原。</p>
+      </div>
+      <div class="flex justify-center gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelDeleteShipmentItem()" class="px-4 py-2 border rounded-md">取消</button>
+        <button type="button" (click)="confirmDeleteShipmentItem()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">確認刪除</button>
+      </div>
+    </div>
+  </div>
+}

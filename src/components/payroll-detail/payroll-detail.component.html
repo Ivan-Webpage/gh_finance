@@ -1,0 +1,81 @@
+<div class="space-y-6 max-w-5xl mx-auto">
+  <div class="flex items-center gap-4">
+    <button (click)="goBack()" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+      <ion-icon name="arrow-back-outline" class="text-2xl"></ion-icon>
+    </button>
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">
+        {{ employee()?.name }} - 打卡詳細資訊
+      </h1>
+      <p class="text-lg text-indigo-600 font-semibold">{{ year() }}年 {{ month() }}月</p>
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <form [formGroup]="payrollForm" (ngSubmit)="onSave()" novalidate>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left whitespace-nowrap">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+            <tr>
+              <th class="px-2 py-3 w-12"></th>
+              <th class="px-3 py-3">日期</th>
+              <th class="px-3 py-3">上班</th>
+              <th class="px-3 py-3">下班</th>
+              <th class="px-3 py-3 text-center">工時</th>
+              <th class="px-3 py-3 text-center">雙倍薪資</th>
+              <th class="px-3 py-3 text-right">薪資</th>
+            </tr>
+          </thead>
+          <tbody formArrayName="records">
+            @for(record of records.controls; track record; let i = $index) {
+              <tr [formGroupName]="i" class="border-b hover:bg-gray-50">
+                <td class="px-2 py-2 text-center">
+                  <button type="button" (click)="clearRecord(i)" title="清除此行" class="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 transition-colors">
+                    <ion-icon name="close-circle-outline" class="text-lg align-middle"></ion-icon>
+                  </button>
+                </td>
+                <td class="px-3 py-2 font-medium">
+                   {{ record.get('date')?.value }}
+                   ({{ getWeekday(record.get('date')?.value) }})
+                </td>
+                <td class="px-3 py-2">
+                  <input type="time" step="1" formControlName="clockIn" class="w-full border-gray-200 rounded-md shadow-sm p-1 bg-gray-50 text-sm">
+                </td>
+                <td class="px-3 py-2">
+                  <input type="time" step="1" formControlName="clockOut" class="w-full border-gray-200 rounded-md shadow-sm p-1 bg-gray-50 text-sm">
+                </td>
+                <td class="px-3 py-2 text-center font-medium">
+                  {{ calculateWorkHours(record) | number:'1.0-0' }}
+                </td>
+                <td class="px-3 py-2 text-center">
+                   <input type="checkbox" formControlName="isDoublePay" class="rounded h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                </td>
+                <td class="px-3 py-2 text-right font-semibold">
+                  {{ calculateSalary(record) | currency:'TWD':'symbol':'1.0-0' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+           <tfoot class="font-bold bg-gray-100 text-base">
+            <tr class="border-t-2">
+              <td class="px-3 py-3" colspan="4">總計</td>
+              <td class="px-3 py-3 text-center">{{ totalHours() | number:'1.0-0' }}</td>
+              <td class="px-3 py-3"></td>
+              <td class="px-3 py-3 text-right">{{ totalSalary() | currency:'TWD':'symbol':'1.0-0' }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      
+      <!-- Buttons -->
+      <div class="flex items-center justify-end gap-4 pt-6 mt-6 border-t">
+        <button type="button" (click)="onCancel()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+          取消
+        </button>
+        <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          儲存變更
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

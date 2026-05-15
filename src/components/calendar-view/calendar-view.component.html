@@ -1,0 +1,73 @@
+<div class="space-y-4">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <button (click)="previousMonth()" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+      <ion-icon name="chevron-back-outline" class="text-xl text-gray-600"></ion-icon>
+    </button>
+    <h2 class="text-xl font-semibold text-gray-800">
+      {{ currentDate().getFullYear() }}年 {{ currentDate().toLocaleString('zh-TW', { month: 'long' }) }}
+    </h2>
+    <button (click)="nextMonth()" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+      <ion-icon name="chevron-forward-outline" class="text-xl text-gray-600"></ion-icon>
+    </button>
+  </div>
+
+  <!-- Calendar Grid -->
+  <div class="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+    <!-- Day Headers -->
+    @for (day of ['日', '一', '二', '三', '四', '五', '六']; track day) {
+      <div class="py-2 text-center text-sm font-medium text-gray-600 bg-gray-50">{{ day }}</div>
+    }
+
+    <!-- Day Cells -->
+    @for (day of calendarGrid(); track day.date) {
+      <div class="relative min-h-[120px] bg-white p-2" [class.bg-gray-50]="!day.isCurrentMonth">
+        <time [dateTime]="day.date.toISOString()"
+              class="text-sm font-medium"
+              [class.text-gray-400]="!day.isCurrentMonth"
+              [class.bg-indigo-600]="day.isToday"
+              [class.text-white]="day.isToday"
+              [class.rounded-full]="day.isToday"
+              [class.w-6]="day.isToday"
+              [class.h-6]="day.isToday"
+              [class.flex]="day.isToday"
+              [class.items-center]="day.isToday"
+              [class.justify-center]="day.isToday">
+          {{ day.date.getDate() }}
+        </time>
+        
+        <div class="mt-2 space-y-1 overflow-hidden">
+          @if(day.holiday) {
+            <div class="text-xs text-red-700 bg-red-100 rounded px-1 py-0.5 truncate font-medium">
+              {{ day.holiday.name }}
+            </div>
+          }
+          @for(event of day.events; track event.id) {
+            <div (click)="editEvent(event)" 
+                 class="text-xs rounded px-1 py-0.5 truncate"
+                 [class.text-indigo-800]="!isReminderEvent(event) && !isSpecialDateEvent(event) && !isShiftEvent(event) && !isUnavailableEvent(event)"
+                 [class.bg-indigo-100]="!isReminderEvent(event) && !isSpecialDateEvent(event) && !isShiftEvent(event) && !isUnavailableEvent(event)"
+                 [class.hover:bg-indigo-200]="!isReminderEvent(event) && !isSpecialDateEvent(event) && !isShiftEvent(event) && !isUnavailableEvent(event)"
+                 [class.text-orange-800]="isReminderEvent(event)"
+                 [class.bg-orange-100]="isReminderEvent(event)"
+                 [class.hover:bg-orange-200]="isReminderEvent(event)"
+                 [class.text-teal-900]="isSpecialDateEvent(event)"
+                 [class.bg-teal-100]="isSpecialDateEvent(event)"
+                 [class.hover:bg-teal-200]="isSpecialDateEvent(event)"
+                 [class.text-sky-900]="isShiftEvent(event)"
+                 [class.bg-sky-200]="isShiftEvent(event)"
+                 [class.hover:bg-sky-300]="isShiftEvent(event)"
+                 [class.text-rose-900]="isUnavailableEvent(event)"
+                 [class.bg-rose-100]="isUnavailableEvent(event)"
+                 [class.hover:bg-rose-200]="isUnavailableEvent(event)"
+                 [class.cursor-pointer]="enableNavigation() && canNavigateEvent(event)"
+                 [class.opacity-60]="event.status === 'cancelled'"
+                 [class.line-through]="event.status === 'cancelled'">
+              {{ event.name }}
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

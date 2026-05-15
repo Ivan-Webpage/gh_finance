@@ -1,0 +1,113 @@
+<div class="space-y-6 max-w-4xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-900">
+    {{ isEditMode() ? '編輯活動' : '新增活動' }}
+  </h1>
+
+  <div class="bg-white p-6 md:p-8 rounded-xl shadow-md">
+    <form [formGroup]="eventForm" (ngSubmit)="onSubmit()" novalidate class="space-y-6">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        <!-- 名稱 -->
+        <div class="md:col-span-2">
+          <label for="name" class="block text-sm font-medium text-gray-700">活動名稱*</label>
+          <input type="text" id="name" formControlName="name" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('name')">
+        </div>
+        
+        <!-- 日期 -->
+        <div>
+          <label for="date" class="block text-sm font-medium text-gray-700">日期*</label>
+          <input type="date" id="date" formControlName="date" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('date')">
+        </div>
+
+        <!-- 使用空間 -->
+        <div>
+          <label for="useSpace" class="block text-sm font-medium text-gray-700">使用空間</label>
+          <select id="useSpace" formControlName="useSpace" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+            @for (space of useSpaceOptions; track space) {
+              <option [value]="space">{{ space }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- 時間 -->
+        <div>
+          <label for="time" class="block text-sm font-medium text-gray-700">時間</label>
+          <input type="text" id="time" formControlName="time" placeholder="例如: 14:30~18:30" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+        </div>
+        
+        <!-- 類型 -->
+        <div>
+          <label for="type" class="block text-sm font-medium text-gray-700">類型</label>
+          <select id="type" formControlName="type" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+            <option value="">請選擇</option>
+            @for (eventType of eventTypeOptions; track eventType) {
+              <option [value]="eventType">{{ eventType }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- 人數 -->
+        <div>
+          <label for="attendees" class="block text-sm font-medium text-gray-700">人數</label>
+          <input type="text" id="attendees" formControlName="attendees" placeholder="例如: 10~15" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+        </div>
+        
+        <!-- 介紹人 -->
+        <div class="md:col-span-2">
+          <label for="organizer" class="block text-sm font-medium text-gray-700">介紹人</label>
+          <input type="text" id="organizer" formControlName="organizer" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+        </div>
+        
+        <!-- 預計收入 -->
+        <div>
+          <label for="estimatedRevenue" class="block text-sm font-medium text-gray-700">預計報名收入</label>
+          <input type="number" id="estimatedRevenue" formControlName="estimatedRevenue" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('estimatedRevenue')">
+        </div>
+
+        <!-- 訂金 -->
+        <div>
+          <label for="deposit" class="block text-sm font-medium text-gray-700">訂金</label>
+          <input type="number" id="deposit" formControlName="deposit" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+        </div>
+
+        <!-- 實際總收入 -->
+        <div>
+          <label for="actualRevenue" class="block text-sm font-medium text-gray-700">實際總收入</label>
+          <input type="number" id="actualRevenue" formControlName="actualRevenue" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isInvalid('actualRevenue')">
+        </div>
+
+        <!-- 狀態 -->
+        <div>
+          <label for="status" class="block text-sm font-medium text-gray-700">狀態</label>
+          <select id="status" formControlName="status" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+            <option value="active">進行中</option>
+            <option value="pending">待確定</option>
+            <option value="cancelled">已取消</option>
+          </select>
+        </div>
+
+        <!-- 備註 -->
+        <div class="md:col-span-2">
+          <label for="notes" class="block text-sm font-medium text-gray-700">備註</label>
+          <textarea id="notes" formControlName="notes" rows="4" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2"></textarea>
+        </div>
+      </div>
+      
+      <!-- Buttons -->
+      <div class="flex items-center justify-end gap-4 pt-4 border-t mt-6">
+        @if (isEditMode()) {
+          <button type="button" (click)="onDelete()" [disabled]="isViewer()" class="px-4 py-2 text-sm font-medium text-red-600 bg-transparent hover:bg-red-50 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+            刪除活動
+          </button>
+        }
+        <div class="flex-grow"></div>
+        <button type="button" (click)="onCancel()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+          取消
+        </button>
+        <button type="submit" [disabled]="isSaving() || (isEditMode() && isViewer())" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed">
+          {{ isSaving() ? '儲存中...' : (isEditMode() ? '儲存變更' : '儲存活動') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

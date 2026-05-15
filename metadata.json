@@ -1,0 +1,5 @@
+{
+  "name": "AI 財務儀表板",
+  "description": "一個內部的財務系統，可以分析來自 Google Drive 的資料來源，呈現財務報表、數據視覺化和由 AI 驅動的客戶分析。",
+  "requestFramePermissions": []
+}

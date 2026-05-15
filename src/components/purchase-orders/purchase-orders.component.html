@@ -1,0 +1,481 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">進貨單管理</h1>
+    <button
+      type="button"
+      (click)="openAiImportModal()"
+      class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+    >
+      <ion-icon name="scan-outline" class="text-base"></ion-icon>
+      掃描進貨單
+    </button>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="space-y-4">
+      <!-- 頁籤切換 -->
+      <div class="flex border-b border-gray-200 gap-2 mb-4">
+        <button type="button"
+          (click)="setTab('api')"
+          [class.border-indigo-600]="currentTab() === 'api'"
+          [class.text-indigo-600]="currentTab() === 'api'"
+          class="pb-2 px-4 font-medium border-b-2 border-transparent hover:text-indigo-600">
+          進貨單資料
+        </button>
+        <button type="button"
+          (click)="setTab('analysis')"
+          [class.border-indigo-600]="currentTab() === 'analysis'"
+          [class.text-indigo-600]="currentTab() === 'analysis'"
+          class="pb-2 px-4 font-medium border-b-2 border-transparent hover:text-indigo-600">
+          進貨分析
+        </button>
+      </div>
+
+      <!-- PO Filters -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+        <div class="lg:col-span-4">
+          <input type="text" [ngModel]="poSearchTerm()" (ngModelChange)="poSearchTerm.set($event)" placeholder="搜尋進貨單號、品項或廠商..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+        </div>
+        <div class="flex items-center gap-2">
+            <label for="poStartDate" class="text-sm font-medium text-gray-600 shrink-0">從:</label>
+            <input type="date" id="poStartDate" [ngModel]="poStartDate()" (ngModelChange)="poStartDate.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+        </div>
+        <div class="flex items-center gap-2">
+            <label for="poEndDate" class="text-sm font-medium text-gray-600 shrink-0">至:</label>
+            <input type="date" id="poEndDate" [ngModel]="poEndDate()" (ngModelChange)="poEndDate.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+        </div>
+        <div class="lg:col-span-2">
+          <select [ngModel]="selectedPOVendor()" (ngModelChange)="selectedPOVendor.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+            <option value="">所有廠商</option>
+            @for(vendor of shipmentVendors(); track vendor.id) {
+              <option [value]="vendor.id">{{ vendor.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="flex items-center gap-2 lg:col-span-4 justify-end gap-2">
+          <button (click)="applyShipmentFilter()" title="套用篩選" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 transition-colors flex items-center gap-1">
+            <ion-icon name="checkmark-outline"></ion-icon>
+            套用
+          </button>
+          <button (click)="resetPOFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+            <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- API 進貨單資料表格 -->
+      @if(currentTab() === 'api') {
+        <div class="space-y-4">
+          <!-- 加載狀態 -->
+          @if(isLoadingShipments()) {
+            <div class="flex items-center justify-center py-12 text-gray-500">
+              <ion-icon name="refresh-outline" class="text-3xl animate-spin mr-2"></ion-icon>
+              <span>載入進貨單資料中...</span>
+            </div>
+          }
+
+          <!-- 錯誤狀態 -->
+          @if(!isLoadingShipments() && shipmentError()) {
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+              <div class="flex items-center gap-2">
+                <ion-icon name="alert-circle-outline" class="text-xl"></ion-icon>
+                <span>{{ shipmentError() }}</span>
+              </div>
+            </div>
+          }
+
+          <!-- 進貨單表格 -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left whitespace-nowrap">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                <tr>
+                  <th class="px-4 py-3">開立日期</th>
+                  <th class="px-4 py-3">廠商</th>
+                  <th class="px-4 py-3">品項名稱</th>
+                  <th class="px-4 py-3 text-right">數量</th>
+                  <th class="px-4 py-3 text-right">單位</th>
+                  <th class="px-4 py-3 text-right">單價</th>
+                  <th class="px-4 py-3 text-right">小計</th>
+                  <th class="px-4 py-3">備註</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(item of pagedShipments(); track $index) {
+                  <tr class="border-b hover:bg-gray-50 cursor-pointer" (click)="openShipmentEditModal(item)">
+                    <td class="px-4 py-2">{{ formatDate(item.issueDate) }}</td>
+                    <td class="px-4 py-2 font-medium">{{ item.vendorName }}</td>
+                    <td class="px-4 py-2">{{ item.itemName }}</td>
+                    <td class="px-4 py-2 text-right">
+                      @if(item.qty !== null) {
+                        {{ item.qty | number:'1.0-0' }}
+                      } @else {
+                        -
+                      }
+                    </td>
+                    <td class="px-4 py-2 text-right">{{ item.unit || '-' }}</td>
+                    <td class="px-4 py-2 text-right">
+                      @if(item.unitPrice !== null) {
+                        {{ formatCurrency(item.unitPrice) }}
+                      } @else {
+                        -
+                      }
+                    </td>
+                    <td class="px-4 py-2 text-right font-semibold">
+                      @if(item.lineAmount !== null) {
+                        {{ formatCurrency(item.lineAmount) }}
+                      } @else {
+                        -
+                      }
+                    </td>
+                    <td class="px-4 py-2 text-gray-600 text-xs">{{ item.remark || '-' }}</td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="8" class="text-center py-8 text-gray-500">未找到進貨單資料。</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- 進貨分析頁籤內容 -->
+      @if(currentTab() === 'analysis') {
+        <div class="space-y-4">
+          @if(!isLoadingShipments() && !shipmentError() && filteredShipments().length > 0) {
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="text-xs text-blue-600 font-medium">進貨項目數</div>
+                <div class="text-xl font-bold text-blue-900">{{ shipmentStats().totalItems }}</div>
+              </div>
+              <div class="bg-purple-50 p-3 rounded-lg">
+                <div class="text-xs text-purple-600 font-medium">進貨總金額</div>
+                <div class="text-xl font-bold text-purple-900">{{ formatCurrency(shipmentStats().totalAmount) }}</div>
+              </div>
+            </div>
+
+            @if(vendorAmountEntries().length > 0 && shipmentStats().totalAmount > 0) {
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <div class="text-xs text-gray-600 font-medium mb-4">廠商進貨金額分佈</div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+                  <div class="flex items-center justify-center lg:col-span-2">
+                    <svg viewBox="0 0 400 400" class="w-64 h-64">
+                    @for(item of pieChartData(); track item.name; let i = $index) {
+                      @if(item.percentage > 0) {
+                        <g (mouseenter)="hoveredVendor.set(item.name)" 
+                           (mouseleave)="hoveredVendor.set(null)">
+                          <path [attr.d]="getPieSlicePath(i, pieChartData())"
+                                [attr.fill]="getPieColor(i, pieChartData().length)"
+                                [attr.opacity]="hoveredVendor() === item.name ? '1' : '0.8'"
+                                class="cursor-pointer transition-opacity"
+                                [attr.stroke]="hoveredVendor() === item.name ? '#000' : 'none'"
+                                stroke-width="2"/>
+                        </g>
+                      }
+                    }
+                    </svg>
+                  </div>
+                  <div class="lg:col-span-1">
+                    @if(hoveredVendor()) {
+                      @for(item of pieChartData(); track item.name) {
+                        @if(item.name === hoveredVendor()) {
+                          <div class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                            <div class="text-sm font-medium text-gray-900">{{ item.name }}</div>
+                            <div class="text-lg font-bold text-blue-600">{{ formatCurrency(item.amount) }}</div>
+                            <div class="text-sm text-gray-600">{{ item.percentage | number:'1.1-1' }}%</div>
+                          </div>
+                        }
+                      }
+                    } @else {
+                      <div class="text-sm text-gray-500">滑鼠移到圓餅圖切片以查看明細</div>
+                    }
+                  </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                  @for(item of vendorAmountEntries(); track item.name) {
+                    <div class="flex items-center gap-2">
+                      <div class="w-3 h-3 rounded-full" 
+                           [style.backgroundColor]="getVendorColor(item.name)"></div>
+                      <div class="truncate">
+                        <div class="font-medium">{{ item.name }}</div>
+                        <div class="text-gray-600">{{ formatCurrency(item.amount) }}</div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          } @else {
+            <div class="text-center py-8 text-gray-500">尚無可分析的進貨單資料。</div>
+          }
+        </div>
+      }
+
+      @if(currentTab() === 'api') {
+        <!-- 分頁控制元件 -->
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mt-4" *ngIf="shipmentTotalPages() > 1">
+          <div class="text-sm text-gray-600">
+            第 {{ shipmentPage() }} / {{ shipmentTotalPages() }} 頁，共 {{ filteredShipments().length }} 筆
+          </div>
+          <div class="flex items-center gap-2">
+            <button (click)="setShipmentPage(shipmentPage() - 1)" [disabled]="shipmentPage() === 1" class="px-2 py-1 rounded border text-sm" [class.text-gray-400]="shipmentPage() === 1">上一頁</button>
+            <button (click)="setShipmentPage(shipmentPage() + 1)" [disabled]="shipmentPage() === shipmentTotalPages()" class="px-2 py-1 rounded border text-sm" [class.text-gray-400]="shipmentPage() === shipmentTotalPages()">下一頁</button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- AI 進貨單匯入模態框 -->
+@if(isAiImportModalOpen()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b p-4">
+        <h3 class="text-lg font-semibold text-gray-900">AI 匯入進貨單</h3>
+        <button type="button" (click)="closeAiImportModal()" class="text-gray-400 hover:text-gray-600">
+          <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+        </button>
+      </div>
+
+      <div class="flex-1 space-y-4 overflow-y-auto p-6">
+        @if(isScanningAiFiles()) {
+          <div class="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-gray-600">
+            <ion-icon name="refresh-outline" class="animate-spin text-xl"></ion-icon>
+            <span>正在掃描 OneDrive 待匯入檔案...</span>
+          </div>
+        } @else {
+          <div class="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-emerald-900">
+            掃描完成，共 {{ aiScanFiles().length }} 份待處理檔案。
+          </div>
+        }
+
+        @if(aiImportError()) {
+          <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {{ aiImportError() }}
+          </div>
+        }
+
+        @if(aiImportResult()) {
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div class="text-xs text-gray-500">總處理數</div>
+              <div class="text-xl font-bold text-gray-900">{{ aiImportResult()?.total ?? 0 }}</div>
+            </div>
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <div class="text-xs text-emerald-700">成功</div>
+              <div class="text-xl font-bold text-emerald-900">{{ aiImportResult()?.successCount ?? 0 }}</div>
+            </div>
+            <div class="rounded-lg border border-red-200 bg-red-50 p-3">
+              <div class="text-xs text-red-700">失敗</div>
+              <div class="text-xl font-bold text-red-900">{{ aiImportResult()?.failedCount ?? 0 }}</div>
+            </div>
+          </div>
+
+          <div class="max-h-72 overflow-auto rounded-lg border border-gray-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-gray-50 text-xs uppercase text-gray-600">
+                <tr>
+                  <th class="px-3 py-2">檔名</th>
+                  <th class="px-3 py-2">廠商</th>
+                  <th class="px-3 py-2">發票號碼</th>
+                  <th class="px-3 py-2 text-right">金額</th>
+                  <th class="px-3 py-2">移動路徑</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(row of aiImportSuccessRows(); track row.fileId) {
+                  <tr class="border-t border-gray-100">
+                    <td class="px-3 py-2">{{ row.fileName }}</td>
+                    <td class="px-3 py-2">{{ row.vendorName || '-' }}</td>
+                    <td class="px-3 py-2">{{ row.invoiceNo || '-' }}</td>
+                    <td class="px-3 py-2 text-right">{{ formatCurrency(row.amount || 0) }}</td>
+                    <td class="px-3 py-2 text-xs text-gray-600">{{ row.movedTo || '-' }}</td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5" class="px-3 py-6 text-center text-gray-500">目前無成功匯入資料。</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="max-h-72 overflow-auto rounded-lg border border-red-200">
+            <div class="border-b border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold uppercase text-red-700">
+              失敗明細
+            </div>
+            <table class="w-full text-left text-sm">
+              <thead class="bg-red-50 text-xs uppercase text-red-700">
+                <tr>
+                  <th class="px-3 py-2">檔名</th>
+                  <th class="px-3 py-2">錯誤原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(row of aiImportFailedRows(); track row.fileId) {
+                  <tr class="border-t border-red-100">
+                    <td class="px-3 py-2 text-gray-800">{{ row.fileName }}</td>
+                    <td class="px-3 py-2 text-xs text-red-700">{{ row.reason || '未知錯誤' }}</td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="2" class="px-3 py-6 text-center text-gray-500">目前無失敗資料。</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="sticky bottom-0 flex items-center justify-end gap-3 border-t bg-white p-4">
+        <button
+          type="button"
+          (click)="closeAiImportModal()"
+          class="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          取消
+        </button>
+        @if(!aiImportResult()) {
+          <button
+            type="button"
+            (click)="runAiImport()"
+            [disabled]="isAiImporting() || isScanningAiFiles() || aiScanFiles().length === 0"
+            class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            @if(isAiImporting()) {
+              <ion-icon name="refresh-outline" class="animate-spin"></ion-icon>
+            }
+            AI 匯入進貨單
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+
+<!-- Purchase Order Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+       <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingPO() ? '編輯進貨單' : '新增進貨單' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="poForm" (ngSubmit)="handlePOSubmit()" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">進貨單號*</span><input formControlName="poNumber" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+            <label class="block"><span class="text-gray-700">日期*</span><input type="date" formControlName="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          </div>
+          <label class="block"><span class="text-gray-700">廠商*</span>
+            <select formControlName="vendorId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <option value="" disabled>選擇廠商</option>
+              @for(v of allVendors(); track v.id) { <option [value]="v.id">{{ v.name }}</option> }
+            </select>
+          </label>
+
+          <h4 class="font-semibold pt-4 border-t">品項</h4>
+          <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-xs font-medium text-gray-500">
+            <div class="col-span-5">品項名稱</div>
+            <div class="col-span-2 text-right">數量</div>
+            <div class="col-span-2 text-right">單價</div>
+            <div class="col-span-2 text-right">小計</div>
+            <div class="col-span-1"></div>
+          </div>
+          <div formArrayName="items" class="space-y-2">
+            @for(item of poItems.controls; track i; let i = $index) {
+              <div [formGroupName]="i" class="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-gray-50">
+                <input formControlName="productName" placeholder="品項名稱" class="col-span-5 p-1 border border-gray-300 bg-white rounded-md shadow-sm">
+                <input type="number" formControlName="quantity" placeholder="數量" class="col-span-2 p-1 border border-gray-300 bg-white rounded-md shadow-sm text-right">
+                <input type="number" formControlName="unitPrice" placeholder="單價" class="col-span-2 p-1 border border-gray-300 bg-white rounded-md shadow-sm text-right">
+                <span class="col-span-2 text-right">{{ formatCurrency(item.get('total')?.value) }}</span>
+                <button type="button" (click)="removeItem(i)" class="col-span-1 text-red-500"><ion-icon name="remove-circle-outline"></ion-icon></button>
+              </div>
+            }
+          </div>
+          <button type="button" (click)="addItem()" class="text-indigo-600 text-sm">+ 新增品項</button>
+          
+          <div class="text-right font-bold text-lg">總計: {{ formatCurrency(poForm.get('totalAmount')?.value) }}</div>
+          
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- 進貨單項目編輯模態框 -->
+@if(isEditModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">編輯進貨單項目</h3>
+        <button (click)="closeShipmentEditModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        @if(editingShipmentItem()) {
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label class="block"><span class="text-gray-700 text-sm">開立日期*</span><input type="date" 
+                [(ngModel)]="editingShipmentItem().issueDate"
+                disabled
+                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-gray-100 p-2 cursor-not-allowed text-gray-600"></label>
+              <label class="block"><span class="text-gray-700 text-sm">廠商*</span><input type="text" 
+                [(ngModel)]="editingShipmentItem().vendorName"
+                disabled
+                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-gray-100 p-2 cursor-not-allowed text-gray-600"></label>
+            </div>
+            
+            <label class="block"><span class="text-gray-700 text-sm">品項名稱*</span><input type="text" 
+              [(ngModel)]="editingShipmentItem().itemName" 
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2"></label>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label class="block"><span class="text-gray-700 text-sm">數量</span><input type="number" 
+                [(ngModel)]="editingShipmentItem().qty" 
+                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2 text-right"></label>
+              <label class="block"><span class="text-gray-700 text-sm">單位</span><input type="text" 
+                [(ngModel)]="editingShipmentItem().unit" 
+                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2"></label>
+              <label class="block"><span class="text-gray-700 text-sm">單價</span><input type="number" 
+                [(ngModel)]="editingShipmentItem().unitPrice" 
+                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2 text-right"></label>
+            </div>
+            
+            <label class="block"><span class="text-gray-700 text-sm">小計</span><input type="number" 
+              [(ngModel)]="editingShipmentItem().lineAmount"
+              disabled
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-gray-100 p-2 text-right cursor-not-allowed text-gray-600"></label>
+            
+            <label class="block"><span class="text-gray-700 text-sm">備註</span><textarea 
+              [(ngModel)]="editingShipmentItem().remark" 
+              rows="3" 
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2"></textarea></label>
+          </div>
+          
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" 
+              (click)="closeShipmentEditModal()" 
+              class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+              取消
+            </button>
+            <button type="button" 
+              (click)="saveShipmentEdit()"
+              [disabled]="isLoadingShipments()"
+              class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              {{ isLoadingShipments() ? '保存中...' : '保存' }}
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

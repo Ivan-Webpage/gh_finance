@@ -1,0 +1,261 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">重大事項佈達</h1>
+    <button (click)="openModal(null)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增佈達</span>
+    </button>
+  </div>
+  @if (loading()) {
+    <div class="flex items-center gap-2 text-sm text-indigo-600">
+      <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+      <span>載入中...</span>
+    </div>
+  }
+  @if (processing()) {
+    <div class="flex items-center gap-2 text-sm text-amber-600">
+      <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+      <span>處理中...</span>
+    </div>
+  }
+  
+  <div class="max-w-4xl mx-auto">
+    @if (sortedDecisions().length > 0) {
+      <div class="relative pl-8">
+        <!-- Vertical Line -->
+        <div class="absolute left-3 top-2 h-full w-0.5 bg-gray-200"></div>
+        
+        @for (decision of sortedDecisions(); track decision.id) {
+          <!-- Timeline Item -->
+          <div class="relative mb-8 group">
+            <!-- Dot on the line -->
+            <div class="absolute -left-0.5 top-2.5 w-7 h-7 bg-white border-4 border-indigo-600 rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
+              <ion-icon name="flag-outline" class="text-indigo-600"></ion-icon>
+            </div>
+            
+            <!-- Card -->
+            <div class="ml-12 bg-white rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg">
+              <div class="p-5">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <p class="font-semibold text-indigo-700">{{ decision.date }}</p>
+                    <h3 class="text-lg font-bold text-gray-800">{{ decision.title }}</h3>
+                  </div>
+                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button (click)="openModal(decision)" class="text-gray-400 hover:text-indigo-600 p-1.5 rounded-full hover:bg-gray-100" title="編輯"><ion-icon name="create-outline"></ion-icon></button>
+                      <button (click)="requestDelete(decision)" class="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-gray-100" title="刪除"><ion-icon name="trash-outline"></ion-icon></button>
+                  </div>
+                </div>
+                <div class="mt-4 space-y-4 text-sm">
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <div class="bg-slate-50 p-3 rounded-lg border">
+                            <h4 class="font-semibold text-slate-600 mb-1 flex items-center gap-2"><ion-icon name="people-outline"></ion-icon>相關人員</h4>
+                            <p class="text-slate-800 pl-8">{{ decision.stakeholders }}</p>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg border xl:row-span-2">
+                            <h4 class="font-semibold text-slate-600 mb-1 flex items-center gap-2"><ion-icon name="information-circle-outline"></ion-icon>背景</h4>
+                            <div class="text-slate-800 pl-8 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="decision.background"></div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg border">
+                          <h4 class="font-semibold text-slate-600 mb-1 flex items-center gap-2"><ion-icon name="document-text-outline"></ion-icon>內容</h4>
+                          <div class="text-slate-800 pl-8 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="decision.content"></div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg border">
+                            <h4 class="font-semibold text-slate-600 mb-1 flex items-center gap-2"><ion-icon name="bulb-outline"></ion-icon>理由</h4>
+                            <div class="text-slate-800 pl-8 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="decision.rationale"></div>
+                        </div>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                        <h4 class="font-semibold text-indigo-800 mb-1 flex items-center gap-2"><ion-icon name="checkmark-done-circle-outline"></ion-icon>最終決定</h4>
+                        <div class="text-indigo-900 pl-8 font-medium text-base [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="decision.finalDecision"></div>
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="bg-white p-6 rounded-xl shadow-md text-center text-gray-500">
+        尚無佈達事項，點擊按鈕來建立第一筆紀錄。
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col m-4">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingDecision() ? '編輯佈達' : '新增佈達' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="decisionForm" (ngSubmit)="handleFormSubmit()" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="date" class="block text-sm font-medium text-gray-700">日期*</label>
+              <input type="date" id="date" formControlName="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </div>
+             <div>
+              <label for="title" class="block text-sm font-medium text-gray-700">標題*</label>
+              <input type="text" id="title" formControlName="title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </div>
+          </div>
+          <div>
+            <label for="stakeholders" class="block text-sm font-medium text-gray-700">相關人員*</label>
+            <div class="mt-1 max-h-40 overflow-y-auto rounded-md border border-gray-300 bg-gray-50 p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+              @for (employee of employees(); track employee.id) {
+                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    [checked]="isStakeholderSelected(employee.id)"
+                    (change)="toggleStakeholder(employee.id, $any($event.target).checked)"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>{{ employee.name }}</span>
+                </label>
+              }
+            </div>
+          </div>
+          <div>
+            <label for="background" class="block text-sm font-medium text-gray-700">背景*</label>
+            <div class="mt-1 flex items-center gap-2 text-xs">
+                <button type="button" title="粗體" (click)="applyTextFormat('background', 'bold', backgroundArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="text-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="斜體" (click)="applyTextFormat('background', 'italic', backgroundArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="底線" (click)="applyTextFormat('background', 'underline', backgroundArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="remove-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目符號" (click)="applyTextFormat('background', 'bullet', backgroundArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目編號" (click)="applyTextFormat('background', 'numbered', backgroundArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+                </button>
+            </div>
+            <div
+              #backgroundArea
+              id="background"
+              contenteditable="true"
+              class="mt-2 block w-full min-h-[90px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+              (input)="onEditorInput('background', backgroundArea)">
+            </div>
+          </div>
+          <div>
+            <label for="content" class="block text-sm font-medium text-gray-700">內容*</label>
+            <div class="mt-1 flex items-center gap-2 text-xs">
+                <button type="button" title="粗體" (click)="applyTextFormat('content', 'bold', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="text-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="斜體" (click)="applyTextFormat('content', 'italic', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="底線" (click)="applyTextFormat('content', 'underline', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="remove-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目符號" (click)="applyTextFormat('content', 'bullet', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目編號" (click)="applyTextFormat('content', 'numbered', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+                </button>
+            </div>
+            <div
+              #contentArea
+              id="content"
+              contenteditable="true"
+              class="mt-2 block w-full min-h-[110px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+              (input)="onEditorInput('content', contentArea)">
+            </div>
+          </div>
+           <div>
+            <label for="rationale" class="block text-sm font-medium text-gray-700">理由*</label>
+            <div class="mt-1 flex items-center gap-2 text-xs">
+                <button type="button" title="粗體" (click)="applyTextFormat('rationale', 'bold', rationaleArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="text-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="斜體" (click)="applyTextFormat('rationale', 'italic', rationaleArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="底線" (click)="applyTextFormat('rationale', 'underline', rationaleArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="remove-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目符號" (click)="applyTextFormat('rationale', 'bullet', rationaleArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目編號" (click)="applyTextFormat('rationale', 'numbered', rationaleArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+                </button>
+            </div>
+            <div
+              #rationaleArea
+              id="rationale"
+              contenteditable="true"
+              class="mt-2 block w-full min-h-[90px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+              (input)="onEditorInput('rationale', rationaleArea)">
+            </div>
+          </div>
+          <div>
+            <label for="finalDecision" class="block text-sm font-medium text-gray-700">最終決定*</label>
+            <div class="mt-1 flex items-center gap-2 text-xs">
+                <button type="button" title="粗體" (click)="applyTextFormat('finalDecision', 'bold', finalDecisionArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="text-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="斜體" (click)="applyTextFormat('finalDecision', 'italic', finalDecisionArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="底線" (click)="applyTextFormat('finalDecision', 'underline', finalDecisionArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="remove-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目符號" (click)="applyTextFormat('finalDecision', 'bullet', finalDecisionArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-outline" class="text-base"></ion-icon>
+                </button>
+                <button type="button" title="項目編號" (click)="applyTextFormat('finalDecision', 'numbered', finalDecisionArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                  <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+                </button>
+            </div>
+            <div
+              #finalDecisionArea
+              id="finalDecision"
+              contenteditable="true"
+              class="mt-2 block w-full min-h-[90px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+              (input)="onEditorInput('finalDecision', finalDecisionArea)">
+            </div>
+          </div>
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" [disabled]="decisionForm.invalid || processing()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:bg-indigo-300 flex items-center gap-2">
+              @if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }
+              <span>儲存</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (decisionToDelete(); as decision) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4">
+      <div class="p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100"><ion-icon name="warning-outline" class="h-6 w-6 text-red-600"></ion-icon></div>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">確定要刪除嗎？</h3>
+        <p class="mt-2 text-sm text-gray-500">您確定要刪除佈達事項「{{ decision.title }}」嗎？此操作無法復原。</p>
+      </div>
+      <div class="flex justify-center gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelDelete()" class="px-4 py-2 border rounded-md">取消</button>
+        <button type="button" (click)="confirmDelete()" [disabled]="processing()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 flex items-center gap-2">
+          @if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }
+          <span>確認刪除</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}

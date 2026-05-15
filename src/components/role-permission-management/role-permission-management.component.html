@@ -1,0 +1,368 @@
+<div class="min-h-screen bg-gray-50 p-4 sm:p-6">
+  <!-- Header -->
+  <div class="mb-6 sm:mb-8">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">角色權限控管</h1>
+    <p class="mt-2 text-gray-600">設定每個角色的權限，決定他們可以執行的操作</p>
+  </div>
+
+  <!-- Error Message -->
+  @if (error()) {
+    <div class="mb-6 rounded-md bg-red-50 p-4 border border-red-200">
+      <p class="text-sm font-medium text-red-800">{{ error() }}</p>
+    </div>
+  }
+
+  <!-- Success Message -->
+  @if (successMessage()) {
+    <div class="mb-6 rounded-md bg-green-50 p-4 border border-green-200">
+      <p class="text-sm font-medium text-green-800">{{ successMessage() }}</p>
+    </div>
+  }
+
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <!-- Left Panel: Role List -->
+    <div class="lg:col-span-1">
+      <div class="rounded-lg bg-white shadow">
+        <div class="border-b border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">可編輯的角色</h2>
+              <p class="mt-1 text-sm text-gray-600">
+                超級管理員角色無法編輯
+              </p>
+            </div>
+            <button
+              (click)="openCreateRoleDialog()"
+              class="px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              title="新增角色"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Search -->
+        <div class="border-b border-gray-200 p-4">
+          <input
+            type="text"
+            [value]="searchTerm()"
+            (input)="searchTerm.set($any($event.target).value)"
+            placeholder="搜尋角色..."
+            class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+
+        <!-- Role List -->
+        <div class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+          @if (isLoading()) {
+            <div class="p-4 text-center text-gray-500">載入中...</div>
+          } @else if (filteredRoles().length === 0) {
+            <div class="p-4 text-center text-gray-500">沒有可編輯的角色</div>
+          } @else {
+            @for (role of filteredRoles(); track role.role_id) {
+              <div
+                [class.bg-blue-50]="selectedRole()?.role_id === role.role_id"
+                [class.border-l-4]="selectedRole()?.role_id === role.role_id"
+                [class.border-l-blue-500]="selectedRole()?.role_id === role.role_id"
+                class="hover:bg-gray-50 transition"
+              >
+                <div class="flex items-center">
+                  <button
+                    (click)="selectRole(role)"
+                    class="flex-1 text-left p-4"
+                  >
+                    <div class="font-semibold text-gray-900">{{ role.display_name }}</div>
+                    <div class="text-sm text-gray-600">{{ role.role_name }}</div>
+                    <div class="mt-1 text-xs text-gray-500">
+                      {{ role.permission_count || 0 }} 個權限已配置
+                    </div>
+                  </button>
+                  <div class="flex gap-1 pr-2">
+                    <button
+                      (click)="openEditRoleDialog(role)"
+                      class="p-2 text-blue-600 hover:bg-blue-100 rounded"
+                      title="編輯角色"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </button>
+                    <button
+                      (click)="openDeleteDialog(role)"
+                      class="p-2 text-red-600 hover:bg-red-100 rounded"
+                      title="刪除角色"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Permission Configuration -->
+    <div class="lg:col-span-2">
+      @if (!selectedRole()) {
+        <div class="rounded-lg bg-white shadow p-12 text-center">
+          <p class="text-gray-600">請選擇一個角色開始配置權限</p>
+        </div>
+      } @else {
+        <div class="rounded-lg bg-white shadow">
+          <!-- Header -->
+          <div class="border-b border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900">
+                  {{ selectedRole()!.display_name }}
+                </h2>
+                <p class="mt-1 text-sm text-gray-600">
+                  已配置 {{ assignedCount() }} / {{ categoryCount().total * 5 }} 個權限
+                </p>
+              </div>
+              <div class="text-right">
+                <div class="text-3xl font-bold text-blue-600">
+                  {{ (Object.keys(permissionsByCategory()).length > 0 ? Math.round((assignedCount() / (Object.keys(permissionsByCategory()).length * 5)) * 100) : 0) || 0 }}%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bulk Actions -->
+          <div class="border-b border-gray-200 p-4 bg-gray-50 flex flex-wrap gap-2">
+            <button
+              (click)="selectAllPermissions()"
+              class="px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            >
+              全選所有
+            </button>
+            <button
+              (click)="clearAllPermissions()"
+              class="px-3 py-2 text-sm font-medium rounded-md bg-gray-400 text-white hover:bg-gray-500"
+            >
+              全不選
+            </button>
+            <button
+              (click)="resetPermissions()"
+              [disabled]="isSaving()"
+              class="px-3 py-2 text-sm font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300 disabled:opacity-50"
+            >
+              重置
+            </button>
+          </div>
+
+          <!-- Permissions -->
+          <div class="divide-y divide-gray-200 max-h-screen overflow-y-auto">
+            @if (isLoading()) {
+              <div class="p-8 text-center text-gray-500">載入權限中...</div>
+            } @else if (Object.keys(permissionsByCategory()).length === 0) {
+              <div class="p-8 text-center text-gray-500">沒有可用的權限</div>
+            } @else {
+              @for (category of categoryCount().categories; track category) {
+                <div class="border-b border-gray-200">
+                  <!-- Category Header -->
+                  <div class="bg-gray-50 p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3 flex-1">
+                      <input
+                        type="checkbox"
+                        [checked]="isCategoryFullySelected(category)"
+                        (change)="
+                          isCategoryFullySelected(category)
+                            ? deselectAllInCategory(category)
+                            : selectAllInCategory(category)
+                        "
+                        class="w-5 h-5 text-blue-600 rounded cursor-pointer"
+                      />
+                      <div>
+                        <h3 class="font-semibold text-gray-900 capitalize">
+                          {{ category }}
+                        </h3>
+                        <p class="text-xs text-gray-600">
+                          {{ getCategoryAssignedCount(category) }} /
+                          {{ permissionsByCategory()[category].length }}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Permissions in Category -->
+                  <div class="p-4 space-y-3">
+                    @if (permissionsByCategory()[category] && permissionsByCategory()[category].length > 0) {
+                      @for (
+                        perm of permissionsByCategory()[category];
+                        track perm.permission_id
+                      ) {
+                      <div class="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          [checked]="selectedPermissions().has(perm.permission_id)"
+                          (change)="
+                            togglePermission(perm.permission_id, selectedPermissions().has(perm.permission_id))
+                          "
+                          class="w-5 h-5 text-blue-600 rounded cursor-pointer mt-0.5"
+                          [disabled]="isSaving()"
+                        />
+                        <div class="flex-1">
+                          <label class="block text-sm font-medium text-gray-900 cursor-pointer">
+                            {{ perm.display_name }}
+                          </label>
+                          <p class="text-xs text-gray-600 mt-1">
+                            {{ perm.description }}
+                          </p>
+                          <code class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700 inline-block mt-1">
+                            {{ perm.permission_code }}
+                          </code>
+                        </div>
+                      </div>
+                    }
+                    } @else {
+                      <div class="text-sm text-gray-500 py-2">此分類沒有權限</div>
+                    }
+                  </div>
+                </div>
+              }
+            }
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="border-t border-gray-200 p-6 bg-gray-50 flex flex-col-reverse sm:flex-row gap-3 justify-end">
+            <button
+              (click)="resetPermissions()"
+              [disabled]="isSaving()"
+              class="px-4 py-2 text-sm font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300 disabled:opacity-50"
+            >
+              取消
+            </button>
+            <button
+              (click)="savePermissions()"
+              [disabled]="isSaving()"
+              class="px-4 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {{ isSaving() ? '保存中...' : '保存權限' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Role Create/Edit Dialog -->
+@if (showRoleDialog()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
+      <div class="border-b border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-900">
+          {{ editingRole() ? '編輯角色' : '新增角色' }}
+        </h3>
+      </div>
+
+      <div class="p-6 space-y-4">
+        @if (error()) {
+          <div class="rounded-md bg-red-50 p-4 border border-red-200">
+            <p class="text-sm font-medium text-red-800">{{ error() }}</p>
+          </div>
+        }
+
+        <div>
+          <label class="block text-sm font-medium text-gray-900 mb-2">
+            角色名稱 <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            [value]="roleFormData().displayName"
+            (input)="updateRoleDisplayName($any($event.target).value)"
+            placeholder="請輸入角色名稱"
+            class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+            [disabled]="isSaving()"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-900 mb-2">
+            說明
+          </label>
+          <textarea
+            [value]="roleFormData().description"
+            (input)="updateRoleDescription($any($event.target).value)"
+            placeholder="請輸入角色說明（選填）"
+            rows="3"
+            class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+            [disabled]="isSaving()"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-200 p-6 flex gap-3 justify-end">
+        <button
+          (click)="closeRoleDialog()"
+          [disabled]="isSaving()"
+          class="px-4 py-2 text-sm font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300 disabled:opacity-50"
+        >
+          取消
+        </button>
+        <button
+          (click)="saveRole()"
+          [disabled]="isSaving()"
+          class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {{ isSaving() ? '保存中...' : '保存' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete Confirmation Dialog -->
+@if (showDeleteDialog()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full m-4">
+      <div class="border-b border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-900">刪除角色確認</h3>
+      </div>
+
+      <div class="p-6">
+        @if (error()) {
+          <div class="rounded-md bg-red-50 p-4 border border-red-200 mb-4">
+            <p class="text-sm font-medium text-red-800">{{ error() }}</p>
+          </div>
+        }
+
+        <p class="text-gray-700">
+          確定要刪除角色 <strong class="text-gray-900">{{ roleToDelete()?.display_name }}</strong> 嗎？
+        </p>
+        <p class="text-sm text-red-600 mt-2">
+          注意：如果此角色已分配給使用者，將無法刪除。
+        </p>
+      </div>
+
+      <div class="border-t border-gray-200 p-6 flex gap-3 justify-end">
+        <button
+          (click)="closeDeleteDialog()"
+          [disabled]="isSaving()"
+          class="px-4 py-2 text-sm font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300 disabled:opacity-50"
+        >
+          取消
+        </button>
+        <button
+          (click)="deleteRole()"
+          [disabled]="isSaving()"
+          class="px-4 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+        >
+          {{ isSaving() ? '刪除中...' : '確定刪除' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Math helper (used in template) -->
+<ng-container *ngIf="false">
+  {{ Math }}
+</ng-container>

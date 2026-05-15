@@ -1,0 +1,770 @@
+import { ChangeDetectionStrategy, Component, ElementRef, ViewChild, inject, signal, afterNextRender, computed, effect, Injector, runInInjectionContext, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ApiService } from '../../services/api.service';
+import { DataService } from '../../services/data.service';
+import { ProductAnalysis, ProductAnalysisReport, ProductGrossMarginReport, ItemSalesSummary, CategorySalesSummary } from '../../models/financial.model';
+
+declare var Chart: any;
+
+interface SummaryMetrics {
+  uniqueProducts: number;
+  totalItemsSold: number;
+  bestContributor: string;
+  totalRevenue: number;
+}
+
+interface ChartData {
+  name: string;
+  value: number;
+}
+
+@Component({
+  selector: 'app-product-analysis',
+  templateUrl: './product-analysis.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, FormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+})
+export class ProductAnalysisComponent {
+  apiService = inject(ApiService);
+  dataService = inject(DataService);
+  private injector = inject(Injector);
+
+  // --- ViewChild References ---
+  @ViewChild('mainCategoryChart') mainCategoryChartRef!: ElementRef;
+  @ViewChild('diningChart') diningChartRef!: ElementRef;
+  @ViewChild('drinksChart') drinksChartRef!: ElementRef;
+  @ViewChild('monthlyTrendChart') monthlyTrendChartRef!: ElementRef;
+
+  // --- Private Chart Properties ---
+  private mainCategoryChart: any;
+  private diningChart: any;
+  private drinksChart: any;
+  private monthlyTrendChart: any;
+  private chartInstances: any[] = [];
+  
+  private colors = {
+    main: ['#3b82f6', '#8b5cf6', '#ef4444', '#f59e0b'],
+    sub: ['#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']
+  };
+
+  // --- View State ---
+  activeView = signal<'analysis' | 'margin'>('analysis');
+
+  // --- Analysis State (from API) ---
+  productSalesData = signal<CategorySalesSummary[]>([]);
+  isLoadingProductSales = signal(false);
+  productSalesError = signal<string | null>(null);
+
+  // --- Analysis State (from DataService - legacy) ---
+  report = signal<ProductAnalysisReport | null>(null);
+  analysisYears = signal<number[]>([2025, 2024, 2023]);
+  analysisMonths = signal<number[]>(Array.from({length: 12}, (_, i) => i + 1));
+  // 預設截止日為當月，起始日為前3個月
+  selectedStartYear = signal<number>(new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1);
+  selectedStartMonth = signal<number>(new Date().getMonth() >= 3 ? new Date().getMonth() - 2 : new Date().getMonth() + 10);
+  selectedEndYear = signal<number>(new Date().getFullYear());
+  selectedEndMonth = signal<number>(new Date().getMonth() + 1);
+
+  // --- Gross Margin State ---
+  productGrossMarginReport = signal<ProductGrossMarginReport | null>(null);
+  marginYears = signal<number[]>([2025, 2024]);
+  marginAllMonths = signal<number[]>(Array.from({ length: 12 }, (_, i) => i + 1));
+  selectedMarginStartYear = signal<number>(2024);
+  selectedMarginStartMonth = signal<number>(12);
+  selectedMarginEndYear = signal<number>(2025);
+  selectedMarginEndMonth = signal<number>(12);
+
+  /**
+   * 按月份組織的商品銷售數據
+   * 用於表格顯示，按分類、品項、月份組織
+   */
+  monthlySalesData = computed(() => {
+    const categories = this.productSalesData();
+    if (!categories || categories.length === 0) {
+      return { months: [], data: [] };
+    }
+
+    // 獲取所有唯一的月份並排序
+    const monthsSet = new Set<string>();
+    categories.forEach(cat => {
+      cat.items.forEach(item => {
+        monthsSet.add(item.reportMonth);
+      });
+    });
+    const months = Array.from(monthsSet).sort();
+
+    // 定義分類和子項目的結構
+    const categoryStructure = [
+      {
+        name: '其他',
+        items: ['場地使用費', '活動']
+      },
+      {
+        name: '酒水',
+        items: ['調酒', '紅酒/白酒', '啤酒', '威士忌']
+      },
+      {
+        name: '餐飲',
+        items: ['主食', '炸物', '奶昔', '氣泡飲', '單點', '茶飲', '貝果/可頰', '咖啡', '甘點', '沙拉', '下午茶套餐']
+      },
+      {
+        name: '雪茄',
+        items: []
+      }
+    ];
+
+    // 組織數據
+    const data: any[] = [];
+    categoryStructure.forEach(catStruct => {
+      const category = categories.find(c => c.categoryName === catStruct.name);
+      
+      if (catStruct.items.length === 0) {
+        // 雪茄類別，直接顯示分類結計
+        const monthlyData: any = {};
+        months.forEach(month => {
+          const monthItems = category?.items.filter(item => item.reportMonth === month) || [];
+          const monthSales = monthItems.reduce((sum, item) => sum + (item.salesNumber || 0), 0);
+          const monthRevenue = monthItems.reduce((sum, item) => sum + (item.salesAmount || 0), 0);
+          monthlyData[month] = {
+            sales: monthSales,
+            revenue: monthRevenue,
+            rate: 0 // 稍後計算
+          };
+        });
+        
+        data.push({
+          category: catStruct.name,
+          item: null,
+          isCategory: true,
+          monthlyData
+        });
+      } else {
+        // 有子項目的分類
+        catStruct.items.forEach(itemName => {
+          const monthlyData: any = {};
+          months.forEach(month => {
+            const item = category?.items.find(i => i.itemName === itemName && i.reportMonth === month);
+            monthlyData[month] = {
+              sales: item?.salesNumber || 0,
+              revenue: item?.salesAmount || 0,
+              rate: 0 // 稍後計算
+            };
+          });
+          
+          data.push({
+            category: catStruct.name,
+            item: itemName,
+            isCategory: false,
+            monthlyData
+          });
+        });
+        
+        // 添加分類小計
+        const subtotalMonthlyData: any = {};
+        months.forEach(month => {
+          const categoryMonthItems = category?.items.filter(item => item.reportMonth === month) || [];
+          const monthSales = categoryMonthItems.reduce((sum, item) => sum + (item.salesNumber || 0), 0);
+          const monthRevenue = categoryMonthItems.reduce((sum, item) => sum + (item.salesAmount || 0), 0);
+          subtotalMonthlyData[month] = {
+            sales: monthSales,
+            revenue: monthRevenue,
+            rate: 0
+          };
+        });
+        
+        data.push({
+          category: catStruct.name,
+          item: '小計',
+          isSubtotal: true,
+          monthlyData: subtotalMonthlyData
+        });
+      }
+    });
+
+    // 計算營業額佔比（每個月份獨立計算）
+    months.forEach(month => {
+      const monthTotal = data.reduce((sum, row) => {
+        if (!row.isSubtotal) {
+          return sum + (row.monthlyData[month]?.revenue || 0);
+        }
+        return sum;
+      }, 0);
+
+      data.forEach(row => {
+        if (row.monthlyData[month]) {
+          row.monthlyData[month].rate = monthTotal > 0 
+            ? (row.monthlyData[month].revenue / monthTotal * 100) 
+            : 0;
+        }
+      });
+    });
+
+    // 添加雪茄結計行
+    const cigarCategory = categories.find(c => c.categoryName === '雪茄');
+    if (cigarCategory) {
+      const cigarSubtotalData: any = {};
+      months.forEach(month => {
+        const cigarMonthItems = cigarCategory.items.filter(item => item.reportMonth === month);
+        const monthSales = cigarMonthItems.reduce((sum, item) => sum + (item.salesNumber || 0), 0);
+        const monthRevenue = cigarMonthItems.reduce((sum, item) => sum + (item.salesAmount || 0), 0);
+        const monthTotal = data.reduce((sum, row) => {
+          if (!row.isSubtotal) {
+            return sum + (row.monthlyData[month]?.revenue || 0);
+          }
+          return sum;
+        }, 0);
+        cigarSubtotalData[month] = {
+          sales: monthSales,
+          revenue: monthRevenue,
+          rate: monthTotal > 0 ? (monthRevenue / monthTotal * 100) : 0
+        };
+      });
+      
+      data.push({
+        category: '雪茄',
+        item: '小計',
+        isSubtotal: true,
+        monthlyData: cigarSubtotalData
+      });
+    }
+
+    // 添加總計行
+    const totalData: any = {};
+    months.forEach(month => {
+      const monthSales = data.reduce((sum, row) => {
+        if (row.isSubtotal) {
+          return sum + (row.monthlyData[month]?.sales || 0);
+        }
+        return sum;
+      }, 0);
+      const monthRevenue = data.reduce((sum, row) => {
+        if (row.isSubtotal) {
+          return sum + (row.monthlyData[month]?.revenue || 0);
+        }
+        return sum;
+      }, 0);
+      totalData[month] = {
+        sales: monthSales,
+        revenue: monthRevenue,
+        rate: 100
+      };
+    });
+    
+    data.push({
+      category: '雪茄',
+      item: '總計',
+      isTotal: true,
+      monthlyData: totalData
+    });
+
+    return { months, data };
+  });
+
+  /**
+   * 商品銷售摘要統計
+   * 計算總商品數、總銷售量、最佳商品等數據
+   */
+  summaryMetrics = computed<SummaryMetrics>(() => {
+    const categories = this.productSalesData();
+    if (!categories || categories.length === 0) {
+      return { uniqueProducts: 0, totalItemsSold: 0, bestContributor: 'N/A', totalRevenue: 0 };
+    }
+
+    const allItems = categories.flatMap(c => c.items);
+    const bestItem = allItems.length > 0
+      ? allItems.sort((a, b) => b.salesAmount - a.salesAmount)[0]
+      : null;
+
+    const totalRevenue = categories.reduce((sum, cat) => sum + cat.salesAmount, 0);
+    const totalQuantity = categories.reduce((sum, cat) => sum + cat.salesNumber, 0);
+
+    return {
+      uniqueProducts: allItems.length,
+      totalItemsSold: totalQuantity,
+      bestContributor: bestItem?.itemName || 'N/A',
+      totalRevenue,
+    };
+  });
+
+  /**
+   * 圖表資料計算
+   * 包括主分類、各分類商品等數據
+   */
+  chartData = computed(() => {
+    const categories = this.productSalesData();
+
+    if (!categories || categories.length === 0) {
+      return {
+        main: [],
+        dining: [],
+        drinks: [],
+        cigars: [],
+        other: [],
+      };
+    }
+
+    // 主分類營收圓餅圖資料
+    const main = categories.map(cat => ({
+      name: cat.categoryName,
+      value: cat.salesAmount,
+    }));
+
+    // 各分類商品圓餅圖資料
+    const getProductDataForCategory = (categoryName: string) => {
+      const category = categories.find(c => c.categoryName === categoryName);
+      return category
+        ? category.items.map(item => ({
+            name: item.itemName,
+            value: item.salesAmount,
+          }))
+        : [];
+    };
+
+    return {
+      main,
+      dining: getProductDataForCategory('餐飲'),
+      drinks: getProductDataForCategory('酒水'),
+      cigars: getProductDataForCategory('雪茄'),
+      other: getProductDataForCategory('其他'),
+    };
+  });
+
+  /**
+   * 月度趨勢圖表資料（使用 API 資料）
+   */
+  monthlyTrendChartData = computed(() => {
+    const categories = this.productSalesData();
+    if (!categories || categories.length === 0) {
+      return { labels: [], datasets: [] };
+    }
+
+    // 獲取所有唯一的月份
+    const months = new Set<string>();
+    categories.forEach(cat => {
+      cat.items.forEach(item => {
+        months.add(item.reportMonth);
+      });
+    });
+    const sortedMonths = Array.from(months).sort();
+
+    const labels = sortedMonths.map(m => this.formatMonth(m));
+    const categoryOrder = ['餐飲', '酒水', '雪茄', '其他'];
+    const categoryColors: { [key: string]: string } = {
+      '餐飲': '#3b82f6',
+      '酒水': '#8b5cf6',
+      '雪茄': '#ef4444',
+      '其他': '#10b981',
+    };
+
+    const datasets = categoryOrder.map(categoryName => {
+      const category = categories.find(c => c.categoryName === categoryName);
+      const data = sortedMonths.map(month => {
+        if (!category) return 0;
+        const monthItems = category.items.filter(item => item.reportMonth === month);
+        return monthItems.reduce((sum, item) => sum + item.salesAmount, 0);
+      });
+
+      return {
+        label: categoryName,
+        data,
+        borderColor: categoryColors[categoryName] || '#999',
+        backgroundColor: `${categoryColors[categoryName] || '#999'}1A`,
+        fill: true,
+        tension: 0.4,
+      };
+    });
+
+    return { labels, datasets };
+  });
+
+  constructor() {
+    this.applyAnalysisFilter();
+    this.applyMarginFilter();
+
+    afterNextRender(() => {
+      if (this.activeView() === 'analysis') {
+        this.createAllCharts(this.chartData());
+      }
+    });
+
+    effect(() => {
+      const view = this.activeView();
+      runInInjectionContext(this.injector, () => {
+        afterNextRender(() => {
+          if (view === 'analysis') {
+            this.updateAllCharts(this.chartData());
+          } else {
+            this.destroyCharts();
+          }
+        });
+      });
+    });
+  }
+
+  changeView(view: 'analysis' | 'margin'): void {
+    this.activeView.set(view);
+  }
+
+  /**
+   * 套用商品分析篩選
+   * 從 API 獲取指定時間範圍的商品銷售資料
+   * 
+   * 流程：
+   * 1. 驗證時間範圍（起始年月 <= 結束年月）
+   * 2. 驗證選擇的日期是否在資料庫中有資料（2024-2025年）
+   * 3. 調用 API 獲取商品銷售資料
+   * 4. 檢查 API 返回的 categories 陣列
+   * 5. 計算各分類的統計資訊（金額占比、數量占比等）
+   * 6. 將資料存入 productSalesData signal
+   */
+  async applyAnalysisFilter(): Promise<void> {
+    const startMonth = `${this.selectedStartYear()}-${String(this.selectedStartMonth()).padStart(2, '0')}`;
+    const endMonth = `${this.selectedEndYear()}-${String(this.selectedEndMonth()).padStart(2, '0')}`;
+
+    // 1. 基本驗證：起始日期不晚於結束日期
+    if (startMonth > endMonth) {
+      this.productSalesError.set('❌ 錯誤：起始年月不能晚於結束年月。');
+      return;
+    }
+
+    // 2. 日期範圍警告
+    const selectedYear = this.selectedStartYear();
+    if (selectedYear === 2026) {
+      this.productSalesError.set(
+        '⚠️ 提示：資料庫中目前只有 2024-2025 年的商品銷售資料。\n' +
+        '已自動調整為 2025 年。請點擊「套用」重新查詢。'
+      );
+      // 自動調整到2025年
+      this.selectedStartYear.set(2025);
+      this.selectedEndYear.set(2025);
+      return;
+    }
+
+    this.isLoadingProductSales.set(true);
+    this.productSalesError.set(null);
+
+    try {
+      console.log('═'.repeat(60));
+      console.log('商品銷售資料查詢');
+      console.log('═'.repeat(60));
+      console.log('查詢參數:', { startMonth, endMonth, selectedYear: this.selectedStartYear() });
+      
+      const response = await this.apiService.getProductSales({
+        startMonth,
+        endMonth,
+      });
+
+      console.log('API 原始回應:', {
+        success: response.success,
+        total: response.total,
+        count: response.count,
+        dataLength: response.data ? response.data.length : 0,
+        categoriesLength: response.categories ? response.categories.length : 0,
+      });
+      
+      // 3. 檢查 API 返回結構
+      if (!response) {
+        throw new Error('API 返回空回應');
+      }
+      
+      if (!response.success) {
+        throw new Error(`API 返回失敗: ${response.error || '未知錯誤'}`);
+      }
+
+      // 4. 檢查資料
+      if (!response.categories || response.categories.length === 0) {
+        console.warn('⚠️ API 返回 success=true 但 categories 陣列為空');
+        console.warn('API 回應鍵值:', Object.keys(response));
+        console.warn('完整回應:', JSON.stringify(response, null, 2));
+        
+        // 特殊診斷：檢查是否有 data 但沒有 categories
+        if (response.data && response.data.length > 0) {
+          console.log('✓ 檢測到 data 欄位有資料，正在重新分組...');
+          // 手動分組 data 為 categories
+          const groupedByCategory = new Map<string, any[]>();
+          (response.data as any[]).forEach((item) => {
+            const category = item.categoryName || '其他';
+            if (!groupedByCategory.has(category)) {
+              groupedByCategory.set(category, []);
+            }
+            groupedByCategory.get(category)!.push(item);
+          });
+
+          const categoriesFromData: any[] = [];
+          groupedByCategory.forEach((items, categoryName) => {
+            const totalAmount = items.reduce((sum, i) => sum + Number(i.salesAmount || 0), 0);
+            const totalQuantity = items.reduce((sum, i) => sum + Number(i.salesNumber || 0), 0);
+            
+            categoriesFromData.push({
+              categoryName,
+              categoryUuid: items[0].categoryUuid || '',
+              reportMonth: items[0].reportMonth || '',
+              salesAmount: totalAmount,
+              salesNumber: totalQuantity,
+              averagePrice: totalQuantity > 0 ? totalAmount / totalQuantity : 0,
+              items: items,
+            });
+          });
+          
+          console.log(`✓ 從 data 重新分組成 ${categoriesFromData.length} 個分類`);
+          this.productSalesData.set(categoriesFromData);
+        } else {
+          // 完全沒有資料
+          const dataInfo = `✗ 查詢時間範圍：${startMonth} 到 ${endMonth}\n` +
+                          `✗ API 返回：total=${response.total}, count=${response.count}\n` +
+                          `✗ 建議：選擇 2024-2025 年間的月份`;
+          
+          this.productSalesError.set(
+            '無法獲取商品銷售資料\n\n' +
+            '可能原因：\n' +
+            '1. 選擇的時間範圍沒有銷售記錄\n' +
+            '2. 資料庫中該月份無商品銷售資料\n' +
+            '3. 請選擇 2024 或 2025 年\n\n' +
+            dataInfo
+          );
+        }
+      } else {
+        // 5. 成功獲取 categories 資料
+        console.log(`✓ 成功獲取 ${response.categories.length} 個分類的銷售資料`);
+        console.log('第一個分類:', response.categories[0]);
+        
+        // 計算總金額和總數量
+        const totalAmount = response.categories.reduce((sum, cat) => sum + (cat.salesAmount || 0), 0);
+        const totalQuantity = response.categories.reduce((sum, cat) => sum + (cat.salesNumber || 0), 0);
+        
+        console.log('統計資訊:', {
+          分類數: response.categories.length,
+          總銷售金額: totalAmount,
+          總銷售數量: totalQuantity,
+          平均單價: totalQuantity > 0 ? (totalAmount / totalQuantity).toFixed(2) : 0,
+        });
+        
+        // 6. 確保數據準確性並計算占比
+        const enrichedCategories = response.categories.map(cat => ({
+          ...cat,
+          salesAmount: Number(cat.salesAmount || 0),
+          salesNumber: Number(cat.salesNumber || 0),
+          averagePrice: Number(cat.averagePrice || 0),
+          salesAmountRate: totalAmount > 0 ? (Number(cat.salesAmount || 0) / totalAmount) * 100 : 0,
+          salesNumberRate: totalQuantity > 0 ? (Number(cat.salesNumber || 0) / totalQuantity) * 100 : 0,
+        }));
+        
+        this.productSalesData.set(enrichedCategories);
+        console.log('═'.repeat(60));
+      }
+    } catch (error) {
+      console.error('❌ 載入商品銷售資料時發生錯誤:', error);
+      const errorMsg = error instanceof Error ? error.message : '載入商品銷售資料失敗，請稍後重試';
+      this.productSalesError.set(
+        `❌ 錯誤：${errorMsg}\n\n` +
+        `試試看：\n` +
+        `1. 確認後端服務已啟動\n` +
+        `2. 選擇 2024-2025 年的月份\n` +
+        `3. 打開瀏覽器 F12 查看詳細錯誤`
+      );
+      this.productSalesData.set([]);
+    } finally {
+      this.isLoadingProductSales.set(false);
+    }
+  }
+
+  resetAnalysisFilter(): void {
+    // 重設為當月及前3個月
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    if (currentMonth >= 4) {
+      this.selectedStartYear.set(currentYear);
+      this.selectedStartMonth.set(currentMonth - 3);
+    } else {
+      this.selectedStartYear.set(currentYear - 1);
+      this.selectedStartMonth.set(currentMonth + 9);
+    }
+    
+    this.selectedEndYear.set(currentYear);
+    this.selectedEndMonth.set(currentMonth);
+    this.productSalesError.set(null);
+    this.applyAnalysisFilter();
+  }
+
+  applyMarginFilter(): void {
+    const startYM = `${this.selectedMarginStartYear()}/${String(this.selectedMarginStartMonth()).padStart(2, '0')}`;
+    const endYM = `${this.selectedMarginEndYear()}/${String(this.selectedMarginEndMonth()).padStart(2, '0')}`;
+
+    if (startYM > endYM) {
+      alert('起始年月不能晚於結束年月。');
+      return;
+    }
+
+    this.productGrossMarginReport.set(
+      this.dataService.getProductGrossMarginReport(startYM, endYM)
+    );
+  }
+
+  resetMarginFilter(): void {
+    this.selectedMarginStartYear.set(2024);
+    this.selectedMarginStartMonth.set(12);
+    this.selectedMarginEndYear.set(2025);
+    this.selectedMarginEndMonth.set(12);
+    this.applyMarginFilter();
+  }
+
+  formatMonth(monthStr: string): string {
+    const monthNum = parseInt(monthStr.split('-')[1], 10);
+    return `${monthNum}月`;
+  }
+
+  /**
+   * 格式化貨幣顯示
+   */
+  formatCurrency(value: number): string {
+    if (value === null || value === undefined) return 'NT$0';
+    return value.toLocaleString('zh-TW', {
+      style: 'currency',
+      currency: 'TWD',
+      minimumFractionDigits: 0,
+    });
+  }
+
+  private createAllCharts(data: any): void {
+    this.destroyCharts();
+    this.mainCategoryChart = this.createDonutChart(
+      this.mainCategoryChartRef,
+      data.main,
+      '主要分類營收佔比',
+      this.colors.main
+    );
+    this.diningChart = this.createDonutChart(
+      this.diningChartRef,
+      data.dining,
+      '餐飲類品項佔比',
+      this.colors.sub
+    );
+    this.drinksChart = this.createDonutChart(
+      this.drinksChartRef,
+      data.drinks,
+      '酒水類品項佔比',
+      this.colors.sub
+    );
+    this.monthlyTrendChart = this.createMonthlyTrendChart(
+      this.monthlyTrendChartRef,
+      this.monthlyTrendChartData()
+    );
+    this.chartInstances = [
+      this.mainCategoryChart,
+      this.diningChart,
+      this.drinksChart,
+      this.monthlyTrendChart,
+    ].filter(c => c);
+  }
+
+  private updateAllCharts(data: any): void {
+    this.destroyCharts();
+    this.createAllCharts(data);
+  }
+
+  private destroyCharts(): void {
+    this.chartInstances.forEach(chart => chart?.destroy());
+    this.chartInstances = [];
+  }
+
+  private createTooltipCallback(total: number) {
+    return (context: any) => {
+      const label = context.label || '';
+      const value = context.raw || 0;
+      const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
+      const formattedValue = new Intl.NumberFormat('zh-TW', {
+        style: 'currency',
+        currency: 'TWD',
+        minimumFractionDigits: 0,
+      }).format(value);
+      return `${label}: ${formattedValue} (${percentage}%)`;
+    };
+  }
+
+  private createDonutChart(
+    ref: ElementRef,
+    chartData: ChartData[],
+    title: string,
+    colors: string[]
+  ): any {
+    if (!ref || !ref.nativeElement || chartData.length === 0) return null;
+
+    const ctx = ref.nativeElement.getContext('2d');
+    if (!ctx) return null;
+
+    const total = chartData.reduce((sum, item) => sum + item.value, 0);
+
+    return new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: chartData.map(d => d.name),
+        datasets: [
+          {
+            data: chartData.map(d => d.value),
+            backgroundColor: colors,
+            hoverOffset: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: title, font: { size: 16 } },
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: { boxWidth: 12, padding: 15 },
+          },
+          tooltip: {
+            callbacks: {
+              label: this.createTooltipCallback(total),
+            },
+          },
+        },
+      },
+    });
+  }
+
+  private createMonthlyTrendChart(
+    ref: ElementRef,
+    chartData: { labels: string[]; datasets: any[] }
+  ): any {
+    if (!ref || !ref.nativeElement || chartData.datasets.length === 0)
+      return null;
+
+    const ctx = ref.nativeElement.getContext('2d');
+    if (!ctx) return null;
+
+    return new Chart(ctx, {
+      type: 'line',
+      data: chartData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (value: number) => this.formatCurrency(value),
+            },
+          },
+        },
+        plugins: {
+          title: { display: true, text: '每月品項營收趨勢', font: { size: 16 } },
+          legend: { display: true, position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: (context: any) =>
+                `${context.dataset.label}: ${this.formatCurrency(context.raw)}`,
+            },
+          },
+        },
+      },
+    });
+  }
+}

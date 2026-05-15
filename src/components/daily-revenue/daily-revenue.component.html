@@ -1,0 +1,120 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">當日營收</h1>
+
+    <div class="flex flex-col sm:flex-row items-center gap-2 bg-white p-3 rounded-xl shadow-md border border-gray-200">
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-600">時間:</label>
+        <select [(ngModel)]="selectedYear" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+          @for(year of availableYears(); track year) { <option [value]="year">{{ year }}年</option> }
+        </select>
+        <select [(ngModel)]="selectedMonth" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+          @for(month of availableMonths(); track month) { <option [value]="month">{{ month }}月</option> }
+        </select>
+      </div>
+      <div class="flex items-center gap-2 mt-2 sm:mt-0">
+        <button (click)="applyFilter()" [disabled]="isLoading()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50">
+          <ion-icon [name]="isLoading() ? 'hourglass-outline' : 'filter-outline'"></ion-icon>
+          <span>{{ isLoading() ? '載入中...' : '套用' }}</span>
+        </button>
+        <button (click)="resetFilter()" [disabled]="isLoading()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50">
+          <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  @if(errorMessage()) {
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+      <ion-icon name="alert-circle-outline" class="text-xl"></ion-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <!-- Loading Indicator -->
+  @if(isLoading()) {
+    <div class="flex justify-center items-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  }
+
+  <!-- Summary Cards -->
+  @if(!isLoading() && !errorMessage()) {
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+      <div class="bg-white p-4 rounded-xl shadow-md text-center">
+        <p class="text-sm text-gray-500">月營收目標</p>
+        <p class="text-xl font-semibold text-gray-900 mt-1">{{ formatCurrency(summary().monthlyRevenueTarget) }}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-md text-center">
+        <p class="text-sm text-gray-500">每日平均目標</p>
+        <p class="text-xl font-semibold text-gray-900 mt-1">{{ formatCurrency(summary().dailyAverageTarget) }}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-md text-center">
+        <p class="text-sm text-gray-500">目標差額</p>
+        <p class="text-xl font-semibold mt-1" [class.text-red-600]="summary().targetDeficit < 0" [class.text-green-600]="summary().targetDeficit >= 0">
+          {{ formatCurrency(summary().targetDeficit) }}
+        </p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-md text-center">
+        <p class="text-sm text-gray-500">本月累計營收</p>
+        <p class="text-xl font-semibold text-gray-900 mt-1">{{ formatCurrency(summary().cumulativeMonthlyRevenue) }}</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-md text-center">
+        <p class="text-sm text-gray-500">月營收目標達成率</p>
+        <p class="text-xl font-semibold mt-1" [class.text-green-600]="summary().monthlyTargetAchievementRate >= 100" [class.text-red-600]="summary().monthlyTargetAchievementRate < 100">
+          {{ summary().monthlyTargetAchievementRate.toFixed(2) }}%
+        </p>
+      </div>
+    </div>
+    
+    <!-- Daily Revenue Chart -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-lg font-semibold text-gray-800 mb-4">每日營收趨勢</h3>
+      <div class="h-80">
+        <canvas #dailyRevenueChart></canvas>
+      </div>
+    </div>
+
+    <!-- Daily Revenue Table -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-lg font-semibold text-gray-800 mb-4">當日營收明細</h3>
+      <div class="text-sm text-gray-600 mb-4">
+        <ion-icon name="information-circle-outline" class="align-middle"></ion-icon>
+        這個表格顯示所選擇的月份中，從流水帳數據表拉取的所有算符名稱為「銷貨收入」的交易紀錄，並依照交易時間升序排列。
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left whitespace-nowrap">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+            <tr>
+              <th class="px-4 py-3">交易日期</th>
+              <th class="px-4 py-3 text-right">金額</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(row of ledgerDetails(); track row.transactionDate) {
+              <tr class="border-b hover:bg-gray-50">
+                <td class="px-4 py-2 font-medium">{{ formatDate(row.transactionDate) }}</td>
+                <td class="px-4 py-2 text-right">
+                  @if(row.debitAmount > 0) {
+                    {{ formatAmount(row.debitAmount) }}
+                  } @else if(row.creditAmount > 0) {
+                    {{ formatAmount(row.creditAmount) }}
+                  } @else {
+                    @if(isClosedDay(row.transactionDate, false)) {
+                      公休日
+                    } @else {
+                      0
+                    }
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="2" class="text-center py-8 text-gray-500">找不到該月份的銷貨收入資料。</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

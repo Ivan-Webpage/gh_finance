@@ -1,0 +1,330 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">個人每周進度紀錄</h1>
+    <div class="flex items-center gap-2">
+      <button (click)="openMeetingModal(null)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+        <ion-icon name="calendar-outline"></ion-icon>
+        <span>新增紀錄日期</span>
+      </button>
+    </div>
+  </div>
+  @if (loading()) {
+    <div class="flex items-center gap-2 text-sm text-indigo-600">
+      <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+      <span>載入中...</span>
+    </div>
+  }
+  @if (processing()) {
+    <div class="flex items-center gap-2 text-sm text-amber-600">
+      <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+      <span>處理中...</span>
+    </div>
+  }
+  
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- Filters -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+      <div>
+        <label for="categoryFilter" class="text-sm font-medium text-gray-600">進度分類</label>
+        <select id="categoryFilter" [(ngModel)]="categoryFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+          <option value="">所有分類</option>
+          @for(cat of categories(); track cat) { <option [value]="cat">{{ cat }}</option> }
+        </select>
+      </div>
+      <div>
+        <label for="assigneeFilter" class="text-sm font-medium text-gray-600">負責人</label>
+        <select id="assigneeFilter" [(ngModel)]="assigneeFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+          <option value="">所有負責人</option>
+          @for(shareholder of employeeShareholders(); track shareholder.id) { <option [value]="shareholder.id">{{ shareholder.name }}</option> }
+        </select>
+      </div>
+      <div class="flex items-end justify-end">
+        <button (click)="resetFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+          <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Meetings Accordion -->
+    <div class="space-y-4">
+      @for (meeting of filteredMeetings(); track meeting.id) {
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow hover:shadow-md">
+          <div class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50" (click)="toggleMeeting(meeting.id)">
+              <div>
+                <h3 class="text-lg font-bold text-gray-800">{{ meeting.date }}</h3>
+                @if (meeting.topic) {
+                  <p class="text-sm text-gray-500 mt-0.5">{{ meeting.topic }}</p>
+                }
+              </div>
+            <div class="flex items-center gap-2">
+              <button (click)="$event.stopPropagation(); openRecordModal(meeting.id, null)" class="bg-indigo-500 text-white px-3 py-1 rounded-md font-medium hover:bg-indigo-600 flex items-center gap-1 text-xs">
+                <ion-icon name="add-outline"></ion-icon><span>新增進度</span>
+              </button>
+              <button (click)="$event.stopPropagation(); openMeetingModal(meeting)" class="text-gray-500 hover:text-indigo-600 p-2 rounded-full hover:bg-gray-200" title="編輯日期"><ion-icon name="create-outline"></ion-icon></button>
+              <button (click)="$event.stopPropagation(); requestDeleteMeeting(meeting)" class="text-gray-500 hover:text-red-600 p-2 rounded-full hover:bg-gray-200" title="刪除此日期所有紀錄"><ion-icon name="trash-outline"></ion-icon></button>
+              <ion-icon name="chevron-down-outline" class="text-gray-500 transition-transform" [class.rotate-180]="openMeetingId() === meeting.id"></ion-icon>
+            </div>
+          </div>
+          
+          @if (openMeetingId() === meeting.id) {
+            <div class="p-4 bg-slate-50 border-t">
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500">分類</th>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500">目標</th>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500">進度</th>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500">負責人</th>
+                      <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500">更新日</th>
+                      <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    @for(record of meeting.records; track record.id) {
+                      <tr class="hover:bg-gray-50 group">
+                        <td class="px-4 py-3 align-top whitespace-nowrap">
+                          <span class="px-2 py-1 text-xs font-semibold rounded-full" [class]="getCategoryClass(record.category)">{{ record.category }}</span>
+                        </td>
+                        <td class="px-4 py-3 align-top">
+                          <div class="text-sm font-semibold text-gray-800 whitespace-pre-wrap break-words">{{ record.goal }}</div>
+                        </td>
+                        <td class="px-4 py-3 align-top">
+                          <div class="text-gray-600 text-sm whitespace-pre-wrap break-words [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="record.progress"></div>
+                        </td>
+                        <td class="px-4 py-3 align-top whitespace-nowrap">
+                          <div class="flex items-center gap-2">
+                            <img [src]="getShareholderAvatarUrl(record.assigneeId)" alt="avatar" class="w-6 h-6 rounded-full">
+                            <span class="text-xs font-medium text-gray-700">{{ getShareholderName(record.assigneeId) }}</span>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 align-top whitespace-nowrap">
+                          <span class="text-xs text-gray-400">{{ record.lastUpdated.split(' ')[0] }}</span>
+                        </td>
+                        <td class="px-4 py-3 align-top whitespace-nowrap text-right">
+                          <div class="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button (click)="openRecordModal(meeting.id, record)" class="text-gray-400 hover:text-indigo-600 p-1.5 rounded-full hover:bg-gray-100" title="編輯">
+                              <ion-icon name="create-outline"></ion-icon>
+                            </button>
+                            <button (click)="requestDeleteRecord(meeting.id, record)" class="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-gray-100" title="刪除">
+                              <ion-icon name="trash-outline"></ion-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="6" class="text-center py-6 text-gray-500">此日期尚無進度報告，點擊「新增進度」來建立第一筆。</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </div>
+      } @empty { <div class="text-center py-8 text-gray-500">無符合篩選條件的會議紀錄。</div> }
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Meeting Modal -->
+@if (isMeetingModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col m-4">
+      <div class="flex justify-between items-center p-4 border-b"><h3 class="text-lg font-semibold">{{ editingMeeting() ? '編輯紀錄日期' : '新增紀錄日期' }}</h3><button (click)="closeMeetingModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button></div>
+      <div class="p-6 overflow-y-auto"><form [formGroup]="meetingForm" (ngSubmit)="handleMeetingSubmit()" class="space-y-4">
+        <div><label for="date" class="block text-sm font-medium text-gray-700">日期*</label><input type="date" id="date" formControlName="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></div>
+        <div>
+          <label for="topic" class="block text-sm font-medium text-gray-700">主題*</label>
+          <div class="mt-1 flex items-center gap-2">
+            <input
+              type="text"
+              id="topic"
+              formControlName="topic"
+              [disabled]="generatingTopic()"
+              class="block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+            <button
+              type="button"
+              (click)="generateMeetingTopic()"
+              [disabled]="generatingTopic()"
+              class="shrink-0 bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              產出會議主題
+            </button>
+          </div>
+          @if (generatingTopic()) {
+            <div class="mt-2 text-xs text-gray-500">AI自動產生中...</div>
+          }
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">與會者*</label>
+          <div class="mt-1 max-h-40 overflow-y-auto rounded-md border border-gray-300 bg-gray-50 p-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+            @for (shareholder of employeeShareholders(); track shareholder.id) {
+              <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  [checked]="isMeetingAttendeeSelected(+shareholder.id)"
+                  (change)="toggleMeetingAttendee(+shareholder.id, $any($event.target).checked)"
+                  class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>{{ shareholder.name }}</span>
+              </label>
+            }
+          </div>
+        </div>
+        <div>
+          <label for="meetingNotes" class="block text-sm font-medium text-gray-700">會議記錄*</label>
+          <div class="mt-1 flex items-center gap-2 text-xs">
+            <button type="button" title="粗體" (click)="applyMeetingTextFormat('meetingNotes', 'bold', meetingNotesArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="text-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="斜體" (click)="applyMeetingTextFormat('meetingNotes', 'italic', meetingNotesArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="底線" (click)="applyMeetingTextFormat('meetingNotes', 'underline', meetingNotesArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="remove-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="項目符號" (click)="applyMeetingTextFormat('meetingNotes', 'bullet', meetingNotesArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="list-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="項目編號" (click)="applyMeetingTextFormat('meetingNotes', 'numbered', meetingNotesArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+            </button>
+          </div>
+          <div
+            #meetingNotesArea
+            id="meetingNotes"
+            contenteditable="true"
+            class="mt-2 block w-full min-h-[110px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+            (input)="onMeetingEditorInput('meetingNotes', meetingNotesArea)">
+          </div>
+        </div>
+        <div>
+          <label for="meetingActionItems" class="block text-sm font-medium text-gray-700">行動事項*</label>
+          <div class="mt-1 flex items-center gap-2 text-xs">
+            <button type="button" title="粗體" (click)="applyMeetingTextFormat('actionItems', 'bold', meetingActionItemsArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="text-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="斜體" (click)="applyMeetingTextFormat('actionItems', 'italic', meetingActionItemsArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="底線" (click)="applyMeetingTextFormat('actionItems', 'underline', meetingActionItemsArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="remove-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="項目符號" (click)="applyMeetingTextFormat('actionItems', 'bullet', meetingActionItemsArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="list-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="項目編號" (click)="applyMeetingTextFormat('actionItems', 'numbered', meetingActionItemsArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+            </button>
+          </div>
+          <div
+            #meetingActionItemsArea
+            id="meetingActionItems"
+            contenteditable="true"
+            class="mt-2 block w-full min-h-[110px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+            (input)="onMeetingEditorInput('actionItems', meetingActionItemsArea)">
+          </div>
+        </div>
+        <div class="flex justify-end gap-4 pt-4 border-t mt-4"><button type="button" (click)="closeMeetingModal()" class="px-4 py-2 border rounded-md">取消</button><button type="submit" [disabled]="meetingForm.invalid || processing()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:bg-indigo-300 flex items-center gap-2">@if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }<span>儲存</span></button></div>
+      </form></div>
+    </div>
+  </div>
+}
+
+<!-- Add/Edit Record Modal -->
+@if (isRecordModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col m-4">
+      <div class="flex justify-between items-center p-4 border-b"><h3 class="text-lg font-semibold">{{ editingRecord()?.record ? '編輯進度' : '新增進度' }}</h3><button (click)="closeRecordModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button></div>
+      <div class="p-6 overflow-y-auto"><form [formGroup]="recordForm" (ngSubmit)="handleRecordFormSubmit()" class="space-y-4">
+        <div><label for="category" class="block text-sm font-medium text-gray-700">分類*</label><select id="category" formControlName="category" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"><option value="" disabled>請選擇分類</option>@for(cat of recordCategories; track cat) { <option [value]="cat">{{ cat }}</option> }</select></div>
+        <div><label for="goal" class="block text-sm font-medium text-gray-700">目標*</label><textarea id="goal" formControlName="goal" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></textarea></div>
+        <div>
+          <label for="progress" class="block text-sm font-medium text-gray-700">進度*</label>
+          <div class="mt-1 flex items-center gap-2 text-xs">
+            <button type="button" title="粗體" (click)="applyRecordTextFormat('bold', recordProgressArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="text-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="斜體" (click)="applyRecordTextFormat('italic', recordProgressArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="底線" (click)="applyRecordTextFormat('underline', recordProgressArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="remove-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="項目符號" (click)="applyRecordTextFormat('bullet', recordProgressArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="list-outline" class="text-base"></ion-icon>
+            </button>
+            <button type="button" title="項目編號" (click)="applyRecordTextFormat('numbered', recordProgressArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+              <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+            </button>
+          </div>
+          <div
+            #recordProgressArea
+            id="progress"
+            contenteditable="true"
+            class="mt-2 block w-full min-h-[110px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+            (input)="onRecordEditorInput(recordProgressArea)">
+          </div>
+          <textarea formControlName="progress" class="hidden"></textarea>
+        </div>
+        <div><label for="assigneeId" class="block text-sm font-medium text-gray-700">負責人*</label><select id="assigneeId" formControlName="assigneeId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"><option value="" disabled>請選擇</option>@for(s of employeeShareholders(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }</select></div>
+        <div class="flex justify-end gap-4 pt-4 border-t mt-4"><button type="button" (click)="closeRecordModal()" class="px-4 py-2 border rounded-md">取消</button><button type="submit" [disabled]="recordForm.invalid || processing()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:bg-indigo-300 flex items-center gap-2">@if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }<span>儲存</span></button></div>
+      </form></div>
+    </div>
+  </div>
+}
+
+<!-- Manage Shareholders Modal -->
+@if (isShareholderModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col m-4">
+      <div class="flex justify-between items-center p-4 border-b"><h3 class="text-lg font-semibold">管理人員</h3><button (click)="closeShareholderModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button></div>
+      <div class="p-6 overflow-y-auto"><form [formGroup]="shareholderForm" (ngSubmit)="saveShareholders()">
+        <div formArrayName="shareholders" class="space-y-3">
+          @for(shareholder of shareholderControls; track $index) {
+            <div [formGroupName]="$index" class="flex items-center gap-2"><input formControlName="name" class="flex-grow rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"><button type="button" (click)="removeShareholder($index)" class="text-red-500 p-1 hover:bg-red-100 rounded-full" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button></div>
+          }
+        </div>
+        <button type="button" (click)="addShareholder()" class="mt-4 text-sm text-indigo-600 font-medium">+ 新增人員</button>
+        <div class="flex justify-end gap-4 pt-4 border-t mt-6"><button type="button" (click)="closeShareholderModal()" class="px-4 py-2 border rounded-md">取消</button><button type="submit" [disabled]="shareholderForm.invalid" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:bg-indigo-300">儲存變更</button></div>
+      </form></div>
+    </div>
+  </div>
+}
+
+<!-- Delete Meeting Confirmation Modal -->
+@if (meetingToDelete(); as meeting) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4">
+      <div class="p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100"><ion-icon name="warning-outline" class="h-6 w-6 text-red-600"></ion-icon></div>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">確定要刪除嗎？</h3>
+        <p class="mt-2 text-sm text-gray-500">您確定要刪除日期為「{{ meeting.date }}」的紀錄及其所有進度報告嗎？此操作無法復原。</p>
+      </div>
+      <div class="flex justify-center gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelDeleteMeeting()" class="px-4 py-2 border rounded-md">取消</button>
+        <button type="button" (click)="confirmDeleteMeeting()" [disabled]="processing()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 flex items-center gap-2">@if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }<span>確認刪除</span></button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete Record Confirmation Modal -->
+@if (recordToDelete(); as toDelete) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4">
+      <div class="p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100"><ion-icon name="warning-outline" class="h-6 w-6 text-red-600"></ion-icon></div>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">確定要刪除嗎？</h3>
+        <p class="mt-2 text-sm text-gray-500">您確定要刪除目標為「{{ toDelete.record.goal }}」的這筆進度報告嗎？此操作無法復原。</p>
+      </div>
+      <div class="flex justify-center gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelDeleteRecord()" class="px-4 py-2 border rounded-md">取消</button>
+        <button type="button" (click)="confirmDeleteRecord()" [disabled]="processing()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 flex items-center gap-2">@if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }<span>確認刪除</span></button>
+      </div>
+    </div>
+  </div>
+}

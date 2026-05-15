@@ -1,0 +1,113 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">使用者管理</h1>
+    <button (click)="openModal(null)" [disabled]="!canCreateUsers()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:bg-indigo-300 disabled:cursor-not-allowed">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增使用者</span>
+    </button>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- Filters -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+      <div class="md:col-span-2">
+        <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" placeholder="搜尋名稱或 Email..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+      </div>
+      <div>
+        <select [ngModel]="roleFilter()" (ngModelChange)="roleFilter.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+          <option value="">所有角色</option>
+          @for(role of roles(); track role) { <option [value]="role">{{ role }}</option> }
+        </select>
+      </div>
+      <div>
+        <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+          <option value="">所有狀態</option>
+          @for(status of statuses(); track status) { <option [value]="status">{{ status }}</option> }
+        </select>
+      </div>
+       <div class="flex items-center gap-2 md:col-span-4 justify-end">
+        <button (click)="resetFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+          <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left whitespace-nowrap">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+          <tr>
+            <th class="px-4 py-3">名稱</th>
+            <th class="px-4 py-3">Email</th>
+            <th class="px-4 py-3">角色</th>
+            <th class="px-4 py-3">狀態</th>
+            <th class="px-4 py-3">最後登入</th>
+            <th class="px-4 py-3">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of filteredUsers(); track user.id) {
+            <tr class="border-b hover:bg-gray-50">
+              <td class="px-4 py-2 font-medium">{{ user.name }}</td>
+              <td class="px-4 py-2">{{ user.email }}</td>
+              <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-semibold rounded-full" [class]="getRoleClass(user.role)">{{ user.role }}</span></td>
+              <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-semibold rounded-full" [class]="getStatusClass(user.status)">{{ user.status }}</span></td>
+              <td class="px-4 py-2 text-gray-500">{{ user.lastLogin }}</td>
+              <td class="px-4 py-2">
+                <div class="flex items-center gap-2">
+                  <button (click)="openModal(user)" [disabled]="!canUpdateUsers()" class="text-indigo-600 hover:text-indigo-800 p-1 disabled:text-gray-300 disabled:cursor-not-allowed" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button>
+                  <button (click)="requestDelete(user)" [disabled]="!canDeleteUsers()" class="text-red-500 hover:text-red-700 p-1 disabled:text-gray-300 disabled:cursor-not-allowed" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="text-center py-8 text-gray-500">無符合條件的使用者。</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg m-4">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingUser() ? '編輯使用者' : '新增使用者' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6">
+        <form [formGroup]="userForm" (ngSubmit)="handleFormSubmit()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">名稱*</span><input formControlName="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">Email*</span><input type="email" formControlName="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">角色*</span><select formControlName="role" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">@for(r of roles(); track r){<option [value]="r">{{r}}</option>}</select></label>
+            <label class="block"><span class="text-gray-700">狀態*</span><select formControlName="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">@for(s of statuses(); track s){<option [value]="s">{{s}}</option>}</select></label>
+          </div>
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" [disabled]="userForm.invalid || (editingUser() ? !canUpdateUsers() : !canCreateUsers())" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:bg-indigo-300">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (userToDelete(); as user) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4">
+      <div class="p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100"><ion-icon name="warning-outline" class="h-6 w-6 text-red-600"></ion-icon></div>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">確定要刪除使用者嗎？</h3>
+        <p class="mt-2 text-sm text-gray-500">您確定要刪除「{{ user.name }}」嗎？此操作無法復原。</p>
+      </div>
+      <div class="flex justify-center gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelDelete()" class="px-4 py-2 border rounded-md">取消</button>
+        <button type="button" (click)="confirmDelete()" [disabled]="!canDeleteUsers()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed">確認刪除</button>
+      </div>
+    </div>
+  </div>
+}

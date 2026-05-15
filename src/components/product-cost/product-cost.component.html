@@ -1,0 +1,147 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">商品成本管理</h1>
+    <button (click)="openModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增項目</span>
+    </button>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- Tabs -->
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+        <button (click)="changeView('wines')" [class]="activeView() === 'wines' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">威&紅白酒</button>
+        <button (click)="changeView('cigars')" [class]="activeView() === 'cigars' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">雪茄</button>
+      </nav>
+    </div>
+
+    <div class="pt-6">
+    @switch (activeView()) {
+      @case ('wines') {
+        <!-- Filters for Wines -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div class="md:col-span-2"><input type="text" [ngModel]="wineSearchTerm()" (ngModelChange)="wineSearchTerm.set($event); applyFilters('wines')" placeholder="搜尋商品、廠商、類型..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"></div>
+          <div><select [ngModel]="wineSelectedVendor()" (ngModelChange)="wineSelectedVendor.set($event); applyFilters('wines')" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"><option value="">所有廠商</option>@for(v of wineVendors(); track v){<option [value]="v">{{v}}</option>}</select></div>
+          <div><select [ngModel]="wineSelectedType()" (ngModelChange)="wineSelectedType.set($event); applyFilters('wines')" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"><option value="">所有類型</option>@for(t of wineTypes(); track t){<option [value]="t">{{t}}</option>}</select></div>
+          <div class="flex items-center gap-2 md:col-span-4 justify-end"><button (click)="resetFilters('wines')" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th (click)="sortData('vendor')" class="px-4 py-3 cursor-pointer">廠商</th><th (click)="sortData('productName')" class="px-4 py-3 cursor-pointer">商品</th><th (click)="sortData('type')" class="px-4 py-3 cursor-pointer">類型</th><th (click)="sortData('cost')" class="px-4 py-3 cursor-pointer text-right">進貨成本</th><th (click)="sortData('sellingPrice')" class="px-4 py-3 cursor-pointer text-right">售價</th><th class="px-4 py-3 text-right">毛利率</th><th class="px-4 py-3">操作</th></tr></thead>
+            <tbody>
+              @for(item of paginatedWines(); track item.id) {
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="px-4 py-2">{{ item.vendor }}</td>
+                  <td class="px-4 py-2 font-medium">{{ item.productName }}</td>
+                  <td class="px-4 py-2">{{ item.type }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.cost) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.sellingPrice) }}</td>
+                  <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ calculateMargin(item.cost, item.sellingPrice).toFixed(2) }}%</td>
+                  <td class="px-4 py-2"><div class="flex items-center gap-2"><button (click)="openModal(item)" class="text-indigo-600 hover:text-indigo-800 p-1" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button><button (click)="deleteItem(item.id)" class="text-red-500 hover:text-red-700 p-1" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button></div></td>
+                </tr>
+              } @empty { <tr><td colspan="7" class="text-center py-8 text-gray-500">無資料。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        @if (wineTotalPages() > 1) { <div class="flex justify-between items-center pt-4 border-t mt-4"><span class="text-sm text-gray-600">顯示第 {{ (wineCurrentPage() - 1) * winePageSize + 1 }} 至 {{ Math.min(wineCurrentPage() * winePageSize, filteredWines().length) }} 筆，共 {{ filteredWines().length }} 筆</span><div class="flex items-center gap-2"><button (click)="goToPage(wineCurrentPage() - 1, 'wines')" [disabled]="wineCurrentPage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-back-outline"></ion-icon></button><span class="text-sm">第 {{ wineCurrentPage() }} 頁 / 共 {{ wineTotalPages() }} 頁</span><button (click)="goToPage(wineCurrentPage() + 1, 'wines')" [disabled]="wineCurrentPage() === wineTotalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-forward-outline"></ion-icon></button></div></div> }
+      }
+      @case ('cigars') {
+        <!-- Filters for Cigars -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div class="md:col-span-2"><input type="text" [ngModel]="cigarSearchTerm()" (ngModelChange)="cigarSearchTerm.set($event); applyFilters('cigars')" placeholder="搜尋品牌或商品名稱..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"></div>
+          <div><select [ngModel]="cigarSelectedBrand()" (ngModelChange)="cigarSelectedBrand.set($event); applyFilters('cigars')" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"><option value="">所有品牌</option>@for(b of cigarBrands(); track b){<option [value]="b">{{b}}</option>}</select></div>
+          <div class="flex items-center gap-2 md:col-span-3 justify-end"><button (click)="resetFilters('cigars')" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th (click)="sortData('brand')" class="px-4 py-3 cursor-pointer">品牌</th><th (click)="sortData('productName')" class="px-4 py-3 cursor-pointer">商品名稱</th><th (click)="sortData('size')" class="px-4 py-3 cursor-pointer">尺寸</th><th (click)="sortData('quantityPerBox')" class="px-4 py-3 cursor-pointer text-right">每盒數量</th><th (click)="sortData('lishengCost')" class="px-4 py-3 cursor-pointer text-right">理晟成本(支)</th><th (click)="sortData('baijiaCost')" class="px-4 py-3 cursor-pointer text-right">百泇成本(支)</th><th (click)="sortData('sellingPrice')" class="px-4 py-3 cursor-pointer text-right">賣價</th><th class="px-4 py-3 text-right">毛利率</th><th class="px-4 py-3">操作</th></tr></thead>
+            <tbody>
+              @for(item of paginatedCigars(); track item.id) {
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="px-4 py-2 font-medium">{{ item.brand }}</td>
+                  <td class="px-4 py-2">{{ item.productName }}</td>
+                  <td class="px-4 py-2">{{ item.size }}</td>
+                  <td class="px-4 py-2 text-right">{{ item.quantityPerBox }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.lishengCost) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.baijiaCost) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.sellingPrice) }}</td>
+                  <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ calculateMargin(item.baijiaCost, item.sellingPrice).toFixed(2) }}%</td>
+                  <td class="px-4 py-2"><div class="flex items-center gap-2"><button (click)="openModal(item)" class="text-indigo-600 hover:text-indigo-800 p-1" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button><button (click)="deleteItem(item.id)" class="text-red-500 hover:text-red-700 p-1" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button></div></td>
+                </tr>
+              } @empty { <tr><td colspan="9" class="text-center py-8 text-gray-500">無資料。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        @if (cigarTotalPages() > 1) { <div class="flex justify-between items-center pt-4 border-t mt-4"><span class="text-sm text-gray-600">顯示第 {{ (cigarCurrentPage() - 1) * cigarPageSize + 1 }} 至 {{ Math.min(cigarCurrentPage() * cigarPageSize, filteredCigars().length) }} 筆，共 {{ filteredCigars().length }} 筆</span><div class="flex items-center gap-2"><button (click)="goToPage(cigarCurrentPage() - 1, 'cigars')" [disabled]="cigarCurrentPage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-back-outline"></ion-icon></button><span class="text-sm">第 {{ cigarCurrentPage() }} 頁 / 共 {{ cigarTotalPages() }} 頁</span><button (click)="goToPage(cigarCurrentPage() + 1, 'cigars')" [disabled]="cigarCurrentPage() === cigarTotalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-forward-outline"></ion-icon></button></div></div> }
+      }
+    }
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">
+          @switch(activeView()) {
+            @case('wines') { {{ editingWineCost() ? '編輯酒類成本' : '新增酒類成本' }} }
+            @case('cigars') { {{ editingCigarCost() ? '編輯雪茄成本' : '新增雪茄成本' }} }
+          }
+        </h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="handleFormSubmit()" novalidate class="space-y-4">
+          @switch(activeView()) {
+            @case('wines') {
+              <div [formGroup]="wineCostForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label class="block"><span class="text-gray-700">廠商*</span><input formControlName="vendor" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('vendor')?.touched && wineCostForm.get('vendor')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入廠商名稱</p> }
+                  <label class="block"><span class="text-gray-700">商品名稱*</span><input formControlName="productName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('productName')?.touched && wineCostForm.get('productName')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入商品名稱</p> }
+                  <label class="block"><span class="text-gray-700">類型*</span><input formControlName="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('type')?.touched && wineCostForm.get('type')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入酒類型別</p> }
+                  <label class="block"><span class="text-gray-700">進貨成本*</span><input type="number" formControlName="cost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('cost')?.touched && wineCostForm.get('cost')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">進貨成本需大於等於 0</p> }
+                  <label class="block md:col-span-2"><span class="text-gray-700">售價*</span><input type="number" formControlName="sellingPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('sellingPrice')?.touched && wineCostForm.get('sellingPrice')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">售價需大於等於 0</p> }
+                </div>
+              </div>
+            }
+            @case('cigars') {
+               <div [formGroup]="cigarCostForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label class="block"><span class="text-gray-700">品牌*</span><input formControlName="brand" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('brand')?.touched && cigarCostForm.get('brand')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入品牌</p> }
+                  <label class="block"><span class="text-gray-700">商品名稱*</span><input formControlName="productName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('productName')?.touched && cigarCostForm.get('productName')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入商品名稱</p> }
+                  <label class="block"><span class="text-gray-700">尺寸*</span><input formControlName="size" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('size')?.touched && cigarCostForm.get('size')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入尺寸</p> }
+                  <label class="block"><span class="text-gray-700">每盒數量*</span><input type="number" formControlName="quantityPerBox" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('quantityPerBox')?.touched && cigarCostForm.get('quantityPerBox')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">每盒數量需大於等於 1</p> }
+                  <label class="block"><span class="text-gray-700">理晟成本(支)*</span><input type="number" formControlName="lishengCost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('lishengCost')?.touched && cigarCostForm.get('lishengCost')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">理晟成本需大於等於 0</p> }
+                  <label class="block"><span class="text-gray-700">百泇成本(支)*</span><input type="number" formControlName="baijiaCost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('baijiaCost')?.touched && cigarCostForm.get('baijiaCost')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">百泇成本需大於等於 0</p> }
+                  <label class="block md:col-span-2"><span class="text-gray-700">賣價*</span><input type="number" formControlName="sellingPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('sellingPrice')?.touched && cigarCostForm.get('sellingPrice')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">賣價需大於等於 0</p> }
+                </div>
+              </div>
+            }
+          }
+          @if (submitError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ submitError() }}</div>
+          }
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" [disabled]="isSubmitting()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ isSubmitting() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

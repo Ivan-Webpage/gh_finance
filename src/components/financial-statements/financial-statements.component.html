@@ -1,0 +1,526 @@
+<div class="space-y-6">
+  <!-- 加載狀態提示 -->
+  @if (isLoading()) {
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="hourglass-outline" class="text-blue-600 text-xl animate-spin"></ion-icon>
+      <span class="text-blue-700">正在加載數據...</span>
+    </div>
+  }
+
+  <!-- 錯誤信息 -->
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">財務報表</h1>
+
+    <!-- SUMMARY FILTER -->
+    @if(activeStatement() === 'summary') {
+      <div class="flex flex-col sm:flex-row items-center gap-2 bg-white p-3 rounded-xl shadow-md border border-gray-200">
+        <div class="flex items-center gap-2">
+          <label for="startYear" class="text-sm font-medium text-gray-600">從:</label>
+          <select id="startYear" [(ngModel)]="selectedStartYearSummary" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+            @for(year of years(); track year) {
+              <option [value]="year">{{ year }}年</option>
+            }
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="endYear" class="text-sm font-medium text-gray-600">至:</label>
+          <select id="endYear" [(ngModel)]="selectedEndYearSummary" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+            @for(year of years(); track year) {
+              <option [value]="year">{{ year }}年</option>
+            }
+          </select>
+        </div>
+        <div class="flex items-center gap-2 mt-2 sm:mt-0">
+          <button (click)="applySummaryFilter()" [disabled]="isLoading()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            @if (isLoading()) {
+              <ion-icon name="hourglass-outline" class="animate-spin"></ion-icon>
+              <span>套用中...</span>
+            } @else {
+              <ion-icon name="filter-outline"></ion-icon>
+              <span>套用</span>
+            }
+          </button>
+          <button (click)="resetSummaryFilter()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+            <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- INCOME/BALANCE SHEET FILTER -->
+    @if(activeStatement() === 'income' || activeStatement() === 'balance') {
+      <div class="flex flex-col sm:flex-row items-center gap-2 bg-white p-3 rounded-xl shadow-md border border-gray-200">
+        <div class="flex items-center gap-2">
+          <label for="year" class="text-sm font-medium text-gray-600">年度:</label>
+          <select id="year" [(ngModel)]="selectedYear" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+            @for(year of years(); track year) {
+              <option [value]="year">{{ year }}</option>
+            }
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="quarter" class="text-sm font-medium text-gray-600">季度:</label>
+          <select id="quarter" [(ngModel)]="selectedQuarter" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+            @for(q of quarters(); track q.value) {
+              <option [value]="q.value">{{ q.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="flex items-center gap-2 mt-2 sm:mt-0">
+          <button (click)="applyFilter()" [disabled]="isLoading()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            @if (isLoading()) {
+              <ion-icon name="hourglass-outline" class="animate-spin"></ion-icon>
+              <span>套用中...</span>
+            } @else {
+              <ion-icon name="filter-outline"></ion-icon>
+              <span>套用</span>
+            }
+          </button>
+          <button (click)="resetFilter()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+            <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+        <button (click)="setActiveStatement('summary')"
+                [class]="activeStatement() === 'summary' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          總表
+        </button>
+        <button (click)="setActiveStatement('income')"
+                [class]="activeStatement() === 'income' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          損益表
+        </button>
+        <button (click)="setActiveStatement('balance')"
+                [class]="activeStatement() === 'balance' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          資產負債表
+        </button>
+      </nav>
+    </div>
+
+    <div class="pt-6 overflow-x-auto">
+      @switch (activeStatement()) {
+        @case('summary') {
+          @if (annualSummary(); as summary) {
+            <table class="w-full text-sm text-left whitespace-nowrap">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                  <th class="py-3 px-4">項目</th>
+                  @for (year of summary.years; track year) {
+                    <th class="py-3 px-4 text-right">{{ year }}年</th>
+                  }
+                  <th class="py-3 px-4 text-right">總計</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- 收入總行 - 點擊各年份金額打開該年度明細模態框 -->
+                <tr class="border-b border-gray-100 bg-blue-50 font-semibold">
+                  <td class="py-3 px-4 text-gray-800">
+                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>收入
+                  </td>
+                  @for (year of summary.years; track year) {
+                    <td class="py-3 px-4 text-right font-medium text-blue-600 cursor-pointer hover:underline hover:bg-blue-100" (click)="openDetailModal(year, 'revenue')">{{ formatCurrency(summary.revenue[year]) }}</td>
+                  }
+                  <td class="py-3 px-4 text-right font-bold">{{ formatCurrencyRounded(summary.revenue.total) }}</td>
+                </tr>
+                
+                <!-- 銷貨折讓行 - 減項，以紅色顯示 -->
+                @if (summary.salesDiscount) {
+                  <tr class="border-b border-gray-100 bg-red-50">
+                    <td class="py-3 px-4 text-gray-800 pl-8">
+                      <ion-icon name="remove-circle-outline" class="align-middle mr-2 text-red-500"></ion-icon>-銷貨折讓
+                    </td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-3 px-4 text-right font-medium text-red-600">
+                        ({{ formatCurrency(summary.salesDiscount[year]) }})
+                      </td>
+                    }
+                    <td class="py-3 px-4 text-right font-bold text-red-600">
+                      ({{ formatCurrencyRounded(summary.salesDiscount.total) }})
+                    </td>
+                  </tr>
+                }
+                
+                <!-- 支出總行 - 點擊各年份金額打開該年度明細模態框 -->
+                <tr class="border-b border-gray-100 bg-red-50 font-semibold">
+                  <td class="py-3 px-4 text-gray-800">
+                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>支出
+                  </td>
+                  @for (year of summary.years; track year) {
+                    <td class="py-3 px-4 text-right font-medium text-red-600 cursor-pointer hover:underline hover:bg-red-100" (click)="openDetailModal(year, 'expense')">{{ formatCurrencyRounded(summary.expense[year]) }}</td>
+                  }
+                  <td class="py-3 px-4 text-right font-bold">{{ formatCurrencyRounded(summary.expense.total) }}</td>
+                </tr>
+                
+                <!-- 總計行 -->
+                <tr class="border-b-2 border-gray-200 bg-gray-50 font-bold">
+                  <td class="py-3 px-4">總計</td>
+                  @for (year of summary.years; track year) {
+                    <td class="py-3 px-4 text-right" [class.text-red-600]="summary.net[year] < 0">{{ formatCurrencyRounded(summary.net[year]) }}</td>
+                  }
+                  <td class="py-3 px-4 text-right" [class.text-red-600]="summary.net.total < 0">{{ formatCurrencyRounded(summary.net.total) }}</td>
+                </tr>
+                
+                <!-- 未付總行 - 點擊各年份金額打開該年度明細模態框 -->
+                <tr class="border-b border-gray-100 bg-orange-50 font-semibold">
+                  <td class="py-3 px-4 text-gray-800">
+                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>未付
+                  </td>
+                  @for (year of summary.years; track year) {
+                    <td class="py-3 px-4 text-right font-medium text-orange-600 cursor-pointer hover:underline hover:bg-orange-100" (click)="openDetailModal(year, 'unpaid')">{{ formatCurrency(summary.unpaid[year]) }}</td>
+                  }
+                  <td class="py-3 px-4 text-right font-bold hover:underline">{{ formatCurrencyRounded(summary.unpaid.total) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          } @else {
+            <div class="text-center py-8 text-gray-500">無法載入總表數據。</div>
+          }
+        }
+        @case ('income') {
+          @if (monthlyIncomeStatement(); as report) {
+            <div class="relative overflow-x-auto">
+              <table class="w-full text-sm text-left whitespace-nowrap">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                  <tr>
+                    <th class="py-3 px-2 w-16 sticky left-0 bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">項目</th>
+                    <th class="py-3 px-2 w-24 sticky bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">科目</th>
+                    <th class="py-3 px-2 w-20 text-right tabular-nums sticky bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">總計</th>
+                    <th class="py-3 px-2 w-12 text-right tabular-nums sticky bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">%</th>
+                    @for(month of report.months; track month) {
+                      <th class="py-3 px-2 text-right text-xs w-fit">{{ formatMonth(month) }}</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Operating Revenue -->
+                  <tr class="font-semibold text-gray-800 bg-gray-100">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="4">營業收入</td>
+                    <td [attr.colspan]="report.months.length + 1"></td>
+                  </tr>
+                  @for(item of report.operatingRevenue.items; track item.account) {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-2 px-2 sticky left-0 bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                      <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(item.total) }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">{{ item.percentage?.toFixed(2) }}%</td>
+                      @for(month of report.months; track month) { 
+                        <td class="py-2 px-2 text-right text-xs w-fit">{{ formatCurrency(item.monthlyAmounts[month] || 0) }}</td> 
+                      }
+                    </tr>
+                  }
+                  <tr class="font-semibold text-gray-900 bg-gray-50 border-t-2 border-gray-200">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="2">營業收入小計</td>
+                    <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(report.operatingRevenue.grandTotal) }}</td>
+                    <td class="py-2 px-2 text-right tabular-nums sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">100.00%</td>
+                    @for(month of report.months; track month) { 
+                      <td class="py-2 px-2 text-right text-xs font-semibold w-fit">{{ formatCurrency(report.operatingRevenue.monthlyTotals[month] || 0) }}</td> 
+                    }
+                  </tr>
+                  <tr><td class="py-2" [attr.colspan]="report.months.length + 4"></td></tr>
+                  
+                  <!-- Operating Expenses -->
+                  <tr class="font-semibold text-gray-800 bg-gray-100">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="4">營業費用</td>
+                    <td [attr.colspan]="report.months.length + 1"></td>
+                  </tr>
+                  @for(item of report.operatingExpenses.items; track item.account) {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-2 px-2 sticky left-0 bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                      <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(item.total) }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">{{ item.percentage?.toFixed(2) }}%</td>
+                      @for(month of report.months; track month) { 
+                        <td class="py-2 px-2 text-right text-xs w-fit">{{ formatCurrencyRounded(item.monthlyAmounts[month] || 0) }}</td> 
+                      }
+                    </tr>
+                  }
+                   <tr class="font-semibold text-gray-900 bg-gray-50 border-t-2 border-gray-200">
+                     <td class="py-2 px-2 sticky left-0 bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="2">營業費用小計</td>
+                     <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(report.operatingExpenses.grandTotal) }}</td>
+                     <td class="py-2 px-2 text-right tabular-nums sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">100.00%</td>
+                    @for(month of report.months; track month) { 
+                      <td class="py-2 px-2 text-right text-xs font-semibold w-fit">{{ formatCurrencyRounded(report.operatingExpenses.monthlyTotals[month] || 0) }}</td> 
+                    }
+                  </tr>
+                  <tr><td class="py-2" [attr.colspan]="report.months.length + 4"></td></tr>
+                  
+                  <!-- Net Income -->
+                  <tr class="font-bold text-base text-white bg-indigo-600">
+                    <td class="py-3 px-2 sticky left-0 bg-indigo-600 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]" colspan="2">總計 (本期損益)</td>
+                    <td class="py-3 px-2 text-right tabular-nums sticky bg-indigo-600 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]" style="left: 10rem;">{{ formatCurrencyRounded(report.netIncome.grandTotal) }}</td>
+                    <td class="py-3 px-2 sticky bg-indigo-600 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]" style="left: 16rem;"></td>
+                    @for(month of report.months; track month) { 
+                      <td class="py-3 px-2 text-right text-xs font-bold w-fit">{{ formatCurrencyRounded(report.netIncome.monthlyTotals[month] || 0) }}</td> 
+                    }
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          } @else { <div class="text-center py-8 text-gray-500">無法載入損益表數據。</div> }
+        }
+        @case ('balance') {
+          @if (monthlyBalanceSheet(); as report) {
+            <div class="relative overflow-x-auto">
+              <table class="w-full text-sm text-left whitespace-nowrap">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                  <tr>
+                    <th class="py-3 px-2 w-16 sticky left-0 bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">項目</th>
+                    <th class="py-3 px-2 w-24 sticky bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">科目</th>
+                    <th class="py-3 px-2 w-20 text-right tabular-nums sticky bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">總計</th>
+                    <th class="py-3 px-2 w-12 text-right tabular-nums sticky bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">%</th>
+                    @for(month of report.months; track month) { <th class="py-3 px-2 text-right text-xs w-fit">{{ formatMonth(month) }}</th> }
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="font-semibold text-gray-800 bg-gray-100">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="4">資產</td>
+                    <td [attr.colspan]="report.months.length + 1"></td>
+                  </tr>
+                  @for(item of report.assets.items; track item.account) {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-2 px-2 sticky left-0 bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                      <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(item.total) }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">{{ item.percentage?.toFixed(2) }}%</td>
+                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit">{{ formatCurrency(item.monthlyAmounts[month] || 0) }}</td> }
+                    </tr>
+                  }
+                  <tr class="font-semibold text-gray-900 bg-gray-50 border-t-2 border-gray-200">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="2">資產小計</td>
+                    <td class="py-2 px-2 text-right tabular-nums font-bold text-indigo-600 sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(report.assets.grandTotal) }}</td>
+                    <td class="py-2 px-2 text-right tabular-nums sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">100.00%</td>
+                    @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs font-semibold w-fit">{{ formatCurrency(report.assets.monthlyTotals[month] || 0) }}</td> }
+                  </tr>
+                  <tr><td class="py-2" [attr.colspan]="report.months.length + 4"></td></tr>
+                  <tr class="font-semibold text-gray-800 bg-gray-100">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="4">負債</td>
+                    <td [attr.colspan]="report.months.length + 1"></td>
+                  </tr>
+                  @for(item of report.liabilities.items; track item.account) {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-2 px-2 sticky left-0 bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                      <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(item.total) }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">{{ item.percentage?.toFixed(2) }}%</td>
+                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit">{{ formatCurrency(item.monthlyAmounts[month] || 0) }}</td> }
+                    </tr>
+                  }
+                  <tr class="font-semibold text-gray-900 border-t-2 border-gray-200">
+                    <td class="py-2 px-2 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="2">負債小計</td>
+                    <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(report.liabilities.grandTotal) }}</td>
+                    <td class="py-2 px-2 text-right tabular-nums sticky bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;"></td>
+                    @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs font-semibold w-fit">{{ formatCurrency(report.liabilities.monthlyTotals[month] || 0) }}</td> }
+                  </tr>
+                  <tr><td class="py-2" [attr.colspan]="report.months.length + 4"></td></tr>
+                  <tr class="font-semibold text-gray-800 bg-gray-100">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-100 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="4">業主權益</td>
+                    <td [attr.colspan]="report.months.length + 1"></td>
+                  </tr>
+                  @for(item of report.equity.items; track item.account) {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-2 px-2 sticky left-0 bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                      <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(item.total) }}</td>
+                      <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;">{{ item.percentage?.toFixed(2) }}%</td>
+                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit">{{ formatCurrency(item.monthlyAmounts[month] || 0) }}</td> }
+                    </tr>
+                  }
+                  <tr class="font-semibold text-gray-900 border-t-2 border-gray-200">
+                    <td class="py-2 px-2 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="2">業主權益小計</td>
+                    <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(report.equity.grandTotal) }}</td>
+                    <td class="py-2 px-2 text-right tabular-nums sticky bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;"></td>
+                    @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs font-semibold w-fit">{{ formatCurrency(report.equity.monthlyTotals[month] || 0) }}</td> }
+                  </tr>
+                   <tr><td class="py-2" [attr.colspan]="report.months.length + 4"></td></tr>
+                  <tr class="font-semibold text-gray-900 bg-gray-50 border-t-2 border-gray-200">
+                    <td class="py-2 px-2 sticky left-0 bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" colspan="2">負債及業主權益總計</td>
+                    <td class="py-2 px-2 text-right tabular-nums font-bold text-indigo-600 sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem;">{{ formatCurrencyRounded(report.totalLiabilitiesAndEquity.grandTotal) }}</td>
+                    <td class="py-2 px-2 text-right tabular-nums sticky bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 16rem;"></td>
+                    @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs font-bold w-fit">{{ formatCurrency(report.totalLiabilitiesAndEquity.monthlyTotals[month] || 0) }}</td> }
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          } @else { <div class="text-center py-8 text-gray-500">無法載入資產負債表數據。</div> }
+        }
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+@if (isDetailModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity">
+    @if(detailModalData(); as modal) {
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4">
+        <div class="flex justify-between items-center p-4 border-b">
+          <h3 class="text-lg font-semibold">{{ modal.year }} 年 {{ modal.type }}明細 (總計: {{ formatCurrencyRounded(detailModalTotal()) }})</h3>
+          <button (click)="closeDetailModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
+            <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+          </button>
+        </div>
+        <div class="flex-1 flex flex-col p-6 overflow-hidden">
+          <!-- Chart -->
+          <div class="h-64 mb-6">
+            <canvas #detailChart></canvas>
+          </div>
+          <!-- Table -->
+          <div class="flex-1 overflow-y-auto">
+            <table class="w-full text-sm text-left whitespace-nowrap">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                @if (modal.type === '收入') {
+                  <!-- 收入明細表格 -->
+                  <tr>
+                    <th class="px-4 py-2">月份</th>
+                    <th class="px-4 py-2 text-right">總計金額</th>
+                    <th class="px-4 py-2 text-right">銷貨收入</th>
+                    <th class="px-4 py-2 text-right">其他收入</th>
+                    <th class="px-4 py-2 text-right">-銷貨折讓</th>
+                  </tr>
+                } @else if (modal.type === '支出') {
+                  <!-- 支出明細表格 -->
+                  <tr>
+                    <th class="px-4 py-2">月份</th>
+                    <th class="px-4 py-2 text-right">總計金額</th>
+                    <th class="px-4 py-2 text-right">商品</th>
+                    <th class="px-4 py-2 text-right">雜項變動</th>
+                  </tr>
+                } @else if (modal.type === '未付') {
+                  <!-- 未付明細表格 -->
+                  <tr>
+                    <th class="px-4 py-2">月份</th>
+                    <th class="px-4 py-2 text-right">總計金額</th>
+                    <th class="px-4 py-2 text-right">應付帳款</th>
+                    <th class="px-4 py-2 text-right">應付裝潢款</th>
+                    <th class="px-4 py-2 text-right">應付薪資</th>
+                    <th class="px-4 py-2 text-right">應付股東回饋金</th>
+                    <th class="px-4 py-2 text-right">應付雪茄進貨</th>
+                  </tr>
+                } @else {
+                  <!-- 其他類型明細表格 -->
+                  <tr>
+                    <th class="px-4 py-2">月份</th>
+                    <th class="px-4 py-2 text-right">金額</th>
+                    @for(item of modal.data[0].items; track item.name) {
+                      <th class="px-4 py-2">{{ item.name }}</th>
+                      <th class="px-4 py-2 text-right">金額</th>
+                    }
+                  </tr>
+                }
+              </thead>
+              <tbody>
+                @if (modal.type === '收入') {
+                  <!-- 收入明細表格內容 -->
+                  @for(row of modal.data; track row.month) {
+                    <tr class="border-b hover:bg-gray-50">
+                      <td class="px-4 py-2 font-medium">{{ row.month }}月</td>
+                      <td class="px-4 py-2 text-right font-semibold">{{ formatCurrencyRounded(row.total) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '銷貨收入')) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '其他收入')) }}</td>
+                      <td class="px-4 py-2 text-right text-red-600">
+                        ({{ formatCurrency(getDetailItemAmount(row, '-銷貨折讓')) }})
+                      </td>
+                    </tr>
+                  }
+                } @else if (modal.type === '支出') {
+                  <!-- 支出明細表格內容 -->
+                  @for(row of modal.data; track row.month) {
+                    <tr class="border-b hover:bg-gray-50">
+                      <td class="px-4 py-2 font-medium">{{ row.month }}月</td>
+                      <td class="px-4 py-2 text-right font-semibold">{{ formatCurrencyRounded(row.total) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrencyRounded(getDetailItemAmount(row, '商品')) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrencyRounded(getDetailItemAmount(row, '雜項變動')) }}</td>
+                    </tr>
+                  }
+                } @else if (modal.type === '未付') {
+                  <!-- 未付明細表格內容 -->
+                  @for(row of modal.data; track row.month) {
+                    <tr class="border-b hover:bg-gray-50">
+                      <td class="px-4 py-2 font-medium">{{ row.month }}月</td>
+                      <td class="px-4 py-2 text-right font-semibold">{{ formatCurrencyRounded(row.total) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '應付帳款')) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '應付裝潢款')) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '應付薪資')) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '應付股東回饋金')) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '應付雪茄進貨')) }}</td>
+                    </tr>
+                  }
+                } @else {
+                  <!-- 其他類型明細表格內容 -->
+                  @for(row of modal.data; track row.month) {
+                    <tr class="border-b hover:bg-gray-50">
+                      <td class="px-4 py-2 font-medium">{{ row.month }}月</td>
+                      <td class="px-4 py-2 text-right font-semibold">{{ formatCurrencyRounded(row.total) }}</td>
+                      @for(item of row.items; track item.name) {
+                        <td class="px-4 py-2">{{ item.name }}</td>
+                        <td class="px-4 py-2 text-right">{{ formatCurrency(item.amount) }}</td>
+                      }
+                    </tr>
+                  }
+                }
+              </tbody>
+              <tfoot class="font-bold bg-gray-100 sticky bottom-0">
+                @if (modal.type === '收入') {
+                  <!-- 收入明細小計 -->
+                  <tr class="border-t-2">
+                    <td class="px-4 py-3">小計</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrencyRounded(detailModalTotal()) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('銷貨收入')) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('其他收入')) }}</td>
+                    <td class="px-4 py-3 text-right text-red-600">
+                      ({{ formatCurrency(calculateMonthlyItemTotal('-銷貨折讓')) }})
+                    </td>
+                  </tr>
+                } @else if (modal.type === '支出') {
+                  <!-- 支出明細小計 -->
+                  <tr class="border-t-2">
+                    <td class="px-4 py-3">小計</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrencyRounded(detailModalTotal()) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrencyRounded(calculateMonthlyItemTotal('商品')) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrencyRounded(calculateMonthlyItemTotal('雜項變動')) }}</td>
+                  </tr>
+                } @else if (modal.type === '未付') {
+                  <!-- 未付明細小計 -->
+                  <tr class="border-t-2">
+                    <td class="px-4 py-3">小計</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrencyRounded(detailModalTotal()) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付帳款')) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付裝潢款')) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付薪資')) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付股東回饋金')) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付雪茄進貨')) }}</td>
+                  </tr>
+                } @else {
+                  <!-- 其他類型明細小計 -->
+                  <tr class="border-t-2">
+                    <td class="px-4 py-3">小計</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrencyRounded(detailModalTotal()) }}</td>
+                    @for(item of modal.data[0].items; track item.name) {
+                      <td class="px-4 py-3">{{ item.name }}</td>
+                      <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal(item.name)) }}</td>
+                    }
+                  </tr>
+                }
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+}

@@ -1,0 +1,379 @@
+<div class="p-6 max-w-7xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">應付帳款</h1>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        (click)="openAddPayable()"
+        class="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+        [disabled]="loading()"
+      >
+        新增應付
+      </button>
+      <button type="button" (click)="loadRows()" class="px-3 py-2 text-sm border rounded-md hover:bg-gray-50" [disabled]="loading()">
+        重新整理
+      </button>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded mb-4">{{ errorMessage() }}</div>
+  }
+
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">流水帳編號</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">發生日期</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">債權人</th>
+            <th class="px-4 py-3 text-right font-medium text-gray-700">總金額</th>
+            <th class="px-4 py-3 text-right font-medium text-gray-700">已付金額</th>
+            <th class="px-4 py-3 text-right font-medium text-gray-700">剩餘欠款</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">還款期限</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">說明</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          @if (loading()) {
+            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">載入中...</td></tr>
+          } @else {
+            @for (row of unpaidRows(); track row.entry_id) {
+              <tr class="hover:bg-gray-50 cursor-pointer" (click)="openDetail(row)">
+                <td class="px-4 py-2">
+                  <a
+                    class="text-indigo-600 hover:underline"
+                    [routerLink]="['/ledger']"
+                    [queryParams]="{ entryId: row.entry_id }"
+                    (click)="$event.stopPropagation()"
+                    title="開啟流水帳"
+                  >{{ row.entry_id }}</a>
+                </td>
+                <td class="px-4 py-2">{{ formatDate(row.entry_date) }}</td>
+                <td class="px-4 py-2">{{ row.creditor || '' }}</td>
+                <td class="px-4 py-2 text-right">{{ formatCurrency(row.total_amount) }}</td>
+                <td class="px-4 py-2 text-right">{{ formatCurrency(row.paid_amount) }}</td>
+                <td class="px-4 py-2 text-right">{{ formatCurrency(row.remaining_amount) }}</td>
+                <td class="px-4 py-2">{{ formatDate(row.due_date) }}</td>
+                <td class="px-4 py-2 truncate max-w-sm">{{ row.description || '' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">目前沒有應付帳款資料。</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-6 bg-white shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-3 bg-gray-50 text-sm font-medium text-gray-700">已付清</div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">流水帳編號</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">發生日期</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">債權人</th>
+            <th class="px-4 py-3 text-right font-medium text-gray-700">總金額</th>
+            <th class="px-4 py-3 text-right font-medium text-gray-700">已付金額</th>
+            <th class="px-4 py-3 text-right font-medium text-gray-700">剩餘欠款</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">還款期限</th>
+            <th class="px-4 py-3 text-left font-medium text-gray-700">說明</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          @for (row of paidRows(); track row.entry_id) {
+            <tr class="hover:bg-gray-50 cursor-pointer" (click)="openDetail(row, true)">
+              <td class="px-4 py-2">
+                <a
+                  class="text-indigo-600 hover:underline"
+                  [routerLink]="['/ledger']"
+                  [queryParams]="{ entryId: row.entry_id }"
+                  (click)="$event.stopPropagation()"
+                  title="開啟流水帳"
+                >{{ row.entry_id }}</a>
+              </td>
+              <td class="px-4 py-2">{{ formatDate(row.entry_date) }}</td>
+              <td class="px-4 py-2">{{ row.creditor || '' }}</td>
+              <td class="px-4 py-2 text-right">{{ formatCurrency(row.total_amount) }}</td>
+              <td class="px-4 py-2 text-right">{{ formatCurrency(row.paid_amount) }}</td>
+              <td class="px-4 py-2 text-right">{{ formatCurrency(row.remaining_amount) }}</td>
+              <td class="px-4 py-2">{{ formatDate(row.due_date) }}</td>
+              <td class="px-4 py-2 truncate max-w-sm">{{ row.description || '' }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="8" class="px-4 py-6 text-center text-gray-500">目前沒有已付清資料。</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add Payable Modal -->
+@if (isAddOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" (click)="closeAddPayable()">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl" (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div class="text-lg font-semibold text-gray-900">新增應付</div>
+        <button type="button" class="px-3 py-2 text-sm border rounded-md hover:bg-gray-50" (click)="closeAddPayable()">關閉</button>
+      </div>
+
+      <div class="p-4">
+        @if (addErrorMessage()) {
+          <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded mb-3">{{ addErrorMessage() }}</div>
+        }
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-gray-50 border rounded p-3">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-medium text-gray-700">債權人</label>
+            <input
+              type="text"
+              class="mt-1 block w-full border rounded-md p-2 bg-white"
+              [(ngModel)]="newPayableCreditor"
+              placeholder="例如：某某廠商"
+              [disabled]="savingAdd()"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-700">發生日期</label>
+            <input type="date" class="mt-1 block w-full border rounded-md p-2 bg-white" [(ngModel)]="newPayableEntryDate" [disabled]="savingAdd()" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-700">還款期限</label>
+            <input type="date" class="mt-1 block w-full border rounded-md p-2 bg-white" [(ngModel)]="newPayableDueDate" [disabled]="savingAdd()" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-700">欠款金額</label>
+            <input
+              type="number"
+              class="mt-1 block w-full border rounded-md p-2 bg-white text-right"
+              [(ngModel)]="newPayableAmount"
+              min="0"
+              [disabled]="savingAdd()"
+            />
+          </div>
+
+          <div class="md:col-span-3">
+            <label class="block text-xs font-medium text-gray-700">說明</label>
+            <input
+              type="text"
+              class="mt-1 block w-full border rounded-md p-2 bg-white"
+              [(ngModel)]="newPayableDescription"
+              placeholder="例如：X 月進貨款"
+              [disabled]="savingAdd()"
+            />
+          </div>
+
+          <div class="md:col-span-4 flex justify-end">
+            <button
+              type="button"
+              class="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              (click)="saveNewPayable()"
+              [disabled]="savingAdd()"
+            >
+              {{ savingAdd() ? '儲存中...' : '儲存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Detail Modal -->
+@if (isDetailOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" (click)="closeDetail()">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl" (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div>
+          <div class="text-lg font-semibold text-gray-900">應付帳款明細</div>
+          <div class="text-sm text-gray-600">
+            流水帳編號：
+            <a
+              class="text-indigo-600 hover:underline"
+              [routerLink]="['/ledger']"
+              [queryParams]="{ entryId: selectedEntryId() }"
+              (click)="$event.stopPropagation()"
+            >{{ selectedEntryId() }}</a>
+            <span class="mx-2">·</span>
+            總金額：{{ formatCurrency(detailRow()?.total_amount) }}
+            <span class="mx-2">·</span>
+            已付：{{ formatCurrency(detailRow()?.paid_amount) }}
+            <span class="mx-2">·</span>
+            剩餘：{{ formatCurrency(detailRow()?.remaining_amount) }}
+          </div>
+        </div>
+        <button type="button" class="px-3 py-2 text-sm border rounded-md hover:bg-gray-50" (click)="closeDetail()">關閉</button>
+      </div>
+
+      <div class="p-4">
+        <div class="mb-4">
+          <div class="text-sm font-medium text-gray-700 mb-2">主檔資料</div>
+
+          @if (masterError()) {
+            <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded mb-3">{{ masterError() }}</div>
+          }
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-gray-50 border rounded p-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-700">債權人</label>
+              <input
+                type="text"
+                class="mt-1 block w-full border rounded-md p-2 bg-white"
+                [(ngModel)]="editCreditor"
+                [disabled]="masterLoading() || savingMaster() || detailReadOnly()"
+                placeholder="例如：某某廠商"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700">還款期限</label>
+              <input
+                type="date"
+                class="mt-1 block w-full border rounded-md p-2 bg-white"
+                [(ngModel)]="editDueDate"
+                [disabled]="masterLoading() || savingMaster() || detailReadOnly()"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-700">項目</label>
+              <select
+                class="mt-1 block w-full border rounded-md p-2 bg-white"
+                [ngModel]="editItemGroup()"
+                (ngModelChange)="onItemGroupChanged($event)"
+                [disabled]="masterLoading() || savingMaster() || isLoadingGLAccounts() || detailReadOnly()"
+              >
+                <option value="">請選擇項目</option>
+                @for (item of topLevelAccountNames(); track item) {
+                  <option [value]="item">{{ item }}</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-700">科目</label>
+              <select
+                class="mt-1 block w-full border rounded-md p-2 bg-white"
+                [ngModel]="editSubjectName()"
+                (ngModelChange)="editSubjectName.set($event)"
+                [disabled]="masterLoading() || savingMaster() || isLoadingGLAccounts() || !editItemGroup() || detailReadOnly()"
+              >
+                <option value="">請選擇科目</option>
+                @for (cat of availableSubjectNames(); track cat) {
+                  <option [value]="cat">{{ cat }}</option>
+                }
+              </select>
+            </div>
+
+            @if (glAccountsError()) {
+              <div class="md:col-span-4 text-xs text-red-700">{{ glAccountsError() }}</div>
+            }
+
+            <div class="flex items-end justify-end">
+              <button
+                type="button"
+                class="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                (click)="saveMaster()"
+                [disabled]="masterLoading() || savingMaster() || detailReadOnly()"
+              >
+                {{ savingMaster() ? '儲存中...' : '儲存主檔' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-medium text-gray-700">還款資料</div>
+          <button
+            type="button"
+            class="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            (click)="toggleAddPayment()"
+            [disabled]="detailReadOnly()"
+          >
+            新增還款
+          </button>
+        </div>
+
+        @if (showAddPayment()) {
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 bg-gray-50 border rounded p-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-700">還款日期</label>
+              <input type="date" class="mt-1 block w-full border rounded-md p-2 bg-white" [(ngModel)]="newPaymentDate" [disabled]="detailReadOnly()" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700">還款金額</label>
+              <input
+                type="number"
+                class="mt-1 block w-full border rounded-md p-2 bg-white text-right"
+                [(ngModel)]="newPaymentAmount"
+                min="0"
+                [attr.max]="maxRepaymentAmount()"
+                [disabled]="detailReadOnly()"
+              />
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-gray-700">說明</label>
+              <input type="text" class="mt-1 block w-full border rounded-md p-2 bg-white" [(ngModel)]="newPaymentDescription" placeholder="例如：第一期還款" [disabled]="detailReadOnly()" />
+            </div>
+            <div class="md:col-span-4 flex justify-end">
+              <button
+                type="button"
+                class="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                (click)="savePayment()"
+                [disabled]="savingPayment() || detailReadOnly()"
+              >
+                {{ savingPayment() ? '儲存中...' : '儲存' }}
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (paymentsError()) {
+          <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded mb-3">{{ paymentsError() }}</div>
+        }
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium text-gray-700">流水帳編號</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-700">還款日期</th>
+                <th class="px-4 py-3 text-right font-medium text-gray-700">還款金額</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-700">說明</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              @if (paymentsLoading()) {
+                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">載入中...</td></tr>
+              } @else {
+                @for (p of payments(); track p.payment_id) {
+                  <tr>
+                    <td class="px-4 py-2">
+                      <a
+                        class="text-indigo-600 hover:underline"
+                        [routerLink]="['/ledger']"
+                        [queryParams]="{ entryId: p.entry_id }"
+                        (click)="$event.stopPropagation()"
+                      >{{ p.entry_id }}</a>
+                    </td>
+                    <td class="px-4 py-2">{{ formatDate(p.payment_date) }}</td>
+                    <td class="px-4 py-2 text-right">{{ formatCurrency(p.amount) }}</td>
+                    <td class="px-4 py-2">{{ p.description || '' }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">尚無還款資料。</td></tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+}

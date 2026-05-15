@@ -1,0 +1,175 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">活動管理</h1>
+    <a routerLink="/events/new" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增活動</span>
+    </a>
+  </div>
+  
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <p class="text-sm text-gray-500">預計總收入</p>
+      <p class="text-2xl font-semibold text-gray-900">{{ formatCurrency(eventsSummary().estimatedRevenue) }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <p class="text-sm text-gray-500">實際總收入</p>
+      <p class="text-2xl font-semibold text-gray-900">{{ formatCurrency(eventsSummary().actualRevenue) }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <p class="text-sm text-gray-500">目標達成率</p>
+      <p class="text-2xl font-semibold" [class.text-green-600]="eventsSummary().achievementRate >= 100" [class.text-red-600]="eventsSummary().achievementRate < 100">
+        {{ eventsSummary().achievementRate.toFixed(1) }}%
+      </p>
+    </div>
+  </div>
+
+  <!-- Filters and Content -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+     <div class="flex flex-wrap justify-between items-center gap-4 mb-4 border-b pb-4">
+      <!-- Left side controls -->
+      <div class="flex flex-wrap items-center gap-4">
+        <!-- Date Filters -->
+        <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-600 shrink-0">時間:</label>
+            <input
+              type="date"
+              [(ngModel)]="selectedStartDate"
+              class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+            <span class="text-gray-500 text-sm">至</span>
+            <input
+              type="date"
+              [(ngModel)]="selectedEndDate"
+              class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+            <button (click)="applyFilter()" class="bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1 text-sm">
+              <ion-icon name="filter-outline"></ion-icon>
+            </button>
+            <button (click)="resetFilter()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+              <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+            </button>
+        </div>
+        <!-- Search Input -->
+        <input 
+          type="text" 
+          [ngModel]="searchTerm()"
+          (ngModelChange)="onSearchChange($event)"
+          placeholder="依活動名稱或日期搜尋..." 
+          class="w-full sm:w-auto flex-grow border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+      </div>
+      
+      <!-- Right side controls: View Switcher -->
+      <div class="flex items-center border border-gray-200 rounded-lg p-1 space-x-1 bg-gray-50 shrink-0">
+        <button (click)="setView('list')" 
+                class="px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-2"
+                [class.bg-white]="activeView() === 'list'"
+                [class.shadow-sm]="activeView() === 'list'"
+                [class.text-indigo-600]="activeView() === 'list'"
+                [class.text-gray-600]="activeView() !== 'list'"
+                [class.hover:bg-gray-200]="activeView() !== 'list'">
+          <ion-icon name="list-outline"></ion-icon>
+          列表
+        </button>
+        <button (click)="setView('calendar')"
+                class="px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-2"
+                [class.bg-white]="activeView() === 'calendar'"
+                [class.shadow-sm]="activeView() === 'calendar'"
+                [class.text-indigo-600]="activeView() === 'calendar'"
+                [class.text-gray-600]="activeView() !== 'calendar'"
+                [class.hover:bg-gray-200]="activeView() !== 'calendar'">
+          <ion-icon name="calendar-outline"></ion-icon>
+          日曆
+        </button>
+      </div>
+    </div>
+    
+    @if (activeView() === 'list') {
+      @if (isLoading()) {
+        <div class="text-center py-8 text-gray-500">載入中...</div>
+      }
+
+      @if (errorMessage()) {
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ errorMessage() }}</div>
+      }
+
+      <!-- Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left whitespace-nowrap">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+            <tr>
+              <th class="px-4 py-3">編號</th>
+              <th (click)="sortData('type')" class="px-4 py-3 cursor-pointer">類型 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('date')" class="px-4 py-3 cursor-pointer">日期 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('time')" class="px-4 py-3 cursor-pointer">時間 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('name')" class="px-4 py-3 cursor-pointer">名稱 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('organizer')" class="px-4 py-3 cursor-pointer">介紹人 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('attendees')" class="px-4 py-3 cursor-pointer">人數 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('estimatedRevenue')" class="px-4 py-3 cursor-pointer text-right">預計收入 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('deposit')" class="px-4 py-3 cursor-pointer text-right">訂金 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('actualRevenue')" class="px-4 py-3 cursor-pointer text-right">實際收入 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+              <th (click)="sortData('notes')" class="px-4 py-3 cursor-pointer">備註 <ion-icon name="swap-vertical-outline"></ion-icon></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(event of paginatedEvents(); track event.id; let i = $index) {
+              <tr (click)="editEvent(event)" 
+                  class="border-b hover:bg-gray-50 cursor-pointer"
+                  [class.text-gray-400]="event.status === 'cancelled'"
+                  [class.line-through]="event.status === 'cancelled'">
+                <td class="px-4 py-2">{{ (currentPage() - 1) * pageSize() + i + 1 }}</td>
+                <td class="px-4 py-2">{{ event.type }}</td>
+                <td class="px-4 py-2">{{ formatDateForDisplay(event.date) }}</td>
+                <td class="px-4 py-2">{{ event.time }}</td>
+                <td class="px-4 py-2 font-medium">{{ event.name }}</td>
+                <td class="px-4 py-2">{{ event.organizer }}</td>
+                <td class="px-4 py-2">{{ event.attendees }}</td>
+                <td class="px-4 py-2 text-right">{{ formatCurrency(event.estimatedRevenue) }}</td>
+                <td class="px-4 py-2 text-right">{{ formatCurrency(event.deposit) }}</td>
+                <td class="px-4 py-2 text-right font-semibold">{{ formatCurrency(event.actualRevenue) }}</td>
+                <td class="px-4 py-2 truncate max-w-xs">{{ event.notes }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="11" class="text-center py-8 text-gray-500">找不到符合條件的活動。</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      @if (totalPages() > 0) {
+        <div class="flex justify-between items-center pt-4 border-t mt-4">
+          <span class="text-sm text-gray-600">
+            顯示第 {{ totalItems() > 0 ? (currentPage() - 1) * pageSize() + 1 : 0 }} 至 {{ Math.min(currentPage() * pageSize(), totalItems()) }} 筆，共 {{ totalItems() }} 筆
+          </span>
+          <div class="flex items-center gap-2">
+            <button (click)="prevPage()" [disabled]="currentPage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </button>
+            <span class="text-sm">第 {{ currentPage() }} 頁 / 共 {{ totalPages() }} 頁</span>
+            <button (click)="nextPage()" [disabled]="currentPage() === totalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      }
+    } @else {
+      @if (calendarLoading()) {
+        <div class="text-center py-8 text-gray-500">載入中...</div>
+      }
+
+      @if (calendarErrorMessage()) {
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ calendarErrorMessage() }}</div>
+      }
+
+      <div class="flex flex-wrap gap-4 text-sm text-gray-700 mb-3">
+        <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().events" (ngModelChange)="setCalendarFilter('events', $event)"> 活動</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().reminders" (ngModelChange)="setCalendarFilter('reminders', $event)"> 提醒</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().specialDates" (ngModelChange)="setCalendarFilter('specialDates', $event)"> 特殊工作日</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().schedules" (ngModelChange)="setCalendarFilter('schedules', $event)"> 排班</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().unavailable" (ngModelChange)="setCalendarFilter('unavailable', $event)"> 不可上班</label>
+      </div>
+
+      <app-calendar-view [events]="filteredCalendarEvents()"></app-calendar-view>
+    }
+  </div>
+</div>

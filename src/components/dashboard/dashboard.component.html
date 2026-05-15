@@ -1,0 +1,347 @@
+<div class="space-y-8">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">儀表板</h1>
+    
+    <div class="flex flex-col sm:flex-row items-center gap-2 bg-white p-3 rounded-xl shadow-md border border-gray-200">
+      <div class="flex items-center gap-2">
+        <label for="startDate" class="text-sm font-medium text-gray-600">從:</label>
+        <input type="date" id="startDate" [(ngModel)]="filterStartDate" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100">
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="endDate" class="text-sm font-medium text-gray-600">至:</label>
+        <input type="date" id="endDate" [(ngModel)]="filterEndDate" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100">
+      </div>
+      <div class="flex items-center gap-2 mt-2 sm:mt-0">
+        <button (click)="applyFilter()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+          <ion-icon name="filter-outline"></ion-icon>
+          <span>套用</span>
+        </button>
+        <button (click)="resetFilter()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+          <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+      <h3 class="text-lg font-semibold text-gray-800">活動</h3>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="border border-gray-200 rounded-lg p-4">
+          <p class="text-sm text-gray-500">預計總收入</p>
+          <p class="text-xl font-semibold text-gray-900 mt-2">{{ dashboardEventsSummary().estimatedRevenue | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+        <div class="border border-gray-200 rounded-lg p-4">
+          <p class="text-sm text-gray-500">實際總收入</p>
+          <p class="text-xl font-semibold text-gray-900 mt-2">{{ dashboardEventsSummary().actualRevenue | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+        <div class="border border-gray-200 rounded-lg p-4">
+          <p class="text-sm text-gray-500">目標達成率</p>
+          <p class="text-xl font-semibold mt-2" [class.text-green-600]="dashboardEventsSummary().achievementRate >= 100" [class.text-red-600]="dashboardEventsSummary().achievementRate < 100">
+            {{ dashboardEventsSummary().achievementRate.toFixed(1) }}%
+          </p>
+        </div>
+      </div>
+
+      @if (dashboardCalendarLoading()) {
+        <div class="flex items-center gap-2 text-sm text-indigo-600">
+          <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+          <span>載入中...</span>
+        </div>
+      } @else if (dashboardCalendarError()) {
+        <div class="text-sm text-red-600">{{ dashboardCalendarError() }}</div>
+      } @else {
+        <div class="flex flex-wrap gap-4 text-sm text-gray-700 mb-3">
+          <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="dashboardCalendarFilters().events" (ngModelChange)="setDashboardCalendarFilter('events', $event)"> 活動</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="dashboardCalendarFilters().reminders" (ngModelChange)="setDashboardCalendarFilter('reminders', $event)"> 提醒</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="dashboardCalendarFilters().specialDates" (ngModelChange)="setDashboardCalendarFilter('specialDates', $event)"> 特殊工作日</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="dashboardCalendarFilters().schedules" (ngModelChange)="setDashboardCalendarFilter('schedules', $event)"> 排班</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="dashboardCalendarFilters().unavailable" (ngModelChange)="setDashboardCalendarFilter('unavailable', $event)"> 不可上班</label>
+        </div>
+        <app-calendar-view [events]="filteredDashboardCalendarEvents()" (monthChange)="onDashboardCalendarMonthChange($event)"></app-calendar-view>
+      }
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+      <h3 class="text-lg font-semibold text-gray-800">重大事項佈達</h3>
+
+      @if (dashboardAnnouncementsLoading()) {
+        <div class="flex items-center gap-2 text-sm text-indigo-600">
+          <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+          <span>載入中...</span>
+        </div>
+      } @else if (dashboardAnnouncementsError()) {
+        <div class="text-sm text-red-600">{{ dashboardAnnouncementsError() }}</div>
+      } @else if (dashboardAnnouncements().length === 0) {
+        <div class="text-sm text-gray-500">目前無佈達事項</div>
+      } @else {
+        <div class="space-y-3">
+          @for (item of dashboardAnnouncements(); track item.date + item.finalDecision) {
+            <div class="border border-gray-200 rounded-lg p-4">
+              <div class="text-sm font-semibold text-indigo-700">{{ item.date }}</div>
+              <div class="mt-2 text-sm text-gray-900 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="item.finalDecision"></div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+  
+  <!-- Stat Cards -->
+  @if (dashboardData(); as data) {
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      @if (!isViewer()) {
+        <div class="bg-white p-6 rounded-xl shadow-md space-y-4 md:row-span-2">
+          <div class="flex items-center space-x-4">
+            <div class="bg-emerald-100 p-3 rounded-full"><ion-icon name="wallet-outline" class="text-2xl text-emerald-600"></ion-icon></div>
+            <div>
+              <p class="text-sm text-gray-500">現金</p>
+              <p class="text-base font-semibold text-gray-900">資金分布</p>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <label class="text-sm text-gray-600 whitespace-nowrap">現金</label>
+              <input type="number" inputmode="numeric" step="1" [ngModel]="cashState().cash" (ngModelChange)="updateCashField('cash', $event)" class="w-40 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 text-right">
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <label class="text-sm text-gray-600 whitespace-nowrap">銀行存款</label>
+              <input type="number" inputmode="numeric" step="1" [ngModel]="cashState().bankDeposit" (ngModelChange)="updateCashField('bankDeposit', $event)" class="w-40 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 text-right">
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <label class="text-sm text-gray-600 whitespace-nowrap">Line Pay</label>
+              <input type="number" inputmode="numeric" step="1" [ngModel]="cashState().linePay" (ngModelChange)="updateCashField('linePay', $event)" class="w-40 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 text-right">
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <label class="text-sm text-gray-600 whitespace-nowrap">街口</label>
+              <input type="number" inputmode="numeric" step="1" [ngModel]="cashState().jko" (ngModelChange)="updateCashField('jko', $event)" class="w-40 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 text-right">
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <label class="text-sm text-gray-600 whitespace-nowrap">信用卡</label>
+              <input type="number" inputmode="numeric" step="1" [ngModel]="cashState().creditCard" (ngModelChange)="updateCashField('creditCard', $event)" class="w-40 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 text-right">
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-gray-200 flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700">總計</span>
+            <span class="text-base font-semibold text-gray-900">{{ cashTotal() | currency:'TWD':'symbol':'1.0-0' }}</span>
+          </div>
+        </div>
+      }
+
+      <button type="button" (click)="goToCigarMembers()" class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4 text-left hover:bg-gray-50 transition-colors">
+        <div class="bg-purple-100 p-3 rounded-full"><ion-icon name="ribbon-outline" class="text-2xl text-purple-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">雪茄會員</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ dashboardCigarMemberCount() }}</p>
+        </div>
+      </button>
+
+      <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+        <div class="bg-green-100 p-3 rounded-full"><ion-icon name="cash-outline" class="text-2xl text-green-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">收入</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ data.revenue | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+        <div class="bg-blue-100 p-3 rounded-full"><ion-icon name="calendar-outline" class="text-2xl text-blue-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">平均每日收入</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ averageDailyRevenue() | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+        <div class="bg-red-100 p-3 rounded-full"><ion-icon name="trending-down-outline" class="text-2xl text-red-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">費用</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ data.expenses | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+      </div>
+       <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+        <div class="bg-yellow-100 p-3 rounded-full"><ion-icon name="pricetag-outline" class="text-2xl text-yellow-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">折讓</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ data.allowance | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+        <div class="bg-purple-100 p-3 rounded-full"><ion-icon name="cart-outline" class="text-2xl text-purple-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">進貨</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ data.purchases | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+        <div class="bg-indigo-100 p-3 rounded-full"><ion-icon name="pie-chart-outline" class="text-2xl text-indigo-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">毛利</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ grossProfit() | currency:'TWD':'symbol':'1.0-0' }}</p>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="text-center py-8 text-gray-500">在此日期範圍內沒有數據。</div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">每日營收趨勢</h3>
+    <div class="h-80"><canvas #dailyRevenueChart></canvas></div>
+  </div>
+
+  @if (!isViewer()) {
+    <div class="bg-white p-6 rounded-xl shadow-md space-y-6">
+      <h3 class="text-lg font-semibold text-gray-800">應付帳款</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <button
+        type="button"
+        (click)="openPayableDetail('accountsPayable')"
+        class="text-left border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+      >
+        <p class="text-sm text-gray-500">應付帳款（點擊查看尚未付清）</p>
+        <p class="text-xl font-semibold text-gray-900 mt-2">{{ payablesData().accountsPayableTotal | currency:'TWD':'symbol':'1.0-0' }}</p>
+      </button>
+
+      <button
+        type="button"
+        (click)="openPayableDetail('cigarPurchase')"
+        class="text-left border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+      >
+        <p class="text-sm text-gray-500">應付雪茄進貨（點擊查看每月明細）</p>
+        <p class="text-xl font-semibold text-gray-900 mt-2">{{ payablesData().cigarPurchaseTotal | currency:'TWD':'symbol':'1.0-0' }}</p>
+      </button>
+
+      <div class="border border-gray-200 rounded-lg p-4">
+        <p class="text-sm text-gray-500">應付裝潢款</p>
+        <p class="text-xl font-semibold text-gray-900 mt-2">{{ payablesData().renovationTotal | currency:'TWD':'symbol':'1.0-0' }}</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="border border-gray-200 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="font-semibold text-gray-800">應付薪資（每位員工）</h4>
+          <span class="text-sm font-semibold text-gray-900">總計：{{ salaryPayableTotal() | currency:'TWD':'symbol':'1.0-0' }}</span>
+        </div>
+
+        @if (payablesData().salaryEmployees.length > 0) {
+          <div class="space-y-2">
+            @for (employee of payablesData().salaryEmployees; track employee.employee_id) {
+              <div class="flex items-center justify-between text-sm border-b border-gray-100 pb-2">
+                <span class="text-gray-700">{{ employee.employee_name }}</span>
+                <span class="font-medium text-gray-900">{{ employee.display_amount | currency:'TWD':'symbol':'1.0-0' }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="text-sm text-gray-500">目前無應付薪資</p>
+        }
+      </div>
+
+      <div class="border border-gray-200 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="font-semibold text-gray-800">應付股東回饋金（每位股東）</h4>
+          <span class="text-sm font-semibold text-gray-900">總計：{{ shareholderPayableTotal() | currency:'TWD':'symbol':'1.0-0' }}</span>
+        </div>
+
+        @if (payablesData().shareholderEmployees.length > 0) {
+          <div class="space-y-2">
+            @for (employee of payablesData().shareholderEmployees; track employee.employee_id) {
+              <div class="flex items-center justify-between text-sm border-b border-gray-100 pb-2">
+                <span class="text-gray-700">{{ employee.employee_name }}</span>
+                <span class="font-medium text-gray-900">{{ employee.display_amount | currency:'TWD':'symbol':'1.0-0' }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="text-sm text-gray-500">目前無應付股東回饋金</p>
+        }
+      </div>
+    </div>
+    </div>
+  }
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-lg font-semibold text-gray-800 mb-4">月度表現</h3>
+      <div class="h-80"><canvas #monthlyChart></canvas></div>
+    </div>
+    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-lg font-semibold text-gray-800 mb-4">總進貨分析</h3>
+      <div class="h-80"><canvas #purchaseChart></canvas></div>
+    </div>
+  </div>
+</div>
+
+@if (payableDetailModalVisible()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col m-4">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ payableDetailModalTitle() }}（總計：{{ payableDetailTotal() | currency:'TWD':'symbol':'1.0-0' }}）</h3>
+        <button (click)="closePayableDetail()" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
+          <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto">
+        @if (payableDetailKind() === 'accountsPayableUnpaid') {
+          @if (accountsPayableUnpaidError()) {
+            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{{ accountsPayableUnpaidError() }}</div>
+          }
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left font-medium text-gray-700">發生日期</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-700">債權人</th>
+                  <th class="px-4 py-3 text-right font-medium text-gray-700">剩餘欠款</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-700">還款期限</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-700">說明</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                @if (accountsPayableUnpaidLoading()) {
+                  <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">載入中...</td></tr>
+                } @else {
+                  @for (row of accountsPayableUnpaidRows(); track row.entry_id) {
+                    <tr class="hover:bg-gray-50">
+                      <td class="px-4 py-2">{{ formatDateText(row.entry_date) }}</td>
+                      <td class="px-4 py-2">{{ row.creditor || '' }}</td>
+                      <td class="px-4 py-2 text-right">{{ row.remaining_amount | currency:'TWD':'symbol':'1.0-0' }}</td>
+                      <td class="px-4 py-2">{{ formatDateText(row.due_date) }}</td>
+                      <td class="px-4 py-2 truncate max-w-sm">{{ row.description || '' }}</td>
+                    </tr>
+                  } @empty {
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">目前沒有尚未付清的應付帳款。</td></tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-700 uppercase text-xs">
+              <tr>
+                <th class="px-4 py-2 text-left">月份</th>
+                <th class="px-4 py-2 text-right">金額</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of payableDetailRows(); track row.monthLabel) {
+                <tr class="border-b border-gray-100">
+                  <td class="px-4 py-2">{{ row.monthLabel }}</td>
+                  <td class="px-4 py-2 text-right">{{ row.amount | currency:'TWD':'symbol':'1.0-0' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+}

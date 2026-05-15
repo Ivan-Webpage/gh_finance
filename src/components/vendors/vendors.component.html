@@ -1,0 +1,145 @@
+<div class="space-y-6">
+  <!-- 加載狀態提示 -->
+  @if (isLoading()) {
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="hourglass-outline" class="text-blue-600 text-xl animate-spin"></ion-icon>
+      <span class="text-blue-700">正在加載數據...</span>
+    </div>
+  }
+
+  <!-- 錯誤信息 -->
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">廠商管理</h1>
+    <button (click)="openModal()" [disabled]="isLoading()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增廠商</span>
+    </button>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="space-y-4">
+      <!-- Vendor Filters -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+        <div class="lg:col-span-2">
+          <input type="text" [ngModel]="vendorSearchTerm()" (ngModelChange)="vendorSearchTerm.set($event); currentPage.set(1)" placeholder="搜尋廠商名稱、類別或聯絡方式..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+        </div>
+        <div>
+          <select [ngModel]="selectedVendorCategory()" (ngModelChange)="selectedVendorCategory.set($event); currentPage.set(1)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+            <option value="">所有類別</option>
+            @for(cat of vendorCategories(); track cat) {
+              <option [value]="cat">{{ cat }}</option>
+            }
+          </select>
+        </div>
+        <div>
+          <input type="text" 
+            [value]="vendorTaxIdFilter()" 
+            (input)="onTaxIdInput($event)" 
+            placeholder="統一編號 (8碼)" 
+            maxlength="8"
+            pattern="\d*"
+            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+        </div>
+        <div class="flex items-center gap-2 lg:col-span-4 justify-end">
+            <button (click)="resetVendorFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+              <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+            </button>
+          </div>
+      </div>
+      <!-- Vendor Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left whitespace-nowrap">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+            <tr>
+              <th class="px-4 py-3">類別</th>
+              <th class="px-4 py-3">廠商</th>
+              <th class="px-4 py-3">聯絡方式</th>
+              <th class="px-4 py-3">休息時間</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(vendor of pagedVendors(); track vendor.vendor_id || vendor.id) {
+              <tr class="border-b hover:bg-gray-50 cursor-pointer transition-colors" (click)="openModal(vendor)">
+                <td class="px-4 py-2">{{ vendor.category }}</td>
+                <td class="px-4 py-2 font-medium">{{ vendor.vendor_name || vendor.name }}</td>
+                <td class="px-4 py-2">{{ vendor.contact_info || vendor.contactInfo }}</td>
+                <td class="px-4 py-2">
+                  @if(vendor.rest_days && vendor.rest_days.length > 0) {
+                    {{ vendor.rest_days.join(', ') }}
+                  } @else {
+                    {{ vendor.restDays || '-' }}
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="text-center py-8 text-gray-500">無符合條件的廠商資料。</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
+        <div class="text-sm text-gray-600">
+          第 {{ currentPage() }} / {{ totalPages() }} 頁，共 {{ totalRecords() }} 筆
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" (click)="goToPrevPage()" [disabled]="currentPage() === 1" class="px-3 py-1.5 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
+            上一頁
+          </button>
+          <button type="button" (click)="goToNextPage()" [disabled]="currentPage() === totalPages()" class="px-3 py-1.5 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
+            下一頁
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vendor Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingVendor() ? '編輯廠商' : '新增廠商' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="vendorForm" (ngSubmit)="handleVendorSubmit()" class="space-y-4">
+          <input type="hidden" formControlName="vendor_id">
+          <label class="block"><span class="text-gray-700">類別*</span><input formControlName="category" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">廠商名稱*</span><input formControlName="vendor_name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">統一編號</span><input formControlName="tax_id" type="text" maxlength="8" pattern="\d*" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2" placeholder="8位數字"></label>
+          <label class="block"><span class="text-gray-700">聯絡方式</span><input formControlName="contact_info" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">休息時間</span><input formControlName="rest_days" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2" placeholder="例：周一,周二"></label>
+          
+          @if(errorMessage()) {
+            <div class="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+              <ion-icon name="alert-circle-outline" class="text-red-600 text-lg"></ion-icon>
+              <span class="text-red-700 text-sm">{{ errorMessage() }}</span>
+            </div>
+          }
+          
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" [disabled]="isLoading()" class="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">取消</button>
+            <button type="submit" [disabled]="isLoading()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              @if (isLoading()) {
+                <ion-icon name="hourglass-outline" class="animate-spin"></ion-icon>
+                <span>儲存中...</span>
+              } @else {
+                <span>儲存</span>
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
