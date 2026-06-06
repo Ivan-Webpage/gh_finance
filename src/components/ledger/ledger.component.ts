@@ -41,7 +41,10 @@ export class LedgerComponent {
   isModalOpen = signal(false);
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
-  confirmationState = signal<{ message: string; isChecked: boolean; target: HTMLInputElement; } | null>(null);
+  confirmationState = signal<{ message: string; isChecked: boolean; } | null>(null);
+  // 「全部簽核/取消簽核」checkbox：刻意做成動作觸發器，不反映目前頁面是否已全部簽核。
+  // 需求：不論確認或取消，後續都要自動取消勾選，避免切換頁面後無法再次觸發。
+  bulkApprovalChecked = signal(false);
 
   // Shipment Items (進貨資料)
   shipmentItems = signal<ShipmentItem[]>([]);
@@ -382,6 +385,8 @@ export class LedgerComponent {
       
       if (response.success && response.data) {
         this.displayedTransactions.set(response.data);
+        // 切頁/重載資料後，重置「全部簽核」checkbox（避免卡住無法再次觸發）
+        this.bulkApprovalChecked.set(false);
         
         // 更新分頁資訊
         if (response.pagination) {
@@ -756,14 +761,21 @@ export class LedgerComponent {
   }
 
   toggleAllApprovals(event: Event): void {
+    // 這個 checkbox 被當成「一鍵切換」動作：
+    // - 目前頁面若尚未全簽核 -> 觸發「全部簽核」
+    // - 目前頁面若已全簽核 -> 觸發「全部取消簽核」
+    // 並且在確認/取消後都會自動取消勾選，避免切頁後無法再次觸發。
     const target = event.target as HTMLInputElement;
-    const isChecked = target.checked;
+    const isChecked = this.areAllApproved() ? false : true;
 
     const message = isChecked
-      ? "您確定要簽核所有可見項目嗎？"
-      : "您確定要取消簽核所有可見項目嗎？";
+      ? '您確定要簽核所有可見項目嗎？'
+      : '您確定要取消簽核所有可見項目嗎？';
 
-    this.confirmationState.set({ message, isChecked, target });
+    // 讓 UI 立刻回到我們的受控狀態（避免被 DOM 的 checked 狀態卡住）
+    target.checked = isChecked;
+    this.bulkApprovalChecked.set(isChecked);
+    this.confirmationState.set({ message, isChecked });
   }
 
   /**
@@ -789,28 +801,34 @@ export class LedgerComponent {
       await Promise.all(updatePromises);
       
       // 成功後，直接在前端更新簽核狀態，避免重新載入所有資料
-      const updatedTransactions = this.allTransactions().map(tx => {
+      const updatedAllTransactions = this.allTransactions().map(tx => {
         const shouldUpdate = transactionsToUpdate.some(t => t.entry_id === tx.entry_id);
         if (shouldUpdate) {
           return { ...tx, is_sigh_off: isChecked };
         }
         return tx;
       });
-      this.allTransactions.set(updatedTransactions);
+      this.allTransactions.set(updatedAllTransactions);
+
+      const updatedDisplayedTransactions = this.displayedTransactions().map(tx => {
+        const shouldUpdate = transactionsToUpdate.some(t => t.entry_id === tx.entry_id);
+        return shouldUpdate ? { ...tx, is_sigh_off: isChecked } : tx;
+      });
+      this.displayedTransactions.set(updatedDisplayedTransactions);
       
     } catch (error) {
       console.error('更新簽核狀態失敗:', error);
       this.errorMessage.set('更新簽核狀態失敗');
+    } finally {
+      // 不論確認結果如何，都要把 checkbox 取消勾選（符合需求，且避免切頁後無法再觸發）
+      this.bulkApprovalChecked.set(false);
+      this.confirmationState.set(null);
     }
-    
-    this.confirmationState.set(null);
   }
 
   cancelApproval(): void {
-    const state = this.confirmationState();
-    if (!state) return;
-
-    state.target.checked = !state.isChecked;
+    if (!this.confirmationState()) return;
+    this.bulkApprovalChecked.set(false);
     this.confirmationState.set(null);
   }
 
@@ -850,6 +868,9 @@ export class LedgerComponent {
     if (this.ledgerForm.invalid) {
       return;
     }
+
+    // 記錄本次送出是否為「修改」模式，避免 closeModal() 清空 editingTransaction 後誤觸發 applyFilters()
+    const wasEditing = !!this.editingTransaction();
 
     // 驗證賣方統編（可選：如果有填入才驗證）
     const vendorTaxId = this.ledgerForm.get('vendor_tax_id')?.value;
@@ -908,13 +929,21 @@ export class LedgerComponent {
         });
         if (response.success) {
           // 直接在前端更新該筆資料，避免重新載入所有資料
-          const updatedTransactions = this.allTransactions().map(tx => {
+          const updatedAllTransactions = this.allTransactions().map(tx => {
             if (tx.entry_id === editingTx.entry_id) {
               return { ...tx, ...entryData };
             }
             return tx;
           });
-          this.allTransactions.set(updatedTransactions);
+          this.allTransactions.set(updatedAllTransactions);
+
+          const updatedDisplayedTransactions = this.displayedTransactions().map(tx => {
+            if (tx.entry_id === editingTx.entry_id) {
+              return { ...tx, ...entryData };
+            }
+            return tx;
+          });
+          this.displayedTransactions.set(updatedDisplayedTransactions);
           this.closeModal();
         }
       } else {
@@ -948,7 +977,8 @@ export class LedgerComponent {
     } finally {
       this.isLoading.set(false);
     }
-    if (!this.editingTransaction()) {
+    // 只有新增時才需要重新套用篩選並回到第一頁；修改時要保留當前頁與狀態
+    if (!wasEditing) {
       this.applyFilters();
     }
   }

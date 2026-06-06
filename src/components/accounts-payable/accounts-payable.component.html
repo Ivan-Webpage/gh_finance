@@ -68,7 +68,47 @@
   </div>
 
   <div class="mt-6 bg-white shadow rounded-lg overflow-hidden">
-    <div class="px-4 py-3 bg-gray-50 text-sm font-medium text-gray-700">已付清</div>
+    <div class="px-4 py-3 bg-gray-50">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="text-sm font-medium text-gray-700">已付清</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-gray-600">發生日期</label>
+            <input
+              type="month"
+              class="mt-1 block w-full border rounded-md p-2 bg-white text-sm"
+              [(ngModel)]="paidEntryMonth"
+              (ngModelChange)="onPaidFiltersChanged()"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600">還款期限</label>
+            <input
+              type="month"
+              class="mt-1 block w-full border rounded-md p-2 bg-white text-sm"
+              [(ngModel)]="paidDueMonth"
+              (ngModelChange)="onPaidFiltersChanged()"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600">債權人</label>
+            <select
+              class="mt-1 block w-full border rounded-md p-2 bg-white text-sm"
+              [(ngModel)]="paidCreditorFilter"
+              (ngModelChange)="onPaidFiltersChanged()"
+            >
+              <option value="">全部債權人</option>
+              @for (c of paidCreditorOptions(); track c) {
+                <option [value]="c">{{ c }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-gray-50">
@@ -84,7 +124,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          @for (row of paidRows(); track row.entry_id) {
+          @for (row of paidRowsFiltered(); track row.entry_id) {
             <tr class="hover:bg-gray-50 cursor-pointer" (click)="openDetail(row, true)">
               <td class="px-4 py-2">
                 <a

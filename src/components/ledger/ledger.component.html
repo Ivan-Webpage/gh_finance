@@ -106,7 +106,7 @@
                     <div class="flex items-center justify-center gap-2">
                       <input 
                         type="checkbox"
-                        [checked]="areAllApproved()"
+                        [checked]="bulkApprovalChecked()"
                         (change)="toggleAllApprovals($event)"
                         title="全部簽核/取消簽核"
                         class="rounded h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 cursor-pointer">

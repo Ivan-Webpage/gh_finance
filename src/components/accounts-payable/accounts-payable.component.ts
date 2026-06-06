@@ -126,6 +126,52 @@ export class AccountsPayableComponent {
     return this.rows().filter(r => this.toNumber(r.remaining_amount) <= 0);
   });
 
+  // Paid table filters (month-based)
+  paidEntryMonth = signal<string>(''); // 發生日期（以月篩選）YYYY-MM
+  paidDueMonth = signal<string>(''); // 還款期限（以月篩選）YYYY-MM
+  paidCreditorFilter = signal<string>(''); // 債權人下拉
+
+  paidRowsMonthFiltered = computed(() => {
+    const rows = this.paidRows();
+    const entryMonth = (this.paidEntryMonth() || '').trim();
+    const dueMonth = (this.paidDueMonth() || '').trim();
+
+    const entryRange = entryMonth ? this.monthToRange(entryMonth) : null;
+    const dueRange = dueMonth ? this.monthToRange(dueMonth) : null;
+
+    return rows
+      .filter(r => {
+        if (!entryRange) return true;
+        const d = this.toYmd(r.entry_date);
+        return !!d && d >= entryRange.start && d <= entryRange.end;
+      })
+      .filter(r => {
+        if (!dueRange) return true;
+        const d = this.toYmd(r.due_date);
+        return !!d && d >= dueRange.start && d <= dueRange.end;
+      });
+  });
+
+  paidCreditorOptions = computed(() => {
+    const set = new Set<string>();
+    for (const row of this.paidRowsMonthFiltered()) {
+      const c = String(row.creditor || '').trim();
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  });
+
+  paidRowsFiltered = computed(() => {
+    const creditor = (this.paidCreditorFilter() || '').trim();
+    const options = this.paidCreditorOptions();
+    const effectiveCreditor = creditor && options.includes(creditor) ? creditor : '';
+
+    return this.paidRowsMonthFiltered().filter(r => {
+      if (!effectiveCreditor) return true;
+      return String(r.creditor || '').trim() === effectiveCreditor;
+    });
+  });
+
   maxRepaymentAmount = computed(() => {
     const row = this.detailRow();
     if (!row) return null;
@@ -134,7 +180,70 @@ export class AccountsPayableComponent {
   });
 
   constructor() {
+    const currentMonth = this.getCurrentMonth();
+    this.paidEntryMonth.set(currentMonth);
+    this.paidDueMonth.set(currentMonth);
     this.loadRows();
+  }
+
+  onPaidFiltersChanged(): void {
+    const creditor = (this.paidCreditorFilter() || '').trim();
+    if (!creditor) return;
+
+    const options = this.paidCreditorOptions();
+    if (!options.includes(creditor)) {
+      this.paidCreditorFilter.set('');
+    }
+  }
+
+  private getCurrentMonth(): string {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    return `${yyyy}-${mm}`;
+  }
+
+  private toYmd(value: string | null | undefined): string {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    // Accept either YYYY-MM-DD or ISO datetime; keep the date part.
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+    return '';
+  }
+
+  private monthToRange(month: string): { start: string; end: string } {
+    const m = String(month || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(m)) {
+      const todayYmd = this.toTodayYmd();
+      return { start: todayYmd, end: todayYmd };
+    }
+
+    const [yStr, mStr] = m.split('-');
+    const year = Number(yStr);
+    const monthIndex = Number(mStr) - 1;
+
+    const start = `${yStr}-${mStr}-01`;
+    const endOfMonth = new Date(year, monthIndex + 1, 0);
+    const endOfMonthYmd = this.dateToYmd(endOfMonth);
+
+    const currentMonth = this.getCurrentMonth();
+    if (m === currentMonth) {
+      const todayYmd = this.toTodayYmd();
+      return { start, end: todayYmd };
+    }
+
+    return { start, end: endOfMonthYmd };
+  }
+
+  private toTodayYmd(): string {
+    return this.dateToYmd(new Date());
+  }
+
+  private dateToYmd(date: Date): string {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   openAddPayable(): void {

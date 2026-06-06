@@ -646,32 +646,9 @@ export class PayrollComponent {
       sourceRows = this.dailySummaries().filter(row => this.toNumber(row.user_id) === this.toNumber(summary.user_id));
     }
 
-    const processedRows = sourceRows.map(row => {
-      const workDate = row.work_date || '';
-      let clockInTime = this.combineDateTime(workDate, row.clock_in_time_input || '');
-      let clockOutTime = this.combineDateTime(workDate, row.clock_out_time_input || '');
-      if (clockInTime && clockOutTime) {
-        const clockInDate = new Date(clockInTime).getTime();
-        const clockOutDate = new Date(clockOutTime).getTime();
-        if (clockOutDate < clockInDate) {
-          const [year, month, day] = workDate.split('-');
-          const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
-          const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
-          clockOutTime = this.combineDateTime(nextDayStr, row.clock_out_time_input || '');
-        }
-      }
-      if (clockInTime && clockOutTime) {
-        const newWorkHours = this.calculateWorkHours(clockInTime, clockOutTime);
-        const newTotalWage = this.calculateWage(newWorkHours, this.toNumber(row.base_wage));
-        return {
-          ...row,
-          work_hours: newWorkHours,
-          total_wage: newTotalWage,
-        };
-      }
-      return row;
-    });
-    this.monthlyDetailsRows.set(processedRows);
+    // IMPORTANT: On open, use backend-provided work_hours/total_wage so the monthly summary
+    // matches the detail sum. Recalculate only when user edits clock times (see updateMonthlyDetailDisplay).
+    this.monthlyDetailsRows.set(sourceRows);
     this.currentMonthlySummary.set(summary);
     this.monthlyDetailsTitle.set(`${summary.display_name} - ${yearMonth}`);
     this.monthlyDetailsVisible.set(true);
@@ -1684,7 +1661,31 @@ export class PayrollComponent {
     }
   }
 
-  updateMonthlyDetailDisplay(): void {
+  updateMonthlyDetailDisplay(row?: MonthlyDetailRow): void {
+    if (row) {
+      let clockInTime = this.combineDateTime(row.work_date || '', row.clock_in_time_input || '');
+      let clockOutTime = this.combineDateTime(row.work_date || '', row.clock_out_time_input || '');
+
+      if (clockInTime && clockOutTime) {
+        const clockInDate = new Date(clockInTime).getTime();
+        const clockOutDate = new Date(clockOutTime).getTime();
+        if (clockOutDate < clockInDate) {
+          const [year, month, day] = String(row.work_date || '').split('-').map(Number);
+          if (year && month && day) {
+            const nextDay = new Date(year, month - 1, day + 1);
+            const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+            clockOutTime = this.combineDateTime(nextDayStr, row.clock_out_time_input || '');
+          }
+        }
+      }
+
+      const baseWage = this.toNumber(row.base_wage);
+      const newWorkHours = this.calculateWorkHours(clockInTime, clockOutTime);
+      const newTotalWage = this.calculateWage(newWorkHours, baseWage);
+      row.work_hours = newWorkHours;
+      row.total_wage = newTotalWage;
+    }
+
     this.monthlyDetailsRows.set([...this.monthlyDetailsRows()]);
   }
 

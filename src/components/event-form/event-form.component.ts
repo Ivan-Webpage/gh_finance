@@ -28,7 +28,7 @@ export class EventFormComponent {
   isSaving = signal(false);
 
   readonly eventTypeOptions = ['外客', '股東介紹', '店內活動', '股東會', '外燴'];
-  readonly useSpaceOptions = ['D1', 'D2', 'D3', '外燴'];
+  readonly useSpaceOptions = ['D1', '外燴', 'A區', 'BC區', '全場包'];
 
   eventForm = this.fb.group({
     type: [''],
