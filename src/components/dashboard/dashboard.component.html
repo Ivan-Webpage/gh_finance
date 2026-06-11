@@ -73,16 +73,29 @@
         </div>
       } @else if (dashboardAnnouncementsError()) {
         <div class="text-sm text-red-600">{{ dashboardAnnouncementsError() }}</div>
-      } @else if (dashboardAnnouncements().length === 0) {
+      } @else if (!latestDashboardAnnouncement()) {
         <div class="text-sm text-gray-500">目前無佈達事項</div>
       } @else {
-        <div class="space-y-3">
-          @for (item of dashboardAnnouncements(); track item.date + item.finalDecision) {
-            <div class="border border-gray-200 rounded-lg p-4">
-              <div class="text-sm font-semibold text-indigo-700">{{ item.date }}</div>
-              <div class="mt-2 text-sm text-gray-900 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="item.finalDecision"></div>
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <details class="group">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+              <div class="min-w-0">
+                <div class="text-sm font-semibold text-indigo-700 truncate">{{ latestDashboardAnnouncement()!.title || '重大事項佈達' }}</div>
+              </div>
+              <ion-icon name="chevron-down-outline" class="shrink-0 text-xl text-gray-400 transition-transform duration-200 group-open:rotate-180"></ion-icon>
+            </summary>
+
+            <div class="border-t border-gray-100 p-4 space-y-4">
+              <div class="text-sm font-semibold text-gray-700">{{ latestDashboardAnnouncement()!.date }}</div>
+              <div class="text-sm text-gray-900 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6" [innerHTML]="latestDashboardAnnouncement()!.finalDecision"></div>
+              <div class="pt-2">
+                <button type="button" (click)="goToDecisionLog()" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
+                  <span>查看更多</span>
+                  <ion-icon name="arrow-forward-outline"></ion-icon>
+                </button>
+              </div>
             </div>
-          }
+          </details>
         </div>
       }
     </div>

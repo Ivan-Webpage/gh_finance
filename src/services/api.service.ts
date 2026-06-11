@@ -2093,6 +2093,98 @@ export class ApiService {
     );
   }
 
+  // ========== 太魯閣威士忌銷售 API METHODS ==========
+
+  getTarakouWhiskySales(params: { startYear: number; endYear: number }): Promise<ApiResponse<any>> {
+    const httpParams = new HttpParams()
+      .set('startYear', String(params.startYear))
+      .set('endYear', String(params.endYear));
+
+    return firstValueFrom(
+      this.http.get<ApiResponse<any>>(`${this.baseUrl}/tarakou-whisky-sales`, { params: httpParams })
+    );
+  }
+
+  createTarakouExternalInventory(payload: {
+    inventory_date: string;
+    operation: string;
+    quantity: number;
+    unit_price: number;
+    note?: string;
+  }): Promise<ApiResponse<any>> {
+    return firstValueFrom(
+      this.http.post<ApiResponse<any>>(`${this.baseUrl}/tarakou-whisky-sales`, {
+        table: 'external',
+        payload,
+      })
+    );
+  }
+
+  updateTarakouExternalInventory(id: number, payload: {
+    inventory_date: string;
+    operation: string;
+    quantity: number;
+    unit_price: number;
+    note?: string;
+  }): Promise<ApiResponse<any>> {
+    return firstValueFrom(
+      this.http.put<ApiResponse<any>>(`${this.baseUrl}/tarakou-whisky-sales`, {
+        table: 'external',
+        id,
+        payload,
+      })
+    );
+  }
+
+  deleteTarakouExternalInventory(id: number): Promise<ApiResponse<any>> {
+    const params = new HttpParams().set('table', 'external').set('id', String(id));
+    return firstValueFrom(
+      this.http.delete<ApiResponse<any>>(`${this.baseUrl}/tarakou-whisky-sales`, { params })
+    );
+  }
+
+  createTarakouShareholderPurchase(payload: {
+    purchase_date: string;
+    quantity: number;
+    unit_price: number;
+    is_tax_included: boolean;
+    purchaser: string;
+    is_settled: boolean;
+    is_delivered: boolean;
+  }): Promise<ApiResponse<any>> {
+    return firstValueFrom(
+      this.http.post<ApiResponse<any>>(`${this.baseUrl}/tarakou-whisky-sales`, {
+        table: 'shareholder',
+        payload,
+      })
+    );
+  }
+
+  updateTarakouShareholderPurchase(id: number, payload: {
+    purchase_date: string;
+    quantity: number;
+    unit_price: number;
+    is_tax_included: boolean;
+    purchaser: string;
+    is_settled: boolean;
+    is_delivered: boolean;
+  }): Promise<ApiResponse<any>> {
+    return firstValueFrom(
+      this.http.put<ApiResponse<any>>(`${this.baseUrl}/tarakou-whisky-sales`, {
+        table: 'shareholder',
+        id,
+        payload,
+      })
+    );
+  }
+
+  deleteTarakouShareholderPurchase(id: number): Promise<ApiResponse<any>> {
+    const params = new HttpParams().set('table', 'shareholder').set('id', String(id));
+    return firstValueFrom(
+      this.http.delete<ApiResponse<any>>(`${this.baseUrl}/tarakou-whisky-sales`, { params })
+    );
+  }
+
   // ========== 股權比例 (股東資料) API METHODS ==========
 
   /**

@@ -31,6 +31,23 @@ export class ProductAnalysisComponent implements AfterViewInit {
   private readonly now = new Date();
 
   private readonly subCategoryToGroup = new Map<string, string>();
+  private readonly dedicatedCategoryGroupMap = new Map<string, string>([
+    ['太魯閣威士忌', '酒水'],
+  ]);
+
+  private resolveCategoryGroupOverride(categoryName: unknown): string | null {
+    const name = String(categoryName || '').trim();
+    if (!name) return null;
+
+    const exact = this.dedicatedCategoryGroupMap.get(name);
+    if (exact) return exact;
+
+    if (name.includes('太魯閣威士忌')) {
+      return '酒水';
+    }
+
+    return null;
+  }
 
   private normalizeType(rawType: unknown): string {
     const value = String(rawType || '').trim().toLowerCase();
@@ -63,6 +80,9 @@ export class ProductAnalysisComponent implements AfterViewInit {
   }
 
   private getNormalizedType(cat: CategorySalesSummary): string {
+    const mappedGroup = this.resolveCategoryGroupOverride(cat.categoryName);
+    if (mappedGroup) return mappedGroup;
+
     const firstItem: any = (cat.items && cat.items.length > 0) ? cat.items[0] : null;
     // Prefer explicit type; if missing but categoryName looks like cigar, still classify
     const normalized = this.normalizeType(firstItem?.type);
@@ -89,7 +109,8 @@ export class ProductAnalysisComponent implements AfterViewInit {
   private buildStructuredSubCategories(categories: CategorySalesSummary[]): Array<{ group: string; subCategories: string[] }> {
     const groupToNames = new Map<string, Set<string>>();
     categories.forEach(cat => {
-      const knownGroup = this.subCategoryToGroup.get(cat.categoryName);
+      const mappedGroup = this.resolveCategoryGroupOverride(cat.categoryName);
+      const knownGroup = mappedGroup || this.subCategoryToGroup.get(cat.categoryName);
       const group = knownGroup || this.getNormalizedType(cat);
       if (!groupToNames.has(group)) groupToNames.set(group, new Set());
       groupToNames.get(group)!.add(cat.categoryName);
@@ -553,7 +574,8 @@ export class ProductAnalysisComponent implements AfterViewInit {
 
       const toGroupKey = (categoryName: unknown, rawType: unknown): 'dining' | 'drinks' | 'cigars' | 'venue' => {
         const name = String(categoryName || '').trim();
-        const knownGroup = this.subCategoryToGroup.get(name);
+        const mappedGroup = this.resolveCategoryGroupOverride(name);
+        const knownGroup = mappedGroup || this.subCategoryToGroup.get(name);
         const groupZh = knownGroup || this.normalizeType(rawType);
         if (groupZh === '餐飲') return 'dining';
         if (groupZh === '酒水') return 'drinks';

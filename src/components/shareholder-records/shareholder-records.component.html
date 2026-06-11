@@ -23,7 +23,23 @@
   
   <div class="bg-white p-6 rounded-xl shadow-md">
     <!-- Filters -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+      <div>
+        <label for="yearFilter" class="text-sm font-medium text-gray-600">年份</label>
+        <select id="yearFilter" [(ngModel)]="yearFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+          @for (year of availableYears(); track year) {
+            <option [value]="year.toString()">{{ year }}年</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label for="monthFilter" class="text-sm font-medium text-gray-600">月份</label>
+        <select id="monthFilter" [(ngModel)]="monthFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+          @for (month of [1,2,3,4,5,6,7,8,9,10,11,12]; track month) {
+            <option [value]="month.toString().padStart(2, '0')">{{ month }}月</option>
+          }
+        </select>
+      </div>
       <div>
         <label for="categoryFilter" class="text-sm font-medium text-gray-600">進度分類</label>
         <select id="categoryFilter" [(ngModel)]="categoryFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
@@ -38,7 +54,7 @@
           @for(shareholder of employeeShareholders(); track shareholder.id) { <option [value]="shareholder.id">{{ shareholder.name }}</option> }
         </select>
       </div>
-      <div class="flex items-end justify-end">
+      <div class="xl:col-span-1 flex items-end justify-end">
         <button (click)="resetFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
           <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
         </button>

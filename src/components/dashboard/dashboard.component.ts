@@ -89,6 +89,12 @@ interface SpecialDateEntry {
   is_active?: boolean;
 }
 
+interface DashboardAnnouncement {
+  date: string;
+  title: string;
+  finalDecision: string;
+}
+
 interface CalendarFilterState {
   events: boolean;
   reminders: boolean;
@@ -389,6 +395,10 @@ export class DashboardComponent {
     });
   }
 
+  goToDecisionLog(): void {
+    this.router.navigate(['/decision-log']);
+  }
+
   // ===== Dashboard block: Cash =====
   cashState = signal<DashboardCashState>({
     cash: 0,
@@ -548,7 +558,8 @@ export class DashboardComponent {
   }
 
   // ===== Dashboard blocks: Major announcements =====
-  dashboardAnnouncements = signal<Array<{ date: string; finalDecision: string }>>([]);
+  dashboardAnnouncements = signal<DashboardAnnouncement[]>([]);
+  latestDashboardAnnouncement = computed(() => this.dashboardAnnouncements()[0] ?? null);
   dashboardAnnouncementsLoading = signal(false);
   dashboardAnnouncementsError = signal<string | null>(null);
 
@@ -833,12 +844,13 @@ export class DashboardComponent {
       const mapped = (response.data as any[])
         .map(item => {
           const date = item?.announcedAt ? String(item.announcedAt).split('T')[0] : '';
+          const title = String(item?.title || '').trim();
           const finalDecision = this.parseAnnouncementFinalDecision(String(item?.content || ''));
-          return { date, finalDecision };
+          return { date, title, finalDecision };
         })
         .filter(row => row.date || row.finalDecision)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 5);
+        .slice(0, 1);
 
       this.dashboardAnnouncements.set(mapped);
     } catch (error: any) {

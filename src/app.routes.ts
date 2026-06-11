@@ -27,6 +27,7 @@ import { FuturePlansComponent } from './components/future-plans/future-plans.com
 import { UserManagementComponent } from './components/user-management/user-management.component';
 import { GoalSettingComponent } from './components/goal-setting/goal-setting.component';
 import { MonthlyTargetsComponent } from './components/monthly-targets/monthly-targets.component';
+import { TarakouWhiskySalesComponent } from './components/tarakou-whisky-sales/tarakou-whisky-sales.component';
 import { LoginComponent } from './components/login/login.component';
 import { AccountComponent } from './components/account/account.component';
 import { RolePermissionManagementComponent } from './components/role-permission-management/role-permission-management.component';
@@ -44,6 +45,7 @@ export const APP_ROUTES: Routes = [
   { path: 'financial-statements', component: FinancialStatementsComponent, title: '財務報表', canActivate: [authGuard] },
   { path: 'customer-analysis', component: CustomerAnalysisComponent, title: '顧客管理', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'product-analysis', component: ProductAnalysisComponent, title: '商品分析', canActivate: [authGuard] },
+  { path: 'tarakou-whisky-sales', component: TarakouWhiskySalesComponent, title: '太魯閣威士忌銷售', canActivate: [authGuard] },
   { path: 'product-cost', component: ProductCostComponent, title: '商品成本', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'ledger', component: LedgerComponent, title: '流水帳', canActivate: [authGuard] },
   { path: 'accounts-payable', component: AccountsPayableComponent, title: '應付帳款', canActivate: [authGuard, viewerRestrictedPagesGuard] },

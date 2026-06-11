@@ -40,6 +40,9 @@ interface MeetingProgress {
 export class ShareholderRecordsComponent {
   private apiService = inject(ApiService);
   private fb = inject(FormBuilder);
+  private readonly now = new Date();
+  readonly currentYear = this.now.getFullYear();
+  readonly currentMonth = this.now.getMonth() + 1;
 
   isRecordModalOpen = signal(false);
   isShareholderModalOpen = signal(false);
@@ -49,6 +52,8 @@ export class ShareholderRecordsComponent {
   editingMeeting = signal<MeetingProgress | null>(null);
   openMeetingId = signal<string | null>(null);
 
+  yearFilter = signal(String(this.currentYear));
+  monthFilter = signal(String(this.currentMonth).padStart(2, '0'));
   categoryFilter = signal('');
   assigneeFilter = signal('');
   loading = signal(false);
@@ -599,16 +604,45 @@ export class ShareholderRecordsComponent {
     return this.meetingProgresses().slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   });
 
+  availableYears = computed(() => {
+    const years = this.meetingProgresses()
+      .map(meeting => Number(String(meeting.date || '').slice(0, 4)))
+      .filter(year => Number.isFinite(year));
+
+    const baseYear = this.currentYear;
+    const rangeYears = Array.from({ length: 5 }, (_, index) => baseYear - 2 + index);
+
+    return [...new Set([...years, ...rangeYears])].sort((a, b) => b - a);
+  });
+
   filteredMeetings = computed(() => {
+    const year = this.yearFilter();
+    const month = this.monthFilter();
     const cat = this.categoryFilter();
     const assigneeId = this.assigneeFilter();
     const meetings = this.sortedMeetings();
 
-    if (!cat && !assigneeId) {
+    if (!year && !month && !cat && !assigneeId) {
       return meetings;
     }
 
+    const selectedYear = year ? Number(year) : null;
+    const selectedMonth = month ? Number(month) : null;
+
     return meetings
+      .filter(meeting => {
+        if (!selectedYear && !selectedMonth) return true;
+
+        const meetingDate = new Date(meeting.date);
+        if (Number.isNaN(meetingDate.getTime())) return false;
+
+        const meetingYear = meetingDate.getFullYear();
+        const meetingMonth = meetingDate.getMonth() + 1;
+
+        if (selectedYear !== null && meetingYear !== selectedYear) return false;
+        if (selectedMonth !== null && meetingMonth !== selectedMonth) return false;
+        return true;
+      })
       .map(meeting => ({
         ...meeting,
         records: meeting.records
@@ -860,6 +894,8 @@ export class ShareholderRecordsComponent {
   }
 
   resetFilters(): void {
+    this.yearFilter.set(String(this.currentYear));
+    this.monthFilter.set(String(this.currentMonth).padStart(2, '0'));
     this.categoryFilter.set('');
     this.assigneeFilter.set('');
   }

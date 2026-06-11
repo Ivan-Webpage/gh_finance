@@ -39,6 +39,7 @@ export class SidebarComponent implements OnInit {
         { path: '/financial-statements', icon: 'document-text-outline', name: '財務報表' },
         { path: '/customer-analysis', icon: 'people-outline', name: '顧客管理' },
         { path: '/product-analysis', icon: 'cube-outline', name: '商品分析' },
+        { path: '/tarakou-whisky-sales', icon: 'wine-outline', name: '太魯閣威士忌銷售' },
         { path: '/monthly-targets', icon: 'trending-up-outline', name: '營收目標' },
       ]
     },
