@@ -1,0 +1,257 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">團隊目標設定</h1>
+    <button (click)="openModal(null)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增團隊目標</span>
+    </button>
+  </div>
+  @if (loading()) {
+    <div class="flex items-center gap-2 text-sm text-indigo-600">
+      <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+      <span>載入中...</span>
+    </div>
+  }
+  @if (processing()) {
+    <div class="flex items-center gap-2 text-sm text-amber-600">
+      <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
+      <span>處理中...</span>
+    </div>
+  }
+  
+  <!-- Filters -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white rounded-xl shadow-md">
+    <div>
+      <label for="typeFilter" class="text-sm font-medium text-gray-600">類型</label>
+      <select id="typeFilter" [(ngModel)]="typeFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+        <option value="">所有類型</option>
+        @for(type of goalTypes; track type) { <option [value]="type">{{ type }}</option> }
+      </select>
+    </div>
+    <div>
+      <label for="statusFilter" class="text-sm font-medium text-gray-600">狀態</label>
+      <select id="statusFilter" [(ngModel)]="statusFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+        <option value="">所有狀態</option>
+        @for(status of goalStatuses; track status) { <option [value]="status">{{ status }}</option> }
+      </select>
+    </div>
+     <div>
+      <label for="assigneeFilter" class="text-sm font-medium text-gray-600">負責人</label>
+      <select id="assigneeFilter" [(ngModel)]="assigneeFilter" class="w-full mt-1 border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+          <option value="">所有人</option>
+         @for(user of users(); track user.id) { <option [value]="user.id">{{ user.name }}</option> }
+      </select>
+    </div>
+    <div class="flex items-end justify-end">
+      <button (click)="resetFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+        <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Goals: Group by Assignee -->
+  @if (goalsByAssignee().length === 0) {
+    <div class="bg-white p-6 rounded-xl border text-center text-gray-500 mt-4">
+      <ion-icon name="trophy-outline" class="text-4xl text-gray-400"></ion-icon>
+      <p class="mt-2">無符合條件的團隊目標。</p>
+    </div>
+  } @else {
+    <div class="pt-4 -mx-4 px-4 overflow-x-auto">
+      <div class="flex gap-6 min-w-max pb-2">
+        @for (group of goalsByAssignee(); track group.assigneeKey) {
+          <div class="w-80 md:w-96 shrink-0 space-y-4 bg-white rounded-xl border p-4">
+            <div class="flex items-center gap-3 pb-2 border-b">
+              <img [src]="group.avatarUrl" alt="avatar" class="w-7 h-7 rounded-full">
+              <h2 class="text-xl font-bold text-gray-800">{{ group.name }}</h2>
+            </div>
+
+            <div class="space-y-4">
+              @for (goal of group.goals; track goal.id) {
+                <div class="bg-white rounded-lg shadow-sm border p-4 flex flex-col group relative transition-all duration-300 hover:shadow-md" [class]="goal.period === 'monthly' ? 'hover:border-indigo-300' : 'hover:border-teal-300'">
+                <div class="flex justify-between items-start gap-2">
+                  <h3 class="font-bold text-gray-800 transition-colors" [class]="goal.period === 'monthly' ? 'group-hover:text-indigo-600' : 'group-hover:text-teal-600'">{{ goal.title }}</h3>
+                  @if(getDaysLeft(goal.endDate); as daysLeft) {
+                    <div class="flex items-center text-xs font-medium shrink-0" [class]="getDaysLeftClass(daysLeft.days, daysLeft.label)">
+                      <ion-icon name="time-outline" class="mr-1"></ion-icon>
+                      <span>{{ daysLeft.label === '已逾期' ? daysLeft.label + ' ' + daysLeft.days + ' 天' : daysLeft.days + ' ' + daysLeft.label }}</span>
+                    </div>
+                  }
+                </div>
+
+                <div class="flex items-center gap-4 text-sm text-gray-500 mt-2">
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full" [class]="getTypeClass(goal.type)">{{ goal.type }}</span>
+                  <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getStatusClass(goal.status)">{{ goal.status }}</span>
+                </div>
+
+                <div class="mt-3">
+                  <div class="flex justify-between items-center mb-1 text-xs font-medium">
+                    <div class="text-gray-600">關鍵成果 {{ goal.keyResults.length }} 項</div>
+                    <span [class]="getProgressBarWidth(goal) < 100 ? (goal.period === 'monthly' ? 'text-indigo-600' : 'text-teal-600') : 'text-green-600'">{{ getProgressBarWidth(goal).toFixed(0) }}%</span>
+                  </div>
+                  <div class="w-full bg-slate-100 rounded-full h-1.5">
+                    @if(getProgressBarWidth(goal) < 100) {
+                      <div class="h-1.5 rounded-full transition-all duration-500" [class]="goal.period === 'monthly' ? 'bg-indigo-600' : 'bg-teal-600'" [style.width.%]="getProgressBarWidth(goal)"></div>
+                    } @else {
+                      <div class="bg-green-500 h-1.5 rounded-full transition-all duration-500" style="background-image: linear-gradient(to right, #4ade80, #16a34a)" [style.width.%]="getProgressBarWidth(goal)"></div>
+                    }
+                  </div>
+                </div>
+
+                <div class="mt-3 space-y-1 border-t pt-3">
+                  @for (kr of goal.keyResults; track kr.id) {
+                    @if (isKrWithTarget(kr)) {
+                      <div class="text-xs text-gray-700 bg-gray-50 rounded px-2 py-2">
+                        <div class="flex items-center justify-between gap-2">
+                          <span class="min-w-0 truncate">{{ kr.resultName }}</span>
+                          <div class="flex items-center gap-2 shrink-0">
+                            <input
+                              type="number"
+                              min="0"
+                              class="w-24 rounded border-gray-300 px-2 py-1 text-xs"
+                              [value]="getKrCurrentDraft(kr)"
+                              (input)="setKrCurrentDraft(kr.id, $any($event.target).value)"
+                            >
+                            <span class="text-gray-600">/ {{ formatNumber(kr.targetValue || 0) }} {{ kr.unit }}</span>
+                            <button
+                              type="button"
+                              class="rounded px-2 py-1 text-white text-xs"
+                              [class]="goal.period === 'monthly' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-teal-600 hover:bg-teal-700'"
+                              (click)="confirmKrCurrentValue(kr)"
+                            >
+                              確定
+                            </button>
+                          </div>
+                        </div>
+                        <div class="mt-1 w-full bg-slate-200 rounded-full h-1.5">
+                          <div class="h-1.5 rounded-full transition-all duration-300" [class]="goal.period === 'monthly' ? 'bg-indigo-600' : 'bg-teal-600'" [style.width.%]="getKrProgress(kr)"></div>
+                        </div>
+                      </div>
+                    } @else {
+                      <label class="text-xs text-gray-700 flex items-center gap-2 bg-gray-50 rounded px-2 py-1">
+                        <input type="checkbox" class="h-3.5 w-3.5 rounded border-gray-300" [class]="goal.period === 'monthly' ? 'text-indigo-600' : 'text-teal-600'" [checked]="isKrChecked(kr)" (change)="toggleKrCheckbox(kr.id, $any($event.target).checked)">
+                        <span>{{ kr.resultName }}</span>
+                      </label>
+                    }
+                  } @empty {
+                    <p class="text-xs text-gray-400">尚無關鍵成果</p>
+                  }
+                </div>
+
+                <div class="absolute top-2 right-2 flex items-center gap-1 bg-white/50 backdrop-blur-sm rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <button (click)="openModal(goal)" class="text-gray-500 p-1.5 rounded-full hover:bg-gray-100" [class]="goal.period === 'monthly' ? 'hover:text-indigo-600' : 'hover:text-teal-600'" title="編輯"><ion-icon name="create-outline"></ion-icon></button>
+                  <button (click)="requestDelete(goal)" class="text-gray-500 hover:text-red-600 p-1.5 rounded-full hover:bg-gray-100" title="刪除"><ion-icon name="trash-outline"></ion-icon></button>
+                </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+<!-- Add/Edit Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col m-4">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingGoal() ? '編輯團隊目標' : '新增團隊目標' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="goalForm" (ngSubmit)="handleFormSubmit()" class="space-y-4">
+          <div><label for="title" class="block text-sm font-medium text-gray-700">目標名稱*</label><input id="title" formControlName="title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label for="type" class="block text-sm font-medium text-gray-700">類型*</label><select id="type" formControlName="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">@for(t of goalTypes; track t){<option [value]="t">{{t}}</option>}</select></div>
+            <div>
+              <label for="period" class="block text-sm font-medium text-gray-700">週期*</label>
+              <select id="period" formControlName="period" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+                <option value="monthly">月度</option>
+                <option value="yearly">年度</option>
+              </select>
+            </div>
+          </div>
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label for="startDate" class="block text-sm font-medium text-gray-700">開始日期*</label><input type="date" id="startDate" formControlName="startDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></div>
+            <div><label for="endDate" class="block text-sm font-medium text-gray-700">結束日期*</label><input type="date" id="endDate" formControlName="endDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></div>
+          </div>
+          <div>
+            <label for="assigneeId" class="block text-sm font-medium text-gray-700">負責人*</label>
+            <select id="assigneeId" formControlName="assigneeId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <option value="" disabled>請選擇負責人</option>
+              @for(user of users(); track user.id) { <option [value]="user.id">{{ user.name }}</option> }
+            </select>
+          </div>
+          <div class="space-y-2 pt-2">
+            <h4 class="text-sm font-medium text-gray-700">關鍵成果</h4>
+            <div formArrayName="keyResults" class="space-y-3">
+              @for(kr of keyResults.controls; track $index) {
+                <div [formGroupName]="$index" class="p-3 rounded-lg border bg-gray-50 space-y-2">
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold text-gray-600">關鍵成果 #{{ $index + 1 }}</span>
+                    <button type="button" (click)="removeKeyResult($index)" class="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100" title="刪除">
+                      <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700">標題*</label>
+                    <input formControlName="title" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-white p-2" />
+                  </div>
+                  <label class="flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" formControlName="setTarget" (change)="onToggleSetTarget($index)" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <span>設定目標值</span>
+                  </label>
+                  @if (kr.get('setTarget')?.value) {
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700">目前進度*</label>
+                        <input type="number" formControlName="currentValue" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-white p-2" />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700">目標值*</label>
+                        <input type="number" formControlName="targetValue" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-white p-2" />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700">單位*</label>
+                        <input formControlName="unit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-white p-2" />
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+            <button type="button" (click)="addKeyResult()" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">+ 新增關鍵成果</button>
+          </div>
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" [disabled]="goalForm.invalid || processing()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:bg-indigo-300 flex items-center gap-2">
+              @if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }
+              <span>儲存</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (goalToDelete(); as goal) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md m-4">
+      <div class="p-6 text-center">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100"><ion-icon name="warning-outline" class="h-6 w-6 text-red-600"></ion-icon></div>
+        <h3 class="mt-4 text-lg font-semibold text-gray-900">確定要刪除團隊目標嗎？</h3>
+        <p class="mt-2 text-sm text-gray-500">您確定要刪除團隊目標「{{ goal.title }}」嗎？此操作無法復原。</p>
+      </div>
+      <div class="flex justify-center gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelDelete()" class="px-4 py-2 border rounded-md">取消</button>
+        <button type="button" (click)="confirmDelete()" [disabled]="processing()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 flex items-center gap-2">
+          @if (processing()) { <ion-icon name="reload-outline" class="animate-spin"></ion-icon> }
+          <span>確認刪除</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}

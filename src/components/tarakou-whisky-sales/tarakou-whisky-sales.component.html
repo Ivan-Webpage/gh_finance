@@ -1,0 +1,242 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">太魯閣威士忌銷售</h1>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <!-- 年份區間篩選 -->
+  <div class="bg-white p-4 rounded-xl shadow-md flex flex-wrap items-end gap-4">
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">起始年份</label>
+      <select [ngModel]="startYear()" (ngModelChange)="startYear.set($event)" class="w-28 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+        @for (y of yearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">結束年份</label>
+      <select [ngModel]="endYear()" (ngModelChange)="endYear.set($event)" class="w-28 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+        @for (y of yearOptions; track y) { <option [ngValue]="y">{{ y }}</option> }
+      </select>
+    </div>
+    <button type="button" (click)="loadData()" [disabled]="isLoading()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">套用篩選</button>
+    <p class="text-xs text-gray-400 w-full">依年份區間查看月銷售走勢，並管理對外庫存與股東購買資料。</p>
+  </div>
+
+  <!-- 統計卡片 -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-sm text-gray-500">總銷售額</h3>
+      <p class="text-2xl font-bold text-gray-900 mt-1">{{ formatCurrency(totalSalesAmount()) }}</p>
+      <p class="text-xs text-gray-400 mt-2">時間區間內指定品項營收加總，含股東購買「是否含稅=否」。</p>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-sm text-gray-500">總成本</h3>
+      <p class="text-2xl font-bold text-gray-900 mt-1">{{ formatCurrency(totalCost()) }}</p>
+      <p class="text-xs text-gray-400 mt-2">時間區間內對外庫存「銀河提貨」數量 × 1050 元。</p>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-sm text-gray-500">庫存數量</h3>
+      <p class="text-2xl font-bold text-gray-900 mt-1">{{ formatQuantity(currentStockQty()) }}</p>
+      <p class="text-xs text-gray-400 mt-2">廠商入倉－銀河提貨－廠商客戶提貨，不受上方年份篩選影響，為目前實際庫存量。</p>
+    </div>
+  </div>
+
+  <!-- 每月銷售額摺線圖 -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-800">每月銷售額摺線圖</h2>
+      <span class="text-sm text-gray-400">{{ startYear() }} - {{ endYear() }}</span>
+    </div>
+    <div class="relative h-72">
+      <canvas #monthlyChart></canvas>
+    </div>
+  </div>
+
+  <!-- 對外庫存表 -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-800">對外庫存表</h2>
+      <button type="button" (click)="openExternalModal()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 text-sm">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>新增</span>
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left whitespace-nowrap">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+          <tr>
+            <th class="px-4 py-3">日期</th>
+            <th class="px-4 py-3">作業</th>
+            <th class="px-4 py-3 text-right">數量</th>
+            <th class="px-4 py-3">備註</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of data()?.externalInventory; track item.id) {
+            <tr class="border-b hover:bg-gray-50">
+              <td class="px-4 py-2">{{ item.inventory_date }}</td>
+              <td class="px-4 py-2">{{ item.operation }}</td>
+              <td class="px-4 py-2 text-right" [class.text-red-600]="item.quantity < 0">{{ item.quantity }}</td>
+              <td class="px-4 py-2">{{ item.note || '-' }}</td>
+              <td class="px-4 py-2">
+                <div class="flex items-center gap-2">
+                  <button (click)="openExternalModal(item)" class="text-indigo-600 hover:text-indigo-800">編輯</button>
+                  <button (click)="deleteExternal(item)" class="text-red-500 hover:text-red-700">刪除</button>
+                </div>
+              </td>
+            </tr>
+          } @empty { <tr><td colspan="5" class="text-center py-8 text-gray-500">目前沒有資料</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 股東購買表 -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-800">股東購買表</h2>
+      <button type="button" (click)="openShareholderModal()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 text-sm">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>新增</span>
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left whitespace-nowrap">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+          <tr>
+            <th class="px-4 py-3">日期</th>
+            <th class="px-4 py-3">購買人</th>
+            <th class="px-4 py-3 text-right">數量</th>
+            <th class="px-4 py-3 text-right">單價</th>
+            <th class="px-4 py-3 text-right">金額</th>
+            <th class="px-4 py-3">含稅</th>
+            <th class="px-4 py-3">已結算</th>
+            <th class="px-4 py-3">已交付</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of data()?.shareholderPurchases; track item.id) {
+            <tr class="border-b hover:bg-gray-50">
+              <td class="px-4 py-2">{{ item.purchase_date }}</td>
+              <td class="px-4 py-2">{{ item.purchaser }}</td>
+              <td class="px-4 py-2 text-right">{{ item.quantity }}</td>
+              <td class="px-4 py-2 text-right">{{ formatCurrency(item.unit_price) }}</td>
+              <td class="px-4 py-2 text-right">{{ formatCurrency(purchaseAmount(item)) }}</td>
+              <td class="px-4 py-2">{{ item.is_tax_included ? '是' : '否' }}</td>
+              <td class="px-4 py-2">{{ item.is_settled ? '是' : '否' }}</td>
+              <td class="px-4 py-2">{{ item.is_delivered ? '是' : '否' }}</td>
+              <td class="px-4 py-2">
+                <div class="flex items-center gap-2">
+                  <button (click)="openShareholderModal(item)" class="text-indigo-600 hover:text-indigo-800">編輯</button>
+                  <button (click)="deleteShareholder(item)" class="text-red-500 hover:text-red-700">刪除</button>
+                </div>
+              </td>
+            </tr>
+          } @empty { <tr><td colspan="9" class="text-center py-8 text-gray-500">目前沒有資料</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 對外庫存 Modal -->
+@if (isExternalModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ externalForm().id ? '編輯對外庫存' : '新增登打' }}</h3>
+        <button (click)="closeExternalModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="submitExternal()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">日期*</span>
+            <input type="date" [ngModel]="externalForm().inventory_date" (ngModelChange)="updateExternalFormField('inventory_date', $event)" name="inventory_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <label class="block"><span class="text-gray-700">作業*</span>
+            <select [ngModel]="externalForm().operation" (ngModelChange)="updateExternalFormField('operation', $event)" name="operation" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              @for (op of externalOperations; track op) {
+                <option [value]="op">{{ op }}</option>
+              }
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-gray-700">數量*</span>
+            <input type="number" [ngModel]="externalForm().quantity" (ngModelChange)="updateExternalFormField('quantity', $event)" name="quantity" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            <span class="text-xs text-gray-400">可輸入負數（例如廠商回收瑕疵品退貨），輸入負數時「備註」為必填</span>
+          </label>
+          <label class="block"><span class="text-gray-700">備註</span>
+            <textarea [ngModel]="externalForm().note" (ngModelChange)="updateExternalFormField('note', $event)" name="note" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></textarea>
+          </label>
+
+          @if (externalError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ externalError() }}</div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeExternalModal()" [disabled]="externalSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="externalSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ externalSaving() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- 股東購買 Modal -->
+@if (isShareholderModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ shareholderForm().id ? '編輯股東購買' : '新增登打' }}</h3>
+        <button (click)="closeShareholderModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="submitShareholder()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">日期*</span>
+            <input type="date" [ngModel]="shareholderForm().purchase_date" (ngModelChange)="updateShareholderFormField('purchase_date', $event)" name="purchase_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <label class="block"><span class="text-gray-700">購買人*</span>
+            <input [ngModel]="shareholderForm().purchaser" (ngModelChange)="updateShareholderFormField('purchaser', $event)" name="purchaser" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">數量*</span>
+              <input type="number" [ngModel]="shareholderForm().quantity" (ngModelChange)="updateShareholderFormField('quantity', $event)" name="quantity" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+            <label class="block"><span class="text-gray-700">單價*</span>
+              <input type="number" [ngModel]="shareholderForm().unit_price" (ngModelChange)="updateShareholderFormField('unit_price', $event)" name="unit_price" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+          </div>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [ngModel]="shareholderForm().is_tax_included" (ngModelChange)="updateShareholderFormField('is_tax_included', $event)" name="is_tax_included">
+            <span class="text-gray-700">是否含稅</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [ngModel]="shareholderForm().is_settled" (ngModelChange)="updateShareholderFormField('is_settled', $event)" name="is_settled">
+            <span class="text-gray-700">是否已結算</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [ngModel]="shareholderForm().is_delivered" (ngModelChange)="updateShareholderFormField('is_delivered', $event)" name="is_delivered">
+            <span class="text-gray-700">是否已交付</span>
+          </label>
+
+          @if (shareholderError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ shareholderError() }}</div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeShareholderModal()" [disabled]="shareholderSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="shareholderSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ shareholderSaving() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

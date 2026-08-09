@@ -1,0 +1,472 @@
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-3xl font-bold text-gray-900">排班表</h1>
+    <button
+      type="button"
+      (click)="openAiImportModal()"
+      class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+    >
+      AI匯入班表
+    </button>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ errorMessage() }}</div>
+  }
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white p-5 rounded-xl shadow-md">
+      <p class="text-sm text-gray-500">當月總時數</p>
+      <p class="text-2xl font-semibold text-gray-900 mt-2">{{ totalScheduledHours().toFixed(1) }} 小時</p>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-md">
+      <p class="text-sm text-gray-500">當月預估薪資</p>
+      <p class="text-2xl font-semibold text-gray-900 mt-2">{{ estimatedWage() | currency:'TWD':'symbol':'1.0-0' }}</p>
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+    <h2 class="text-lg font-semibold text-gray-800">日曆</h2>
+    <div class="flex flex-wrap gap-4 text-sm">
+      <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().events" (ngModelChange)="setCalendarFilter('events', $event)"> 活動</label>
+      <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().reminders" (ngModelChange)="setCalendarFilter('reminders', $event)"> 提醒</label>
+      <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().specialDates" (ngModelChange)="setCalendarFilter('specialDates', $event)"> 特殊工作日</label>
+      <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().schedules" (ngModelChange)="setCalendarFilter('schedules', $event)"> 排班</label>
+      <label class="inline-flex items-center gap-2"><input type="checkbox" [ngModel]="calendarFilters().unavailable" (ngModelChange)="setCalendarFilter('unavailable', $event)"> 不可上班</label>
+    </div>
+    <app-calendar-view [events]="filteredCalendarEvents()" [enableNavigation]="false" (monthChange)="onCalendarMonthChange($event)"></app-calendar-view>
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+      <h2 class="text-lg font-semibold text-gray-800">新增班表</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">職稱</label>
+          <select [ngModel]="scheduleSelectedTitle()" (ngModelChange)="onScheduleTitleChange($event)" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+            @for (title of titleOptions; track title) {
+              <option [value]="title">{{ title }}</option>
+            }
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">員工</label>
+          <select [(ngModel)]="selectedEmployeeId" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+            @for (employee of filteredScheduleEmployees(); track employee.id) {
+              <option [value]="employee.id">{{ employee.name }}</option>
+            }
+            @if (filteredScheduleEmployees().length === 0) {
+              <option value="">（無符合員工）</option>
+            }
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">人員類型</label>
+          <select [(ngModel)]="scheduleEmployeeType" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+            <option value="full-time">正職</option>
+            <option value="part-time">計時</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">日期</label>
+          <input type="date" [(ngModel)]="scheduleDate" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">上班時間</label>
+          <input type="time" [(ngModel)]="scheduleStartTime" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">下班時間</label>
+          <input type="time" [(ngModel)]="scheduleEndTime" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">預估時薪</label>
+        <input type="number" [(ngModel)]="scheduleEstimatedRate" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">備註</label>
+        <input type="text" [(ngModel)]="scheduleNotes" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+      </div>
+      @if (scheduleSubmitMessage()) {
+        <div [class]="scheduleSubmitMessage()!.type === 'success' ? 'rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700' : 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700'">{{ scheduleSubmitMessage()!.text }}</div>
+      }
+      <button (click)="addSchedule()" [disabled]="isAddingSchedule()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300">新增班表</button>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+      <h2 class="text-lg font-semibold text-gray-800">設定不可上班時段</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">職稱</label>
+          <select [ngModel]="unavailableSelectedTitle()" (ngModelChange)="onUnavailableTitleChange($event)" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+            @for (title of titleOptions; track title) {
+              <option [value]="title">{{ title }}</option>
+            }
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">員工</label>
+          <select [(ngModel)]="unavailableEmployeeId" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+            @for (employee of filteredUnavailableEmployees(); track employee.id) {
+              <option [value]="employee.id">{{ employee.name }}</option>
+            }
+            @if (filteredUnavailableEmployees().length === 0) {
+              <option value="">（無符合員工）</option>
+            }
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">日期</label>
+          <input type="date" [(ngModel)]="unavailableDate" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+        </div>
+        <div class="flex items-end pb-2">
+          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" [(ngModel)]="unavailableAllDay">
+            全天不可上班
+          </label>
+        </div>
+      </div>
+      @if (!unavailableAllDay) {
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">開始時間</label>
+            <input type="time" [(ngModel)]="unavailableStartTime" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">結束時間</label>
+            <input type="time" [(ngModel)]="unavailableEndTime" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50">
+          </div>
+        </div>
+      }
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">原因</label>
+        <input type="text" [(ngModel)]="unavailableReason" class="w-full border-gray-300 rounded-lg p-2 bg-gray-50" placeholder="例如：醫院回診">
+      </div>
+      @if (unavailableSubmitMessage()) {
+        <div [class]="unavailableSubmitMessage()!.type === 'success' ? 'rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700' : 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700'">{{ unavailableSubmitMessage()!.text }}</div>
+      }
+      <button (click)="addUnavailability()" [disabled]="isAddingUnavailability()" class="bg-rose-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300">新增不可上班時段</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-lg font-semibold text-gray-800 mb-3">班表清單</h3>
+      <div class="space-y-2 max-h-[280px] overflow-auto">
+        @for (item of schedules(); track item.id) {
+           @if (editingScheduleId() === strId(item.id)) {
+            <div class="border border-indigo-300 rounded-lg p-3 space-y-2 bg-indigo-50">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">日期</label>
+                  <input type="date" [(ngModel)]="scheduleEditBuffer['date']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">人員類型</label>
+                  <select [(ngModel)]="scheduleEditBuffer['employee_type']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                    <option value="full-time">正職</option>
+                    <option value="part-time">計時</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">上班時間</label>
+                  <input type="time" [(ngModel)]="scheduleEditBuffer['start_time']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">下班時間</label>
+                  <input type="time" [(ngModel)]="scheduleEditBuffer['end_time']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">預估時薪</label>
+                  <input type="number" [(ngModel)]="scheduleEditBuffer['estimated_hourly_rate']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">備註</label>
+                  <input type="text" [(ngModel)]="scheduleEditBuffer['notes']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                </div>
+              </div>
+              <div class="flex gap-2 justify-end pt-1">
+                <button (click)="cancelEditSchedule()" class="text-sm px-3 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-100">取消</button>
+                <button (click)="saveEditSchedule()" class="text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">儲存</button>
+              </div>
+            </div>
+          } @else {
+            <div class="border border-gray-200 rounded-lg p-3 flex justify-between gap-3">
+              <div class="text-sm">
+                <div class="font-medium text-gray-900">{{ item.employee_name }} | {{ item.date }}</div>
+                <div class="text-gray-600">{{ item.start_time }} ~ {{ item.end_time }} / {{ item.employee_type === 'full-time' ? '正職' : '計時' }}</div>
+              </div>
+              <div class="flex flex-col gap-1 items-end">
+                <button (click)="startEditSchedule(item)" class="text-indigo-600 hover:text-indigo-800 text-sm">編輯</button>
+                <button (click)="removeSchedule(item)" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+              </div>
+            </div>
+          }
+        } @empty {
+          <div class="text-sm text-gray-500">尚無排班資料</div>
+        }
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-lg font-semibold text-gray-800 mb-3">不可上班清單</h3>
+      <div class="space-y-2 max-h-[280px] overflow-auto">
+        @for (item of unavailability(); track item.id) {
+           @if (editingUnavailableId() === strId(item.id)) {
+            <div class="border border-rose-300 rounded-lg p-3 space-y-2 bg-rose-50">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">日期</label>
+                  <input type="date" [(ngModel)]="unavailableEditBuffer['date']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                </div>
+                <div class="flex items-end pb-1">
+                  <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" [(ngModel)]="unavailableEditBuffer['is_all_day']">
+                    全天不可上班
+                  </label>
+                </div>
+                @if (!unavailableEditBuffer['is_all_day']) {
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">開始時間</label>
+                    <input type="time" [(ngModel)]="unavailableEditBuffer['start_time']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">結束時間</label>
+                    <input type="time" [(ngModel)]="unavailableEditBuffer['end_time']" class="w-full border-gray-300 rounded p-1 text-sm bg-white">
+                  </div>
+                }
+                <div class="col-span-2">
+                  <label class="block text-xs text-gray-500 mb-1">原因</label>
+                  <input type="text" [(ngModel)]="unavailableEditBuffer['reason']" class="w-full border-gray-300 rounded p-1 text-sm bg-white" placeholder="例如：醫院回診">
+                </div>
+              </div>
+              <div class="flex gap-2 justify-end pt-1">
+                <button (click)="cancelEditUnavailable()" class="text-sm px-3 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-100">取消</button>
+                <button (click)="saveEditUnavailable()" class="text-sm px-3 py-1 bg-rose-600 text-white rounded hover:bg-rose-700">儲存</button>
+              </div>
+            </div>
+          } @else {
+            <div class="border border-gray-200 rounded-lg p-3 flex justify-between gap-3">
+              <div class="text-sm">
+                <div class="font-medium text-gray-900">{{ item.employee_name }} | {{ item.date }}</div>
+                <div class="text-gray-600">
+                  @if (item.is_all_day) { 全天 } @else { {{ item.start_time }} ~ {{ item.end_time }} }
+                  @if (item.reason) { / {{ item.reason }} }
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 items-end">
+                <button (click)="startEditUnavailable(item)" class="text-rose-600 hover:text-rose-800 text-sm">編輯</button>
+                <button (click)="removeUnavailability(item)" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+              </div>
+            </div>
+          }
+        } @empty {
+          <div class="text-sm text-gray-500">尚無不可上班設定</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (aiImportModalOpen()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" (click)="closeAiImportModal()">
+      <div class="max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-2xl bg-white shadow-2xl" (click)="$event.stopPropagation()">
+        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">AI匯入班表</h2>
+            @if (aiImportDetectedMonth()) {
+              <p class="mt-1 text-sm text-gray-500">辨識月份：{{ aiImportDetectedMonth() }}</p>
+            }
+          </div>
+          <button type="button" (click)="closeAiImportModal()" class="text-2xl leading-none text-gray-400 hover:text-gray-700">×</button>
+        </div>
+
+        <div class="max-h-[calc(90vh-80px)] overflow-y-auto px-6 py-5">
+          @if (aiImportError()) {
+            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ aiImportError() }}</div>
+          }
+
+          @if (aiImportWarnings().length > 0) {
+            <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div class="font-medium">AI 提醒</div>
+              <ul class="mt-2 list-disc pl-5">
+                @for (warning of aiImportWarnings(); track warning) {
+                  <li>{{ warning }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          @if (aiImportState() === 'upload' || aiImportState() === 'analyzing') {
+            <div class="space-y-4">
+              <label class="flex min-h-[260px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-sky-300 bg-sky-50/60 px-6 py-10 text-center hover:bg-sky-50">
+                <input type="file" accept="image/*" class="hidden" (change)="onAiImportFileSelected($event)">
+                <div class="text-lg font-semibold text-gray-800">上傳手寫班表圖片</div>
+                <div class="mt-2 text-sm text-gray-500">支援 JPG、PNG、WEBP 等圖片格式</div>
+                @if (aiImportFile()) {
+                  <div class="mt-4 rounded-full bg-white px-4 py-2 text-sm text-sky-700 shadow-sm">
+                    已選擇：{{ aiImportFile()?.name }}
+                  </div>
+                } @else {
+                  <div class="mt-4 rounded-full bg-white px-4 py-2 text-sm text-gray-600 shadow-sm">點擊這裡選擇圖片</div>
+                }
+              </label>
+
+              @if (aiImportState() === 'analyzing') {
+                <div class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">AI 正在分析班表圖片，請稍候...</div>
+              }
+
+              <div class="flex justify-end gap-3">
+                <button type="button" (click)="closeAiImportModal()" class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">取消</button>
+                <button
+                  type="button"
+                  (click)="analyzeAiImport()"
+                  [disabled]="!aiImportFile() || aiImportState() === 'analyzing'"
+                  class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300"
+                >
+                  開始AI分析
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (aiImportState() === 'review' || aiImportState() === 'importing') {
+            <div class="space-y-6">
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="rounded-xl bg-sky-50 px-4 py-3">
+                  <div class="text-sm text-sky-700">辨識班表</div>
+                  <div class="mt-1 text-2xl font-semibold text-sky-900">{{ aiScheduleDrafts().length }}</div>
+                </div>
+                <div class="rounded-xl bg-rose-50 px-4 py-3">
+                  <div class="text-sm text-rose-700">辨識不可上班</div>
+                  <div class="mt-1 text-2xl font-semibold text-rose-900">{{ aiUnavailableDrafts().length }}</div>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <h3 class="text-lg font-semibold text-gray-900">班表辨識結果</h3>
+                <div class="overflow-x-auto rounded-xl border border-gray-200">
+                  <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">員工</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">日期</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">類型</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">上班</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">下班</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">預估時薪</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">備註</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 bg-white">
+                      @for (row of aiScheduleDrafts(); track $index) {
+                        <tr [class.bg-amber-50]="!row.matched">
+                          <td class="px-3 py-2 align-top">
+                            <select [ngModel]="row.employee_id" (ngModelChange)="onAiScheduleEmployeeChange(row, $event)" class="w-44 rounded border border-gray-300 px-2 py-1">
+                              <option [ngValue]="null">請選擇員工</option>
+                              @for (employee of employees(); track employee.id) {
+                                <option [ngValue]="employee.id">{{ employee.name }}@if (employee.scheduleName) { / {{ employee.scheduleName }} }</option>
+                              }
+                            </select>
+                            @if (row.raw_alias) {
+                              <div class="mt-1 text-xs text-gray-500">原始辨識：{{ row.raw_alias }}</div>
+                            }
+                          </td>
+                          <td class="px-3 py-2 align-top"><input type="date" [(ngModel)]="row.date" class="rounded border border-gray-300 px-2 py-1"></td>
+                          <td class="px-3 py-2 align-top">
+                            <select [(ngModel)]="row.employee_type" class="rounded border border-gray-300 px-2 py-1">
+                              <option value="full-time">正職</option>
+                              <option value="part-time">計時</option>
+                            </select>
+                          </td>
+                          <td class="px-3 py-2 align-top"><input type="time" [(ngModel)]="row.start_time" class="rounded border border-gray-300 px-2 py-1"></td>
+                          <td class="px-3 py-2 align-top"><input type="time" [(ngModel)]="row.end_time" class="rounded border border-gray-300 px-2 py-1"></td>
+                          <td class="px-3 py-2 align-top"><input type="number" [(ngModel)]="row.estimated_hourly_rate" class="w-20 rounded border border-gray-300 px-2 py-1" min="0" placeholder="時薪"></td>
+                          <td class="px-3 py-2 align-top"><input type="text" [(ngModel)]="row.notes" class="w-44 rounded border border-gray-300 px-2 py-1" placeholder="備註"></td>
+                          <td class="px-3 py-2 align-top"><button type="button" (click)="removeAiScheduleRow($index)" class="text-red-600 hover:text-red-800">移除</button></td>
+                        </tr>
+                      } @empty {
+                        <tr><td colspan="8" class="px-3 py-6 text-center text-gray-500">沒有辨識到班表資料</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <h3 class="text-lg font-semibold text-gray-900">不可上班辨識結果</h3>
+                <div class="overflow-x-auto rounded-xl border border-gray-200">
+                  <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">員工</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">日期</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">全天</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">開始</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">結束</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">原因</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-600">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 bg-white">
+                      @for (row of aiUnavailableDrafts(); track $index) {
+                        <tr [class.bg-amber-50]="!row.matched">
+                          <td class="px-3 py-2 align-top">
+                            <select [ngModel]="row.employee_id" (ngModelChange)="onAiUnavailableEmployeeChange(row, $event)" class="w-44 rounded border border-gray-300 px-2 py-1">
+                              <option [ngValue]="null">請選擇員工</option>
+                              @for (employee of employees(); track employee.id) {
+                                <option [ngValue]="employee.id">{{ employee.name }}@if (employee.scheduleName) { / {{ employee.scheduleName }} }</option>
+                              }
+                            </select>
+                            @if (row.raw_alias) {
+                              <div class="mt-1 text-xs text-gray-500">原始辨識：{{ row.raw_alias }}</div>
+                            }
+                          </td>
+                          <td class="px-3 py-2 align-top"><input type="date" [(ngModel)]="row.date" class="rounded border border-gray-300 px-2 py-1"></td>
+                          <td class="px-3 py-2 align-top"><input type="checkbox" [(ngModel)]="row.is_all_day"></td>
+                          <td class="px-3 py-2 align-top"><input type="time" [(ngModel)]="row.start_time" [disabled]="row.is_all_day" class="rounded border border-gray-300 px-2 py-1 disabled:bg-gray-100"></td>
+                          <td class="px-3 py-2 align-top"><input type="time" [(ngModel)]="row.end_time" [disabled]="row.is_all_day" class="rounded border border-gray-300 px-2 py-1 disabled:bg-gray-100"></td>
+                          <td class="px-3 py-2 align-top"><input type="text" [(ngModel)]="row.reason" class="w-44 rounded border border-gray-300 px-2 py-1" placeholder="原因"></td>
+                          <td class="px-3 py-2 align-top"><button type="button" (click)="removeAiUnavailableRow($index)" class="text-red-600 hover:text-red-800">移除</button></td>
+                        </tr>
+                      } @empty {
+                        <tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">沒有辨識到不可上班資料</td></tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              @if (aiImportState() === 'importing') {
+                <div class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">正在匯入資料，請稍候...</div>
+              }
+
+              <div class="space-y-2">
+                <h3 class="text-lg font-semibold text-gray-900">AI原始辨識結果</h3>
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  @if (aiRawAnalysis()) {
+                    <pre class="max-h-72 overflow-auto whitespace-pre-wrap break-all text-xs text-gray-700">{{ aiRawAnalysis() | json }}</pre>
+                  } @else {
+                    <div class="text-sm text-gray-500">尚無 AI 原始辨識資料</div>
+                  }
+                </div>
+              </div>
+
+              <div class="flex justify-end gap-3">
+                <button type="button" (click)="closeAiImportModal()" [disabled]="aiImportState() === 'importing'" class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60">取消</button>
+                <button type="button" (click)="confirmAiImport()" [disabled]="!hasAiDrafts() || aiImportState() === 'importing'" class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300">確定匯入</button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

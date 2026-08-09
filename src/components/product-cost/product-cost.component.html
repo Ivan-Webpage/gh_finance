@@ -1,0 +1,568 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">商品成本管理</h1>
+    @if (activeView() === 'wines' || activeView() === 'cigars') {
+      <button (click)="openModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>新增項目</span>
+      </button>
+    } @else if (activeView() === 'ingredients') {
+      <button (click)="openIngredientModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>新增食材</span>
+      </button>
+    } @else if (activeView() === 'recipes') {
+      <button (click)="openRecipeModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>新增食譜</span>
+      </button>
+    }
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- Tabs -->
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+        <button (click)="changeView('wines')" [class]="activeView() === 'wines' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">威&紅白酒</button>
+        <button (click)="changeView('cigars')" [class]="activeView() === 'cigars' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">雪茄</button>
+        <button (click)="changeView('ingredients')" [class]="activeView() === 'ingredients' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">餐飲食材</button>
+        <button (click)="changeView('recipes')" [class]="activeView() === 'recipes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">餐點食譜</button>
+        <button (click)="changeView('itemCostLinks')" [class]="activeView() === 'itemCostLinks' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          iChef 品項對應
+          @if (unmappedItemCostLinkCount() > 0) {
+            <span class="ml-1 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">{{ unmappedItemCostLinkCount() }}</span>
+          }
+        </button>
+      </nav>
+    </div>
+
+    <div class="pt-6">
+    @switch (activeView()) {
+      @case ('wines') {
+        <!-- Filters for Wines -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div class="md:col-span-2"><input type="text" [ngModel]="wineSearchTerm()" (ngModelChange)="wineSearchTerm.set($event); applyFilters('wines')" placeholder="搜尋商品、廠商、類型..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"></div>
+          <div><select [ngModel]="wineSelectedVendor()" (ngModelChange)="wineSelectedVendor.set($event); applyFilters('wines')" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"><option value="">所有廠商</option>@for(v of wineVendors(); track v){<option [value]="v">{{v}}</option>}</select></div>
+          <div><select [ngModel]="wineSelectedType()" (ngModelChange)="wineSelectedType.set($event); applyFilters('wines')" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"><option value="">所有類型</option>@for(t of wineTypes(); track t){<option [value]="t">{{t}}</option>}</select></div>
+          <div class="flex items-center gap-2 md:col-span-4 justify-end"><button (click)="resetFilters('wines')" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th (click)="sortData('vendor')" class="px-4 py-3 cursor-pointer">廠商</th><th (click)="sortData('productName')" class="px-4 py-3 cursor-pointer">商品</th><th (click)="sortData('type')" class="px-4 py-3 cursor-pointer">類型</th><th (click)="sortData('cost')" class="px-4 py-3 cursor-pointer text-right">進貨成本</th><th (click)="sortData('sellingPrice')" class="px-4 py-3 cursor-pointer text-right">售價</th><th class="px-4 py-3 text-right">毛利率</th><th class="px-4 py-3">操作</th></tr></thead>
+            <tbody>
+              @for(item of paginatedWines(); track item.id) {
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="px-4 py-2">{{ item.vendor }}</td>
+                  <td class="px-4 py-2 font-medium">{{ item.productName }}</td>
+                  <td class="px-4 py-2">{{ item.type }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.cost) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.sellingPrice) }}</td>
+                  <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ calculateMargin(item.cost, item.sellingPrice).toFixed(2) }}%</td>
+                  <td class="px-4 py-2"><div class="flex items-center gap-2"><button (click)="openModal(item)" class="text-indigo-600 hover:text-indigo-800 p-1" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button><button (click)="deleteItem(item.id)" class="text-red-500 hover:text-red-700 p-1" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button></div></td>
+                </tr>
+              } @empty { <tr><td colspan="7" class="text-center py-8 text-gray-500">無資料。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        @if (wineTotalPages() > 1) { <div class="flex justify-between items-center pt-4 border-t mt-4"><span class="text-sm text-gray-600">顯示第 {{ (wineCurrentPage() - 1) * winePageSize + 1 }} 至 {{ Math.min(wineCurrentPage() * winePageSize, filteredWines().length) }} 筆，共 {{ filteredWines().length }} 筆</span><div class="flex items-center gap-2"><button (click)="goToPage(wineCurrentPage() - 1, 'wines')" [disabled]="wineCurrentPage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-back-outline"></ion-icon></button><span class="text-sm">第 {{ wineCurrentPage() }} 頁 / 共 {{ wineTotalPages() }} 頁</span><button (click)="goToPage(wineCurrentPage() + 1, 'wines')" [disabled]="wineCurrentPage() === wineTotalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-forward-outline"></ion-icon></button></div></div> }
+      }
+      @case ('cigars') {
+        <!-- Filters for Cigars -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div class="md:col-span-2"><input type="text" [ngModel]="cigarSearchTerm()" (ngModelChange)="cigarSearchTerm.set($event); applyFilters('cigars')" placeholder="搜尋品牌或商品名稱..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"></div>
+          <div><select [ngModel]="cigarSelectedBrand()" (ngModelChange)="cigarSelectedBrand.set($event); applyFilters('cigars')" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white"><option value="">所有品牌</option>@for(b of cigarBrands(); track b){<option [value]="b">{{b}}</option>}</select></div>
+          <div class="flex items-center gap-2 md:col-span-3 justify-end"><button (click)="resetFilters('cigars')" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th (click)="sortData('brand')" class="px-4 py-3 cursor-pointer">品牌</th><th (click)="sortData('productName')" class="px-4 py-3 cursor-pointer">商品名稱</th><th (click)="sortData('size')" class="px-4 py-3 cursor-pointer">尺寸</th><th (click)="sortData('quantityPerBox')" class="px-4 py-3 cursor-pointer text-right">每盒數量</th><th (click)="sortData('lishengCost')" class="px-4 py-3 cursor-pointer text-right">理晟成本(支)</th><th (click)="sortData('baijiaCost')" class="px-4 py-3 cursor-pointer text-right">百泇成本(支)</th><th (click)="sortData('sellingPrice')" class="px-4 py-3 cursor-pointer text-right">賣價</th><th class="px-4 py-3 text-right">毛利率</th><th class="px-4 py-3">操作</th></tr></thead>
+            <tbody>
+              @for(item of paginatedCigars(); track item.id) {
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="px-4 py-2 font-medium">{{ item.brand }}</td>
+                  <td class="px-4 py-2">{{ item.productName }}</td>
+                  <td class="px-4 py-2">{{ item.size }}</td>
+                  <td class="px-4 py-2 text-right">{{ item.quantityPerBox }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.lishengCost) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.baijiaCost) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.sellingPrice) }}</td>
+                  <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ calculateMargin(item.baijiaCost, item.sellingPrice).toFixed(2) }}%</td>
+                  <td class="px-4 py-2"><div class="flex items-center gap-2"><button (click)="openModal(item)" class="text-indigo-600 hover:text-indigo-800 p-1" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button><button (click)="deleteItem(item.id)" class="text-red-500 hover:text-red-700 p-1" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button></div></td>
+                </tr>
+              } @empty { <tr><td colspan="9" class="text-center py-8 text-gray-500">無資料。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        @if (cigarTotalPages() > 1) { <div class="flex justify-between items-center pt-4 border-t mt-4"><span class="text-sm text-gray-600">顯示第 {{ (cigarCurrentPage() - 1) * cigarPageSize + 1 }} 至 {{ Math.min(cigarCurrentPage() * cigarPageSize, filteredCigars().length) }} 筆，共 {{ filteredCigars().length }} 筆</span><div class="flex items-center gap-2"><button (click)="goToPage(cigarCurrentPage() - 1, 'cigars')" [disabled]="cigarCurrentPage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-back-outline"></ion-icon></button><span class="text-sm">第 {{ cigarCurrentPage() }} 頁 / 共 {{ cigarTotalPages() }} 頁</span><button (click)="goToPage(cigarCurrentPage() + 1, 'cigars')" [disabled]="cigarCurrentPage() === cigarTotalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-forward-outline"></ion-icon></button></div></div> }
+      }
+      @case ('ingredients') {
+        @if (ingredientError()) {
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 mb-4">
+            <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+            <span class="text-red-700">{{ ingredientError() }}</span>
+          </div>
+        }
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div class="md:col-span-2">
+            <input type="text" [ngModel]="ingredientSearchTerm()" (ngModelChange)="ingredientSearchTerm.set($event); ingredientPage.set(1)" placeholder="搜尋食材名稱或廠商..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+          </div>
+          <div class="flex items-center gap-2">
+            <select [ngModel]="ingredientVendorFilter()" (ngModelChange)="ingredientVendorFilter.set($event); ingredientPage.set(1)" class="flex-1 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+              <option value="">所有廠商</option>
+              @for (v of ingredientVendors(); track v) { <option [value]="v">{{ v }}</option> }
+            </select>
+            <button (click)="resetIngredientFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+              <tr>
+                <th class="px-4 py-3">食材名稱</th>
+                <th class="px-4 py-3">廠商</th>
+                <th class="px-4 py-3 text-right">購買數量</th>
+                <th class="px-4 py-3">購買單位</th>
+                <th class="px-4 py-3 text-right">價格</th>
+                <th class="px-4 py-3 text-right">單位成本</th>
+                <th class="px-4 py-3">點貨單位</th>
+                <th class="px-4 py-3">使用中</th>
+                <th class="px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pagedIngredients(); track item.id) {
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="px-4 py-2 font-medium">{{ item.ingredientName }}</td>
+                  <td class="px-4 py-2">{{ item.vendor }}</td>
+                  <td class="px-4 py-2 text-right">{{ item.purchaseQty }}</td>
+                  <td class="px-4 py-2">{{ item.purchaseUnit }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.price) }}</td>
+                  <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ item.unitCost }}</td>
+                  <td class="px-4 py-2">{{ item.countUnit }}</td>
+                  <td class="px-4 py-2">{{ item.isActive ? '是' : '否' }}</td>
+                  <td class="px-4 py-2">
+                    <div class="flex items-center gap-2">
+                      <button (click)="openIngredientModal(item)" class="text-indigo-600 hover:text-indigo-800 p-1" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button>
+                      <button (click)="deleteIngredientItem(item)" class="text-red-500 hover:text-red-700 p-1" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button>
+                    </div>
+                  </td>
+                </tr>
+              } @empty { <tr><td colspan="9" class="text-center py-8 text-gray-500">尚未新增任何食材。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        @if (filteredIngredients().length > 0) {
+          <div class="flex justify-between items-center pt-4 border-t mt-4">
+            <span class="text-sm text-gray-600">顯示第 {{ (ingredientPage() - 1) * ingredientPageSize + 1 }} 至 {{ Math.min(ingredientPage() * ingredientPageSize, filteredIngredients().length) }} 筆，共 {{ filteredIngredients().length }} 筆</span>
+            <div class="flex items-center gap-2">
+              <button (click)="goToIngredientPage(ingredientPage() - 1)" [disabled]="ingredientPage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-back-outline"></ion-icon></button>
+              <span class="text-sm">第 {{ ingredientPage() }} 頁 / 共 {{ ingredientTotalPages() }} 頁</span>
+              <button (click)="goToIngredientPage(ingredientPage() + 1)" [disabled]="ingredientPage() === ingredientTotalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-forward-outline"></ion-icon></button>
+            </div>
+          </div>
+        }
+      }
+      @case ('recipes') {
+        @if (recipeError()) {
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 mb-4">
+            <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+            <span class="text-red-700">{{ recipeError() }}</span>
+          </div>
+        }
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div class="md:col-span-2">
+            <input type="text" [ngModel]="recipeSearchTerm()" (ngModelChange)="recipeSearchTerm.set($event); recipePage.set(1)" placeholder="搜尋餐點名稱或分類..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+          </div>
+          <div class="flex items-center gap-2">
+            <select [ngModel]="recipeTypeFilter()" (ngModelChange)="recipeTypeFilter.set($event); recipePage.set(1)" class="flex-1 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+              <option value="">全部類型</option>
+              <option value="dish">對外銷售</option>
+              <option value="sub_recipe">半成品</option>
+            </select>
+            <button (click)="resetRecipeFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+              <tr>
+                <th class="px-4 py-3">品名</th>
+                <th class="px-4 py-3">類型</th>
+                <th class="px-4 py-3">選單分類</th>
+                <th class="px-4 py-3">三分類</th>
+                <th class="px-4 py-3">份量</th>
+                <th class="px-4 py-3 text-right">單位成本</th>
+                <th class="px-4 py-3 text-right">售價</th>
+                <th class="px-4 py-3 text-right">毛利率</th>
+                <th class="px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pagedRecipes(); track item.id) {
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="px-4 py-2 font-medium">{{ item.name }}</td>
+                  <td class="px-4 py-2">{{ item.recipeType === 'sub_recipe' ? '半成品' : '對外銷售' }}</td>
+                  <td class="px-4 py-2">{{ item.menuCategory }}</td>
+                  <td class="px-4 py-2">{{ item.topLevelCategory }}</td>
+                  <td class="px-4 py-2">{{ item.yieldQuantity }}{{ item.yieldUnit }}</td>
+                  <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ item.unitCost !== null ? formatCurrency(item.unitCost) : '-' }}</td>
+                  <td class="px-4 py-2 text-right">{{ item.sellingPrice !== null ? formatCurrency(item.sellingPrice) : '-' }}</td>
+                  <td class="px-4 py-2 text-right">{{ item.marginRate !== null ? (item.marginRate * 100).toFixed(2) + '%' : '-' }}</td>
+                  <td class="px-4 py-2">
+                    <div class="flex items-center gap-2">
+                      <button (click)="openRecipeModal(item)" class="text-indigo-600 hover:text-indigo-800 p-1" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button>
+                      <button (click)="deleteRecipeItem(item)" class="text-red-500 hover:text-red-700 p-1" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button>
+                    </div>
+                  </td>
+                </tr>
+              } @empty { <tr><td colspan="9" class="text-center py-8 text-gray-500">尚未新增任何食譜。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        @if (filteredRecipes().length > 0) {
+          <div class="flex justify-between items-center pt-4 border-t mt-4">
+            <span class="text-sm text-gray-600">顯示第 {{ (recipePage() - 1) * recipePageSize + 1 }} 至 {{ Math.min(recipePage() * recipePageSize, filteredRecipes().length) }} 筆，共 {{ filteredRecipes().length }} 筆</span>
+            <div class="flex items-center gap-2">
+              <button (click)="goToRecipePage(recipePage() - 1)" [disabled]="recipePage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-back-outline"></ion-icon></button>
+              <span class="text-sm">第 {{ recipePage() }} 頁 / 共 {{ recipeTotalPages() }} 頁</span>
+              <button (click)="goToRecipePage(recipePage() + 1)" [disabled]="recipePage() === recipeTotalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-forward-outline"></ion-icon></button>
+            </div>
+          </div>
+        }
+      }
+      @case ('itemCostLinks') {
+        @if (itemCostLinkError()) {
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 mb-4">
+            <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+            <span class="text-red-700">{{ itemCostLinkError() }}</span>
+          </div>
+        }
+        <p class="text-xs text-gray-400 mb-3">列出所有曾在 iChef 賣過的品項，依累計銷售額排序——優先處理銷售額高的品項，能最快讓月營收表的「實際成本」數字準確起來。分類（存貨-酒水/存貨-餐飲/雪茄）只是繼承自 POS 分類，僅供參考，實際歸類請依你設定的對應為準。</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+          <div class="md:col-span-2">
+            <input type="text" [ngModel]="itemCostLinkSearchTerm()" (ngModelChange)="itemCostLinkSearchTerm.set($event); itemCostLinkPage.set(1)" placeholder="搜尋品項名稱、分類或已對應的商品..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+          </div>
+          <div class="flex items-center gap-2">
+            <select [ngModel]="itemCostLinkStatusFilter()" (ngModelChange)="itemCostLinkStatusFilter.set($event); itemCostLinkPage.set(1)" class="flex-1 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+              <option value="">全部</option>
+              <option value="unmapped">待對應</option>
+              <option value="mapped">已對應</option>
+            </select>
+            <button (click)="resetItemCostLinkFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+              <tr>
+                <th class="px-4 py-3">ICHEF 品項</th>
+                <th class="px-4 py-3">POS 分類</th>
+                <th class="px-4 py-3 text-right">累計銷售額</th>
+                <th class="px-4 py-3 text-right">累計銷售數量</th>
+                <th class="px-4 py-3">對應狀態</th>
+                <th class="px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pagedItemCostLinks(); track item.itemUuid) {
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="px-4 py-2 font-medium">{{ item.itemName }}</td>
+                  <td class="px-4 py-2">{{ item.categoryName }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatCurrency(item.totalSalesAmount) }}</td>
+                  <td class="px-4 py-2 text-right">{{ item.totalSalesNumber }}</td>
+                  <td class="px-4 py-2">
+                    @if (item.mappedProductName) {
+                      <span class="text-green-700">已對應：{{ item.mappedProductName }}（{{ item.mappedCategory }}）</span>
+                    } @else {
+                      <span class="text-amber-600">待對應</span>
+                    }
+                  </td>
+                  <td class="px-4 py-2">
+                    <div class="flex items-center gap-2">
+                      <button (click)="openItemCostLinkModal(item)" class="text-indigo-600 hover:text-indigo-800 text-xs px-2 py-1 border border-indigo-200 rounded">{{ item.mappedProductName ? '編輯對應' : '設定對應' }}</button>
+                      @if (item.mappedProductName) {
+                        <button (click)="removeItemCostLink(item)" class="text-red-500 hover:text-red-700 text-xs px-2 py-1 border border-red-200 rounded">移除對應</button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              } @empty { <tr><td colspan="6" class="text-center py-8 text-gray-500">目前沒有資料</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        @if (filteredItemCostLinks().length > 0) {
+          <div class="flex justify-between items-center pt-4 border-t mt-4">
+            <span class="text-sm text-gray-600">顯示第 {{ (itemCostLinkPage() - 1) * itemCostLinkPageSize + 1 }} 至 {{ Math.min(itemCostLinkPage() * itemCostLinkPageSize, filteredItemCostLinks().length) }} 筆，共 {{ filteredItemCostLinks().length }} 筆</span>
+            <div class="flex items-center gap-2">
+              <button (click)="goToItemCostLinkPage(itemCostLinkPage() - 1)" [disabled]="itemCostLinkPage() === 1" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-back-outline"></ion-icon></button>
+              <span class="text-sm">第 {{ itemCostLinkPage() }} 頁 / 共 {{ itemCostLinkTotalPages() }} 頁</span>
+              <button (click)="goToItemCostLinkPage(itemCostLinkPage() + 1)" [disabled]="itemCostLinkPage() === itemCostLinkTotalPages()" class="px-3 py-1 border rounded-md disabled:opacity-50"><ion-icon name="chevron-forward-outline"></ion-icon></button>
+            </div>
+          </div>
+        }
+      }
+    }
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">
+          @switch(activeView()) {
+            @case('wines') { {{ editingWineCost() ? '編輯酒類成本' : '新增酒類成本' }} }
+            @case('cigars') { {{ editingCigarCost() ? '編輯雪茄成本' : '新增雪茄成本' }} }
+          }
+        </h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="handleFormSubmit()" novalidate class="space-y-4">
+          @switch(activeView()) {
+            @case('wines') {
+              <div [formGroup]="wineCostForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label class="block"><span class="text-gray-700">廠商*</span><input formControlName="vendor" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('vendor')?.touched && wineCostForm.get('vendor')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入廠商名稱</p> }
+                  <label class="block"><span class="text-gray-700">商品名稱*</span><input formControlName="productName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('productName')?.touched && wineCostForm.get('productName')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入商品名稱</p> }
+                  <label class="block"><span class="text-gray-700">類型*</span><input formControlName="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('type')?.touched && wineCostForm.get('type')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入酒類型別</p> }
+                  <label class="block"><span class="text-gray-700">進貨成本*</span><input type="number" formControlName="cost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('cost')?.touched && wineCostForm.get('cost')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">進貨成本需大於等於 0</p> }
+                  <label class="block md:col-span-2"><span class="text-gray-700">售價*</span><input type="number" formControlName="sellingPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (wineCostForm.get('sellingPrice')?.touched && wineCostForm.get('sellingPrice')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">售價需大於等於 0</p> }
+                </div>
+              </div>
+            }
+            @case('cigars') {
+               <div [formGroup]="cigarCostForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label class="block"><span class="text-gray-700">品牌*</span><input formControlName="brand" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('brand')?.touched && cigarCostForm.get('brand')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入品牌</p> }
+                  <label class="block"><span class="text-gray-700">商品名稱*</span><input formControlName="productName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('productName')?.touched && cigarCostForm.get('productName')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入商品名稱</p> }
+                  <label class="block"><span class="text-gray-700">尺寸*</span><input formControlName="size" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('size')?.touched && cigarCostForm.get('size')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入尺寸</p> }
+                  <label class="block"><span class="text-gray-700">每盒數量*</span><input type="number" formControlName="quantityPerBox" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('quantityPerBox')?.touched && cigarCostForm.get('quantityPerBox')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">每盒數量需大於等於 1</p> }
+                  <label class="block"><span class="text-gray-700">理晟成本(支)*</span><input type="number" formControlName="lishengCost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('lishengCost')?.touched && cigarCostForm.get('lishengCost')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">理晟成本需大於等於 0</p> }
+                  <label class="block"><span class="text-gray-700">百泇成本(支)*</span><input type="number" formControlName="baijiaCost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('baijiaCost')?.touched && cigarCostForm.get('baijiaCost')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">百泇成本需大於等於 0</p> }
+                  <label class="block md:col-span-2"><span class="text-gray-700">賣價*</span><input type="number" formControlName="sellingPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  @if (cigarCostForm.get('sellingPrice')?.touched && cigarCostForm.get('sellingPrice')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">賣價需大於等於 0</p> }
+                </div>
+              </div>
+            }
+          }
+          @if (submitError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ submitError() }}</div>
+          }
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" [disabled]="isSubmitting()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ isSubmitting() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Ingredient Modal -->
+@if (isIngredientModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ ingredientForm().id ? '編輯食材' : '新增食材' }}</h3>
+        <button (click)="closeIngredientModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="submitIngredient()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">食材名稱*</span>
+            <input [ngModel]="ingredientForm().ingredient_name" (ngModelChange)="updateIngredientFormField('ingredient_name', $event)" name="ingredient_name" placeholder="請輸入食材名稱" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <label class="block"><span class="text-gray-700">廠商</span>
+            <input [ngModel]="ingredientForm().vendor_name_snapshot" (ngModelChange)="updateIngredientFormField('vendor_name_snapshot', $event)" name="vendor_name_snapshot" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">進貨數量*</span>
+              <input type="number" [ngModel]="ingredientForm().purchase_qty" (ngModelChange)="updateIngredientFormField('purchase_qty', $event)" name="purchase_qty" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+            <label class="block"><span class="text-gray-700">進貨單位</span>
+              <input [ngModel]="ingredientForm().purchase_unit" (ngModelChange)="updateIngredientFormField('purchase_unit', $event)" name="purchase_unit" placeholder="例：瓶" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">價格*</span>
+              <input type="number" [ngModel]="ingredientForm().price" (ngModelChange)="updateIngredientFormField('price', $event)" name="price" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+            <label class="block"><span class="text-gray-700">成本單位</span>
+              <input [ngModel]="ingredientForm().cost_unit" (ngModelChange)="updateIngredientFormField('cost_unit', $event)" name="cost_unit" placeholder="例：ml、g" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+          </div>
+          <label class="block"><span class="text-gray-700">點貨單位</span>
+            <input [ngModel]="ingredientForm().count_unit" (ngModelChange)="updateIngredientFormField('count_unit', $event)" name="count_unit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [ngModel]="ingredientForm().is_active" (ngModelChange)="updateIngredientFormField('is_active', $event)" name="is_active">
+            <span class="text-gray-700">使用中</span>
+          </label>
+          <label class="block"><span class="text-gray-700">備註</span>
+            <textarea [ngModel]="ingredientForm().remark" (ngModelChange)="updateIngredientFormField('remark', $event)" name="remark" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></textarea>
+          </label>
+
+          @if (ingredientError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ ingredientError() }}</div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeIngredientModal()" [disabled]="ingredientSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="ingredientSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ ingredientSaving() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Recipe Modal -->
+@if (isRecipeModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ recipeForm().id ? '編輯食譜' : '新增食譜' }}</h3>
+        <button (click)="closeRecipeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="submitRecipe()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">品名*</span>
+            <input [ngModel]="recipeForm().name" (ngModelChange)="updateRecipeFormField('name', $event)" name="name" placeholder="請輸入品名" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">類型</span>
+              <select [ngModel]="recipeForm().recipe_type" (ngModelChange)="updateRecipeFormField('recipe_type', $event)" name="recipe_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+                <option value="dish">餐點</option>
+                <option value="sub_recipe">子配方（半成品）</option>
+              </select>
+            </label>
+            <label class="block"><span class="text-gray-700">大分類</span>
+              <select [ngModel]="recipeForm().top_level_category" (ngModelChange)="updateRecipeFormField('top_level_category', $event)" name="top_level_category" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+                <option value="">未分類</option>
+                <option value="酒水">酒水</option>
+                <option value="餐飲">餐飲</option>
+              </select>
+            </label>
+          </div>
+          <label class="block"><span class="text-gray-700">選單分類</span>
+            <input [ngModel]="recipeForm().menu_category" (ngModelChange)="updateRecipeFormField('menu_category', $event)" name="menu_category" placeholder="例：主餐、調酒" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">份量</span>
+              <input type="number" [ngModel]="recipeForm().yield_quantity" (ngModelChange)="updateRecipeFormField('yield_quantity', $event)" name="yield_quantity" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+            <label class="block"><span class="text-gray-700">份量單位</span>
+              <input [ngModel]="recipeForm().yield_unit" (ngModelChange)="updateRecipeFormField('yield_unit', $event)" name="yield_unit" placeholder="例：份、碗" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            </label>
+          </div>
+          <label class="block"><span class="text-gray-700">售價</span>
+            <input type="number" [ngModel]="recipeForm().selling_price" (ngModelChange)="updateRecipeFormField('selling_price', $event)" name="selling_price" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [ngModel]="recipeForm().is_active" (ngModelChange)="updateRecipeFormField('is_active', $event)" name="is_active">
+            <span class="text-gray-700">使用中</span>
+          </label>
+
+          <div class="border-t pt-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-gray-700 font-medium">食譜細項</span>
+              <button type="button" (click)="addRecipeItem()" class="text-indigo-600 text-xs px-2 py-1 border border-indigo-200 rounded flex items-center gap-1">
+                <ion-icon name="add-outline"></ion-icon>新增細項
+              </button>
+            </div>
+            <div class="space-y-2">
+              @for (item of recipeForm().items; track $index) {
+                <div class="grid grid-cols-12 gap-2 items-center">
+                  <select [ngModel]="item.component_type" (ngModelChange)="updateRecipeItemField($index, 'component_type', $event)" [name]="'item_type_' + $index" class="col-span-3 border-gray-300 rounded-md text-sm p-2 bg-gray-50">
+                    <option value="ingredient">食材</option>
+                    <option value="recipe">子配方</option>
+                  </select>
+                  <select [ngModel]="item.component_id" (ngModelChange)="updateRecipeItemField($index, 'component_id', $event)" [name]="'item_component_' + $index" class="col-span-4 border-gray-300 rounded-md text-sm p-2 bg-gray-50">
+                    <option [ngValue]="null">請選擇</option>
+                    @for (opt of componentOptionsForType(item.component_type); track opt.id) {
+                      <option [ngValue]="opt.id">{{ opt.name }}</option>
+                    }
+                  </select>
+                  <input type="number" [ngModel]="item.quantity" (ngModelChange)="updateRecipeItemField($index, 'quantity', $event)" [name]="'item_qty_' + $index" placeholder="用量" class="col-span-2 border-gray-300 rounded-md text-sm p-2 bg-gray-50">
+                  <input [ngModel]="item.unit" (ngModelChange)="updateRecipeItemField($index, 'unit', $event)" [name]="'item_unit_' + $index" placeholder="單位" class="col-span-2 border-gray-300 rounded-md text-sm p-2 bg-gray-50">
+                  <button type="button" (click)="removeRecipeItem($index)" class="col-span-1 text-red-500 hover:text-red-700 flex justify-center"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button>
+                </div>
+              } @empty {
+                <p class="text-sm text-gray-400">尚未新增任何細項，請點擊「新增細項」。</p>
+              }
+            </div>
+            <p class="text-xs text-gray-400 mt-2">請完成每一列食譜細項（食材/子配方、用量）再儲存。（半成品可不填）</p>
+          </div>
+
+          @if (recipeError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ recipeError() }}</div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeRecipeModal()" [disabled]="recipeSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="recipeSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ recipeSaving() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Item Cost Link Modal -->
+@if (isItemCostLinkModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">設定成本對應：{{ editingItemCostLinkName() }}</h3>
+        <button (click)="closeItemCostLinkModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="submitItemCostLink()" class="space-y-4">
+          <p class="text-sm text-gray-600">這個品項對應到哪一種成本主檔？</p>
+          <label class="block"><span class="text-gray-700">成本類型*</span>
+            <select [ngModel]="itemCostLinkForm().product_type" (ngModelChange)="updateItemCostLinkFormField('product_type', $event)" name="product_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <option value="">請選擇</option>
+              <option value="wine">酒水（wines）</option>
+              <option value="cigar">雪茄（cigars）</option>
+              <option value="recipe">食譜（recipes）</option>
+            </select>
+          </label>
+          <label class="block"><span class="text-gray-700">選擇對應的商品*</span>
+            <select [ngModel]="itemCostLinkForm().product_id" (ngModelChange)="updateItemCostLinkFormField('product_id', $event)" name="product_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <option [ngValue]="null">請選擇一個商品</option>
+              @for (opt of productOptionsForLinkType(itemCostLinkForm().product_type); track opt.id) {
+                <option [ngValue]="opt.id">{{ opt.name }}</option>
+              }
+            </select>
+          </label>
+          <label class="block"><span class="text-gray-700">單位換算比例</span>
+            <input type="number" [ngModel]="itemCostLinkForm().unit_divisor" (ngModelChange)="updateItemCostLinkFormField('unit_divisor', $event)" name="unit_divisor" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <p class="text-xs text-gray-400">品項相當於成本主檔的幾分之一單位。例：整瓶賣＝1；一瓶可倒5杯的單杯＝0.2。</p>
+
+          @if (itemCostLinkError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ itemCostLinkError() }}</div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeItemCostLinkModal()" [disabled]="itemCostLinkSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="itemCostLinkSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ itemCostLinkSaving() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

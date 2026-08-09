@@ -1,0 +1,212 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">{{ activeTab() === 'invoices' ? '外帳發票' : '財務規劃' }}</h1>
+  </div>
+
+  <div class="max-w-md">
+    <input type="text" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" placeholder="搜尋交易..." class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+  </div>
+
+  <!-- Tabs -->
+  <div class="border-b border-gray-200">
+    <nav aria-label="Tabs" class="-mb-px flex gap-6">
+      <button type="button" (click)="changeTab('invoices')"
+        class="py-3 px-1 border-b-2 font-medium text-sm transition-colors"
+        [class.border-indigo-600]="activeTab() === 'invoices'"
+        [class.text-indigo-600]="activeTab() === 'invoices'"
+        [class.border-transparent]="activeTab() !== 'invoices'"
+        [class.text-gray-500]="activeTab() !== 'invoices'">
+        外帳發票
+      </button>
+      <button type="button" (click)="changeTab('plan')"
+        class="py-3 px-1 border-b-2 font-medium text-sm transition-colors"
+        [class.border-indigo-600]="activeTab() === 'plan'"
+        [class.text-indigo-600]="activeTab() === 'plan'"
+        [class.border-transparent]="activeTab() !== 'plan'"
+        [class.text-gray-500]="activeTab() !== 'plan'">
+        財務規劃
+      </button>
+    </nav>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <!-- Filters -->
+  <div class="flex flex-wrap items-end gap-4">
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">年:</label>
+      <select [ngModel]="filterYear()" (ngModelChange)="filterYear.set($event); onFilterChange()" class="w-28 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+        @for (y of yearOptions; track y) {
+          <option [ngValue]="y">{{ y }}年</option>
+        }
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">月:</label>
+      <select [ngModel]="filterMonth()" (ngModelChange)="filterMonth.set($event); onFilterChange()" class="w-24 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white">
+        @for (m of monthOptions; track m) {
+          <option [ngValue]="m">{{ m }}月</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <!-- 外帳發票 -->
+  @if (activeTab() === 'invoices') {
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">進項發票 - 新增登打</h2>
+      <form [formGroup]="invoiceForm" (ngSubmit)="submitInvoice()" class="flex flex-wrap items-end gap-4 mb-6">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">發票名稱</label>
+          <input type="text" formControlName="invoice_name" placeholder="發票名稱" class="border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-gray-50">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">金額</label>
+          <input type="number" formControlName="amount" placeholder="0" class="w-32 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-gray-50">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">日期</label>
+          <input type="date" formControlName="invoice_date" class="border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-gray-50">
+        </div>
+        <button type="submit" [disabled]="invoiceSaving()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+          {{ invoiceSaving() ? '新增中...' : '新增' }}
+        </button>
+      </form>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left whitespace-nowrap">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+            <tr>
+              <th class="px-4 py-3">名稱</th>
+              <th class="px-4 py-3 text-right">金額</th>
+              <th class="px-4 py-3">日期</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (invoice of filteredInvoices(); track invoice.invoice_id) {
+              <tr class="border-b hover:bg-gray-50">
+                <td class="px-4 py-2 font-medium">{{ invoice.invoice_name }}</td>
+                <td class="px-4 py-2 text-right">{{ formatCurrency(invoice.amount) }}</td>
+                <td class="px-4 py-2">{{ invoice.invoice_date }}</td>
+                <td class="px-4 py-2 text-right">
+                  <button type="button" (click)="deleteInvoice(invoice)" class="text-red-500 hover:text-red-700">
+                    <ion-icon name="trash-outline" class="text-lg"></ion-icon>
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="text-center py-8 text-gray-500">該期間尚無外帳發票資料。</td></tr>
+            }
+          </tbody>
+          @if (filteredInvoices().length > 0) {
+            <tfoot>
+              <tr class="border-t-2 font-semibold">
+                <td class="px-4 py-2">總計</td>
+                <td class="px-4 py-2 text-right">{{ formatCurrency(invoiceTotal()) }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- 財務規劃任務 -->
+  @if (activeTab() === 'plan') {
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <p class="text-xs text-gray-400 mb-3">依「預計完成日期」篩選；尚未排定日期的任務不會顯示</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+            <tr>
+              <th class="px-3 py-3">月份/週次</th>
+              <th class="px-3 py-3">任務內容</th>
+              <th class="px-3 py-3">任務狀態</th>
+              <th class="px-3 py-3">任務負責人</th>
+              <th class="px-3 py-3">預計完成日期*</th>
+              <th class="px-3 py-3">實際完成日期</th>
+              <th class="px-3 py-3 text-right">預估收支金額</th>
+              <th class="px-3 py-3 text-right">實際收支金額</th>
+              <th class="px-3 py-3">備註</th>
+              <th class="px-3 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (task of filteredPlanTasks(); track task.task_id) {
+              <tr class="border-b hover:bg-gray-50 align-top">
+                <td class="px-2 py-1">
+                  <input type="text" placeholder="如：8月 第一週" [(ngModel)]="task.period_label" (blur)="savePlanTask(task)" class="w-24 border-gray-300 rounded text-sm p-1">
+                </td>
+                <td class="px-2 py-1">
+                  <input type="text" placeholder="任務內容" [(ngModel)]="task.task_content" (blur)="savePlanTask(task)" class="w-40 border-gray-300 rounded text-sm p-1">
+                </td>
+                <td class="px-2 py-1">
+                  <select [(ngModel)]="task.status" (ngModelChange)="savePlanTask(task)" class="w-24 border-gray-300 rounded text-sm p-1">
+                    @for (s of planTaskStatuses; track s) {
+                      <option [value]="s">{{ s }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="px-2 py-1">
+                  <select [ngModel]="task.owner_employee_id" (ngModelChange)="onOwnerChange(task, $event)" class="w-28 border-gray-300 rounded text-sm p-1">
+                    <option [ngValue]="null">-</option>
+                    @for (o of owners(); track o.id) {
+                      <option [ngValue]="o.id">{{ o.name }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="px-2 py-1">
+                  <input type="date" required [(ngModel)]="task.planned_complete_date" (blur)="savePlanTask(task)" class="w-36 rounded text-sm p-1" [class.border-red-400]="!task.planned_complete_date" [class.border-gray-300]="!!task.planned_complete_date">
+                </td>
+                <td class="px-2 py-1">
+                  <input type="date" [(ngModel)]="task.actual_complete_date" (blur)="savePlanTask(task)" class="w-36 border-gray-300 rounded text-sm p-1">
+                </td>
+                <td class="px-2 py-1">
+                  <input type="number" [(ngModel)]="task.estimated_amount" (blur)="savePlanTask(task)" class="w-24 border-gray-300 rounded text-sm p-1 text-right">
+                </td>
+                <td class="px-2 py-1">
+                  <input type="number" [(ngModel)]="task.actual_amount" (blur)="savePlanTask(task)" class="w-24 border-gray-300 rounded text-sm p-1 text-right">
+                </td>
+                <td class="px-2 py-1">
+                  <input type="text" placeholder="備註" [(ngModel)]="task.remark" (blur)="savePlanTask(task)" class="w-32 border-gray-300 rounded text-sm p-1">
+                </td>
+                <td class="px-2 py-1 text-right">
+                  <button type="button" (click)="deletePlanTask(task)" class="text-red-500 hover:text-red-700">
+                    <ion-icon name="trash-outline" class="text-lg"></ion-icon>
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="10" class="text-center py-8 text-gray-500">尚無任務，請點選下方「新增任務」。</td></tr>
+            }
+          </tbody>
+          @if (filteredPlanTasks().length > 0) {
+            <tfoot>
+              <tr class="border-t-2 font-semibold">
+                <td class="px-3 py-2" colspan="6">總計</td>
+                <td class="px-3 py-2 text-right">{{ formatCurrency(planEstimatedTotal()) }}</td>
+                <td class="px-3 py-2 text-right">{{ formatCurrency(planActualTotal()) }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+      <div class="mt-4">
+        <button type="button" (click)="addPlanTask()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+          <ion-icon name="add-outline"></ion-icon>
+          <span>新增任務</span>
+        </button>
+      </div>
+    </div>
+  }
+</div>

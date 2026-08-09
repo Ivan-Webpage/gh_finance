@@ -1,0 +1,996 @@
+<div class="space-y-6">
+  <!-- 標題與篩選器 -->
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">股東回饋金</h1>
+
+    <!-- 僅在「每月回饋金」標籤顯示篩選器 -->
+    @if (activeTab() === 'monthly') {
+      <div class="flex flex-col sm:flex-row items-center gap-2 bg-white p-3 rounded-xl shadow-md border border-gray-200">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-gray-600">時間:</label>
+          <select [(ngModel)]="selectedYear" (change)="onMonthChange()" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+            <option value="2024">2024年</option>
+            <option value="2025">2025年</option>
+            <option value="2026">2026年</option>
+          </select>
+          <select [(ngModel)]="selectedMonth" (change)="onMonthChange()" class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100 pr-8">
+            @for(month of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; track month) {
+              <option [value]="month">{{ month }}月</option>
+            }
+          </select>
+        </div>
+        <div class="flex items-center gap-2 mt-2 sm:mt-0">
+          <button (click)="resetFilter()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+            <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- 頁籤導航 -->
+  <div class="flex gap-4 border-b border-gray-200">
+    <button
+      (click)="activeTab.set('monthly')"
+      [class.border-b-2]="activeTab() === 'monthly'"
+      [class.border-indigo-600]="activeTab() === 'monthly'"
+      [class.text-indigo-600]="activeTab() === 'monthly'"
+      class="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+    >
+      <ion-icon name="calendar-outline" class="text-base align-middle mr-2"></ion-icon>
+      每月回饋金
+    </button>
+    <button
+      (click)="activeTab.set('payables')"
+      [class.border-b-2]="activeTab() === 'payables'"
+      [class.border-indigo-600]="activeTab() === 'payables'"
+      [class.text-indigo-600]="activeTab() === 'payables'"
+      class="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+    >
+      <ion-icon name="wallet-outline" class="text-base align-middle mr-2"></ion-icon>
+      應付回饋金
+    </button>
+  </div>
+
+  <!-- ========== 每月回饋金標籤 ========== -->
+  @if (activeTab() === 'monthly') {
+    <div class="space-y-6">
+      <!-- 統計卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+          <div class="bg-green-100 p-3 rounded-full"><ion-icon name="people-outline" class="text-2xl text-green-600"></ion-icon></div>
+          <div>
+            <p class="text-sm text-gray-500">人數</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ monthlyStats().transaction_count }}</p>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+          <div class="bg-green-100 p-3 rounded-full"><ion-icon name="cash-outline" class="text-2xl text-green-600"></ion-icon></div>
+          <div>
+            <p class="text-sm text-gray-500">總回饋金</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ formatCurrency(monthlyStats().total_rebate) }}</p>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+          <div class="bg-yellow-100 p-3 rounded-full"><ion-icon name="checkmark-circle-outline" class="text-2xl text-yellow-600"></ion-icon></div>
+          <div>
+            <p class="text-sm text-gray-500">已核對</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ monthlyStats().verified_count }}</p>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+          <div class="bg-indigo-100 p-3 rounded-full"><ion-icon name="send-outline" class="text-2xl text-indigo-600"></ion-icon></div>
+          <div>
+            <p class="text-sm text-gray-500">已發放</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ monthlyStats().released_count }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 載入中狀態 -->
+      @if (monthlyLoading()) {
+        <div class="text-center py-8">
+          <p class="text-gray-500">載入中...</p>
+        </div>
+      }
+
+      <!-- 錯誤狀態 -->
+      @if (monthlyError()) {
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-sm text-red-700">{{ monthlyError() }}</p>
+        </div>
+      }
+
+      <!-- 每月股東回饋金統計表 -->
+      @if (!monthlyLoading() && monthlySummaries().length > 0) {
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">月份</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">股東名稱</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">電話</th>
+                  <th class="px-4 py-3 text-right font-semibold text-gray-700">總回饋金</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">核對</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">發放</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">流水帳</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">勞報單</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(summary of monthlySummaries(); track summary.employee_id) {
+                  <tr 
+                    (click)="openMonthlyDetail(summary)"
+                    class="border-b border-gray-200 hover:bg-indigo-50 transition-colors cursor-pointer"
+                    title="點擊查看明細"
+                  >
+                    <td class="px-4 py-3 text-gray-700">{{ formatYearMonth(summary.due_month) }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ summary.employee_name }}</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ summary.phone }}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatCurrency(summary.total_rebate) }}</td>
+                    <td class="px-4 py-3 text-center">
+                      @if (isMonthlyReleased(summary)) {
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <ion-icon name="checkmark-done-outline" class="mr-1"></ion-icon>
+                          已核對
+                        </span>
+                      } @else if (isMonthlyVerified(summary)) {
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <ion-icon name="checkmark-done-outline" class="mr-1"></ion-icon>
+                          已核對
+                        </span>
+                      } @else {
+                        <button
+                          (click)="verifyMonthlyShareholder(summary); $event.stopPropagation()"
+                          class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors"
+                          title="核對此股東上月回饋金"
+                        >
+                          核對
+                        </button>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      @if (getMonthlyReleaseStatus(summary) === 'released') {
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <ion-icon name="cash-outline" class="mr-1"></ion-icon>
+                          {{ getMonthlyReleaseStatusLabel(summary) }}
+                        </span>
+                      } @else if (!isMonthlyVerified(summary)) {
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                          <ion-icon name="alert-circle-outline" class="mr-1"></ion-icon>
+                          請先核對
+                        </span>
+                      } @else if (isMonthlyReleaseProcessed(summary)) {
+                        <button
+                          type="button"
+                          disabled
+                          class="px-3 py-1 bg-gray-300 text-gray-600 rounded text-xs cursor-not-allowed"
+                          title="已完成發放/轉應付；如需補發放請至『應付回饋金』"
+                        >
+                          發放
+                        </button>
+                      } @else if (getMonthlyRemainingReleasableAmount(summary) <= 0) {
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                          <ion-icon name="ellipse-outline" class="mr-1"></ion-icon>
+                          {{ getMonthlyReleaseStatusLabel(summary) }}
+                        </span>
+                      } @else {
+                        <button
+                          type="button"
+                          (click)="$event.stopPropagation(); releaseMonthlyShareholder(summary)"
+                          class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition-colors"
+                          title="發放股東回饋金"
+                        >
+                          發放
+                        </button>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      @if (summary.entry_id !== undefined && summary.entry_id !== null) {
+                        <button
+                          type="button"
+                          (click)="$event.stopPropagation(); openLedgerEditModal(summary.entry_id)"
+                          class="text-indigo-600 hover:text-indigo-800 hover:underline text-sm inline-flex items-center"
+                          title="修改流水帳"
+                        >
+                          <ion-icon name="link-outline" class="text-lg mr-1"></ion-icon>
+                          #{{ summary.entry_id }}
+                        </button>
+                      } @else {
+                        <span class="text-gray-400 text-sm">-</span>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <button
+                        (click)="downloadLaborReport(summary, $event)"
+                        [disabled]="isDownloadingReport(summary)"
+                        class="px-3 py-1 rounded text-xs transition-colors"
+                        [class.bg-green-600]="!isDownloadingReport(summary)"
+                        [class.text-white]="!isDownloadingReport(summary)"
+                        [class.hover:bg-green-700]="!isDownloadingReport(summary)"
+                        [class.bg-gray-300]="isDownloadingReport(summary)"
+                        [class.text-gray-600]="isDownloadingReport(summary)"
+                        [class.cursor-not-allowed]="isDownloadingReport(summary)"
+                        title="下載勞報單（含 Word 與 PDF）"
+                      >
+                        @if (isDownloadingReport(summary)) {
+                          <span class="inline-flex items-center">
+                            <ion-icon name="hourglass-outline" class="animate-spin mr-1"></ion-icon>
+                            下載中
+                          </span>
+                        } @else {
+                          <span class="inline-flex items-center">
+                            <ion-icon name="download-outline" class="mr-1"></ion-icon>
+                            勞報單
+                          </span>
+                        }
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      @if (!monthlyLoading() && monthlySummaries().length === 0) {
+        <div class="bg-gray-50 rounded-lg p-8 text-center">
+          <p class="text-gray-500">此月份無股東回饋金資料</p>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ========== 應付回饋金標籤 ========== -->
+  @if (activeTab() === 'payables') {
+    <div class="space-y-6">
+      <!-- 應付回饋金總額 -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 mb-2">應付回饋金總額</p>
+            <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(pendingPayablesTotal()) }}</p>
+          </div>
+          <div class="bg-red-100 p-4 rounded-full">
+            <ion-icon name="wallet-outline" class="text-4xl text-red-600"></ion-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- 載入中狀態 -->
+      @if (payablesLoading()) {
+        <div class="text-center py-8">
+          <p class="text-gray-500">載入中...</p>
+        </div>
+      }
+
+      <!-- 錯誤狀態 -->
+      @if (payablesError()) {
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-sm text-red-700">{{ payablesError() }}</p>
+        </div>
+      }
+
+      <!-- 應付股東列表 -->
+      @if (!payablesLoading() && payablesSummary().employees.length > 0) {
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">股東名稱</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">電話</th>
+                  <th class="px-4 py-3 text-right font-semibold text-gray-700">累積應付回饋金</th>
+                  <th class="px-4 py-3 text-right font-semibold text-gray-700">待發放</th>
+                  <th class="px-4 py-3 text-right font-semibold text-gray-700">已發放</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(employee of payablesSummary().employees; track employee.employee_id) {
+                  <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ employee.employee_name }}</td>
+                    <td class="px-4 py-3 text-center text-gray-600">{{ employee.phone }}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatCurrency(employee.total_payable) }}</td>
+                    <td class="px-4 py-3 text-right text-yellow-600 font-semibold">{{ formatCurrency(employee.pending_amount) }}</td>
+                    <td class="px-4 py-3 text-right text-green-600 font-semibold">{{ formatCurrency(employee.paid_amount) }}</td>
+                    <td class="px-4 py-3 text-center">
+                      <div class="flex items-center justify-center gap-2">
+                        <button
+                          (click)="openPayablesPayModal(employee)"
+                          [disabled]="employee.pending_amount <= 0"
+                          class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          支付回饋金
+                        </button>
+                        <button
+                          (click)="openPayablesDetail(employee)"
+                          class="text-indigo-600 hover:text-indigo-800 hover:underline text-sm font-medium"
+                        >
+                          月度明細
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      @if (!payablesLoading() && payablesSummary().employees.length === 0) {
+        <div class="bg-gray-50 rounded-lg p-8 text-center">
+          <p class="text-gray-500">目前無應付回饋金</p>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- ========== 流水帳編輯 Modal ========== -->
+@if (ledgerEditModalVisible()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">修改流水帳 ID：{{ editingLedgerEntryId() }}</h3>
+        <button (click)="closeLedgerEditModal()" class="text-gray-400 hover:text-gray-600">
+          <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto">
+        @if (ledgerEditLoading()) {
+          <div class="text-center py-8 text-gray-500">載入中...</div>
+        } @else {
+          <form [formGroup]="ledgerEditForm" (ngSubmit)="submitLedgerEdit()" class="space-y-6" novalidate>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">日期*</label>
+                <input type="date" formControlName="entry_date" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isLedgerEditInvalid('entry_date')">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">項目*</label>
+                <select formControlName="item_group" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isLedgerEditInvalid('item_group')">
+                  <option value="">請選擇項目</option>
+                  @for(item of ledgerTopLevelAccounts(); track item.gl_account_id) {
+                    <option [value]="item.account_name">{{ item.account_name }}</option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">科目*</label>
+                <select formControlName="subject_name" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2" [class.border-red-500]="isLedgerEditInvalid('subject_name')">
+                  <option value="">請選擇科目</option>
+                  @for(account of ledgerSubAccounts(); track account.gl_account_id) {
+                    <option [value]="account.account_name">{{ account.account_name }}</option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">金額*</label>
+                <input type="number" formControlName="amount" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2 text-right" [class.border-red-500]="isLedgerEditInvalid('amount')">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">發票號碼</label>
+                <input type="text" formControlName="invoice_no" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700">備註</label>
+                <textarea formControlName="description" rows="3" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2"></textarea>
+              </div>
+            </div>
+
+            @if (ledgerEditError()) {
+              <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p class="text-sm text-red-700">{{ ledgerEditError() }}</p>
+              </div>
+            }
+
+            <div class="flex justify-end gap-4 pt-4 border-t">
+              <button type="button" (click)="closeLedgerEditModal()" [disabled]="ledgerEditSaving()" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">取消</button>
+              <button type="submit" [disabled]="ledgerEditSaving()" class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                @if (ledgerEditSaving()) { 儲存中... } @else { 修改 }
+              </button>
+            </div>
+          </form>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+
+<!-- ========== 支付回饋金確認 Modal ========== -->
+@if (payablesPayModalVisible() && payingPayableEmployee(); as employee) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div class="border-b p-4 bg-indigo-600 text-white rounded-t-lg">
+        <h3 class="text-lg font-semibold flex items-center">
+          <ion-icon name="wallet-outline" class="text-xl mr-2"></ion-icon>
+          支付股東回饋金
+        </h3>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="bg-gray-50 rounded-lg p-4">
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span class="text-gray-600">股東：</span>
+              <span class="font-medium text-gray-900">{{ employee.employee_name }}</span>
+            </div>
+            <div>
+              <span class="text-gray-600">電話：</span>
+              <span class="font-medium text-gray-900">{{ employee.phone }}</span>
+            </div>
+            <div class="col-span-2">
+              <span class="text-gray-600">待支付回饋金總額：</span>
+              <span class="font-semibold text-lg text-indigo-600">{{ formatCurrency(employee.pending_amount) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            支付金額 <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            [(ngModel)]="payablesPayAmount"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="請輸入支付金額"
+            min="0"
+            [max]="employee.pending_amount"
+            step="1"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            可輸入範圍：0 ~ {{ formatCurrency(employee.pending_amount) }}
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">備註</label>
+          <textarea
+            [(ngModel)]="payablesPayRemark"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            rows="3"
+            placeholder="請輸入備註（可選）"
+          ></textarea>
+        </div>
+
+        @if (toNumber(payablesPayAmount) > 0 && toNumber(payablesPayAmount) < employee.pending_amount) {
+          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3">
+            <div class="flex items-start">
+              <ion-icon name="warning-outline" class="text-yellow-600 text-xl mr-2 flex-shrink-0 mt-0.5"></ion-icon>
+              <p class="text-sm text-yellow-800">
+                本次支付 {{ formatCurrency(toNumber(payablesPayAmount)) }}，剩餘 {{ formatCurrency(employee.pending_amount - toNumber(payablesPayAmount)) }} 將維持待支付。
+              </p>
+            </div>
+          </div>
+        }
+
+        @if (payablesPayError()) {
+          <div class="bg-red-50 border-l-4 border-red-400 p-3">
+            <div class="flex items-start">
+              <ion-icon name="alert-circle-outline" class="text-red-600 text-xl mr-2 flex-shrink-0 mt-0.5"></ion-icon>
+              <p class="text-sm text-red-800">{{ payablesPayError() }}</p>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="border-t p-4 bg-gray-50 flex justify-between items-center rounded-b-lg">
+        <button
+          (click)="downloadPayablesLaborReport()"
+          [disabled]="downloadingPayablesLaborReport()"
+          class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+          title="根據支付金額產出勞報單"
+        >
+          @if (downloadingPayablesLaborReport()) {
+            <span class="inline-block animate-spin mr-2">⏳</span>
+            下載中
+          } @else {
+            <ion-icon name="download-outline" class="mr-2"></ion-icon>
+            產出勞報單
+          }
+        </button>
+        <div class="flex justify-end space-x-3">
+          <button
+            (click)="closePayablesPayModal()"
+            [disabled]="payingPayables()"
+            class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg font-medium hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            取消
+          </button>
+          <button
+            (click)="submitPayablesPayment()"
+            [disabled]="payingPayables() || employee.pending_amount <= 0 || toNumber(payablesPayAmount) <= 0"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+          >
+            @if (payingPayables()) {
+              <span class="inline-block animate-spin mr-2">⏳</span>
+            }
+            確認支付
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ========== 支付成功提醒 Modal ========== -->
+@if (paymentSuccessModalVisible() && paymentSuccessData(); as data) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div class="border-b p-4 bg-green-600 text-white rounded-t-lg">
+        <h3 class="text-lg font-semibold flex items-center">
+          <ion-icon name="checkmark-circle-outline" class="text-xl mr-2"></ion-icon>
+          支付成功
+        </h3>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="bg-green-50 rounded-lg p-4">
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span class="text-gray-600">支付給：</span>
+              <span class="font-medium text-gray-900">{{ data.employee_name }}</span>
+            </div>
+            <div>
+              <span class="text-gray-600">支付金額：</span>
+              <span class="font-semibold text-green-600 text-lg">{{ formatCurrency(data.pay_amount) }}</span>
+            </div>
+            <div class="col-span-2">
+              <span class="text-gray-600">剩餘待支付回饋金：</span>
+              <span class="font-semibold text-yellow-600 text-lg">{{ formatCurrency(data.remaining_amount) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t p-4 bg-gray-50 flex justify-between items-center rounded-b-lg">
+        <button
+          (click)="downloadPaymentLaborReport()"
+          [disabled]="downloadingPaymentReport()"
+          class="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+          title="下載勞報單"
+        >
+          @if (downloadingPaymentReport()) {
+            <span class="inline-block animate-spin mr-2">⏳</span>
+            下載中
+          } @else {
+            <ion-icon name="download-outline" class="mr-2"></ion-icon>
+            勞報單
+          }
+        </button>
+        <button
+          (click)="closePaymentSuccessModal()"
+          class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+        >
+          確認
+        </button>
+      </div>
+    </div>
+  </div>
+}
+<!-- ========== 每月回饋金詳細 Modal ========== -->
+@if (monthlyDetailModalVisible() && currentMonthlySummary(); as summary) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-lg shadow-lg max-w-5xl w-full max-h-[90vh] flex flex-col">
+      <!-- Header -->
+      <div class="bg-white border-b p-4 flex justify-between items-center sticky top-0 z-10">
+        <h2 class="text-lg font-semibold text-gray-900">回饋金細項 - {{ summary.employee_name }} ({{ formatYearMonth(summary.due_month) }})</h2>
+        <div class="flex items-center gap-2">
+          <button
+            (click)="openAddDetail()"
+            class="px-3 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 transition-colors"
+          >
+            新增細項
+          </button>
+          <button (click)="closeMonthlyDetail()" class="text-gray-400 hover:text-gray-600 p-2">
+            <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="overflow-y-auto flex-1 p-4">
+        @if (monthlyDetailLoading()) {
+          <div class="text-center py-8">
+            <p class="text-gray-500">載入中...</p>
+          </div>
+        }
+
+        @if (addDetailVisible()) {
+          <div class="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">結帳時間</label>
+                <input
+                  [(ngModel)]="newDetailCheckoutAt"
+                  type="datetime-local"
+                  class="w-full border-gray-300 rounded-lg text-sm p-2"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">發票號碼 (選填)</label>
+                <input
+                  [(ngModel)]="newDetailInvoiceNo"
+                  type="text"
+                  class="w-full border-gray-300 rounded-lg text-sm p-2"
+                  placeholder="發票號碼"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">折扣金額</label>
+                <input
+                  [(ngModel)]="newDetailDiscountAmount"
+                  type="number"
+                  class="w-full border-gray-300 rounded-lg text-sm p-2"
+                  placeholder="折扣金額"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">發票金額</label>
+                <input
+                  [(ngModel)]="newDetailInvoiceAmount"
+                  type="number"
+                  class="w-full border-gray-300 rounded-lg text-sm p-2"
+                  placeholder="發票金額"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">回饋%</label>
+                <input
+                  [(ngModel)]="newDetailRebateRate"
+                  type="number"
+                  min="0"
+                  class="w-full border-gray-300 rounded-lg text-sm p-2"
+                  placeholder="回饋%"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">使用折扣</label>
+                <input
+                  [(ngModel)]="newDetailDiscountNote"
+                  type="text"
+                  class="w-full border-gray-300 rounded-lg text-sm p-2"
+                  placeholder="使用折扣"
+                />
+              </div>
+              <div class="md:col-span-6 flex gap-2 justify-end">
+                <button
+                  (click)="submitAddDetail()"
+                  [disabled]="addDetailSaving()"
+                  class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  @if (addDetailSaving()) { 新增中 } @else { 確定 }
+                </button>
+                <button
+                  (click)="closeAddDetail()"
+                  class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (addDetailError()) {
+          <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+            <p class="text-sm text-red-700">{{ addDetailError() }}</p>
+          </div>
+        }
+
+        @if (detailSaveError()) {
+          <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+            <p class="text-sm text-red-700">{{ detailSaveError() }}</p>
+          </div>
+        }
+
+        @if (!monthlyDetailLoading() && monthlyDetails().length > 0) {
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 border-b border-gray-200 sticky top-0">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">結帳時間</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">發票號碼</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">折扣金額</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">發票金額</th>
+                  <th class="px-3 py-2 text-center font-semibold text-gray-700">回饋%</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">回饋金</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">使用折扣</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">備註</th>
+                  <th class="px-3 py-2 text-center font-semibold text-gray-700">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(detail of monthlyDetails(); track detail.record_id) {
+                  <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="px-3 py-2 text-gray-600 text-xs">{{ formatDate(detail.checkout_at) }}</td>
+                    <td class="px-3 py-2 font-medium text-gray-900">{{ detail.invoice_no }}</td>
+                    <td class="px-3 py-2 text-right text-gray-600">{{ formatCurrency(detail.discount_amount) }}</td>
+                    <td class="px-3 py-2 text-right">
+                      <input
+                        [ngModel]="detail.invoice_amount"
+                        (ngModelChange)="updateDetailInvoiceAmount(detail, $event)"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="w-24 border-gray-300 rounded-md text-sm p-1 text-right font-semibold"
+                      />
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <input
+                          [ngModel]="detail.rebate_rate"
+                          (ngModelChange)="updateDetailRebateRate(detail, $event)"
+                          type="number"
+                          min="0"
+                          class="w-20 border-gray-300 rounded-md text-sm p-1 text-center"
+                        />
+                        <span class="text-gray-600">%</span>
+                      </div>
+                    </td>
+                    <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ formatCurrency(detail.rebate_amount) }}</td>
+                    <td class="px-3 py-2 text-sm text-gray-600">{{ detail.discount_note }}</td>
+                    <td class="px-3 py-2">
+                      <input
+                        [ngModel]="detail.remark || ''"
+                        (ngModelChange)="updateDetailRemark(detail, $event)"
+                        type="text"
+                        placeholder="輸入備註"
+                        class="w-full border-gray-300 rounded-md text-sm p-1"
+                      />
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                      <div class="flex items-center justify-center gap-2">
+                        <button
+                          (click)="saveDetailRebate(detail)"
+                          [disabled]="isViewer() || detail.record_id < 0 || isDetailSaving(detail.record_id)"
+                          class="px-3 py-1 rounded text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          @if (isDetailSaving(detail.record_id)) { 儲存中 } @else { 儲存 }
+                        </button>
+                        <button
+                          (click)="deleteDetail(detail)"
+                          [disabled]="isViewer() || isDetailDeleting(detail.record_id)"
+                          class="px-3 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          @if (isDetailDeleting(detail.record_id)) { 刪除中 } @else { 刪除 }
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot class="bg-gray-50 border-t-2 border-gray-200">
+                <tr>
+                  <td colspan="5" class="px-3 py-2 text-right font-semibold text-gray-900">小計:</td>
+                  <td class="px-3 py-2 text-right font-bold text-gray-900 text-base">
+                    {{ formatCurrency(monthlyDetailsTotal()) }}
+                  </td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        }
+
+        @if (!monthlyDetailLoading() && monthlyDetails().length === 0) {
+          <div class="text-center py-8">
+            <p class="text-gray-500">此月份無回饋金明細</p>
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="border-t p-4 bg-gray-50 flex justify-end">
+        <button
+          (click)="closeMonthlyDetail()"
+          class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+        >
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ========== 應付回饋金詳細 Modal ========== -->
+@if (payablesDetailModalVisible() && currentPayableEmployee(); as employee) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-lg shadow-lg max-w-5xl w-full max-h-[90vh] flex flex-col">
+      <!-- Header -->
+      <div class="bg-white border-b p-4 flex justify-between items-center sticky top-0 z-10">
+        <h2 class="text-lg font-semibold text-gray-900">應付回饋金月度明細 - {{ employee.employee_name }}</h2>
+        <button (click)="closePayablesDetail()" class="text-gray-400 hover:text-gray-600 p-2">
+          <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="overflow-y-auto flex-1 p-4">
+        @if (payablesDetailLoading()) {
+          <div class="text-center py-8">
+            <p class="text-gray-500">載入中...</p>
+          </div>
+        }
+
+        @if (!payablesDetailLoading() && payablesDetails().length > 0) {
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 border-b border-gray-200 sticky top-0">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">日期</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">回饋金額</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">實際付款</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">應付餘額</th>
+                  <th class="px-3 py-2 text-center font-semibold text-gray-700">狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(detail of payablesDetails(); track detail.payable_id) {
+                  <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="px-3 py-2 font-medium text-gray-900">{{ formatYearMonth(detail.due_month) }}</td>
+                    <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ formatCurrency(detail.rebate_amount) }}</td>
+                    <td class="px-3 py-2 text-right text-green-600 font-semibold">{{ formatCurrency(detail.actual_paid) }}</td>
+                    <td class="px-3 py-2 text-right font-semibold" [class.text-yellow-600]="detail.pending_balance > 0" [class.text-gray-600]="detail.pending_balance <= 0">
+                      {{ formatCurrency(detail.pending_balance) }}
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                      @if (detail.status === 'paid') {
+                        <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">已發放</span>
+                      } @else if (detail.status === 'pending') {
+                        <span class="inline-block bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">待發放</span>
+                      } @else {
+                        <span class="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-semibold">{{ detail.status }}</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot class="bg-gray-50 border-t-2 border-gray-200">
+                <tr>
+                  <td class="px-3 py-2 text-right font-semibold text-gray-900">合計:</td>
+                  <td class="px-3 py-2 text-right font-bold text-gray-900 text-base">
+                    {{ formatCurrency(payablesDetailsRebateAmount()) }}
+                  </td>
+                  <td class="px-3 py-2 text-right font-bold text-green-600 text-base">
+                    {{ formatCurrency(payablesDetailsActualPaid()) }}
+                  </td>
+                  <td class="px-3 py-2 text-right font-bold text-yellow-600 text-base">
+                    {{ formatCurrency(payablesDetailsPendingBalance()) }}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        }
+
+        @if (!payablesDetailLoading() && payablesDetails().length === 0) {
+          <div class="text-center py-8">
+            <p class="text-gray-500">此員工無應付回饋金記錄</p>
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="border-t p-4 bg-gray-50 flex justify-end">
+        <button
+          (click)="closePayablesDetail()"
+          class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+        >
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ========== 發放確認 Modal ========== -->
+@if (releaseModalVisible()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <!-- Header -->
+      <div class="border-b p-4 bg-indigo-600 text-white rounded-t-lg">
+        <h3 class="text-lg font-semibold flex items-center">
+          <ion-icon name="cash-outline" class="text-xl mr-2"></ion-icon>
+          發放股東回饋金
+        </h3>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6">
+        @if (releasingMonthlySummary(); as summary) {
+          <div class="space-y-4">
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span class="text-gray-600">員工姓名：</span>
+                  <span class="font-medium text-gray-900">{{ summary.employee_name }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">月份：</span>
+                  <span class="font-medium text-gray-900">{{ formatYearMonth(summary.due_month) }}</span>
+                </div>
+                <div class="col-span-2">
+                  <span class="text-gray-600">回饋金總額：</span>
+                  <span class="font-semibold text-lg text-indigo-600">{{ formatCurrency(summary.total_rebate) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                發放金額 <span class="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                [(ngModel)]="releaseAmount"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="請輸入發放金額"
+                min="0"
+                [max]="getMonthlyRemainingReleasableAmount(summary)"
+                step="1"
+              />
+              <p class="mt-1 text-xs text-gray-500">
+                可發放金額最多為 {{ formatCurrency(getMonthlyRemainingReleasableAmount(summary)) }}
+              </p>
+            </div>
+
+            @if (releaseAmount !== '' && toNumber(releaseAmount) < getMonthlyRemainingReleasableAmount(summary) && toNumber(releaseAmount) >= 0) {
+              <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3">
+                <div class="flex items-start">
+                  <ion-icon name="warning-outline" class="text-yellow-600 text-xl mr-2 flex-shrink-0 mt-0.5"></ion-icon>
+                  <div class="text-sm text-yellow-800">
+                    <p class="font-medium">部分發放通知</p>
+                    <p class="mt-1">
+                      將發放 {{ formatCurrency(toNumber(releaseAmount)) }}，剩餘未付 {{ formatCurrency(getMonthlyRemainingReleasableAmount(summary) - toNumber(releaseAmount)) }} 將記錄為應付回饋金。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (releaseError()) {
+              <div class="bg-red-50 border-l-4 border-red-400 p-3">
+                <div class="flex items-start">
+                  <ion-icon name="alert-circle-outline" class="text-red-600 text-xl mr-2 flex-shrink-0 mt-0.5"></ion-icon>
+                  <p class="text-sm text-red-800">{{ releaseError() }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="border-t p-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+        <button
+          (click)="closeReleaseModal()"
+          [disabled]="releasing()"
+          class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg font-medium hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          取消
+        </button>
+        <button
+          (click)="submitRelease()"
+          [disabled]="releasing()"
+          class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+        >
+          @if (releasing()) {
+            <span class="inline-block animate-spin mr-2">⏳</span>
+          }
+          確認發放
+        </button>
+      </div>
+    </div>
+  </div>
+}

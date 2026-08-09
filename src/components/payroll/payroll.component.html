@@ -1,0 +1,1486 @@
+<div class="space-y-6">
+  <!-- 標題和篩選器 -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">薪資管理</h1>
+
+    <!-- 篩選器 (依頁籤顯示不同的篩選器) -->
+    <div class="bg-white p-4 rounded-xl shadow-md border border-gray-200 w-full sm:w-auto">
+      <div class="flex flex-col sm:flex-row items-center gap-3">
+        <!-- 特殊工作日頁籤：只顯示年份篩選 -->
+        @if (activeTab() === 'special') {
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-600 whitespace-nowrap">年份:</label>
+            <select
+              [(ngModel)]="selectedYear"
+              (change)="onMonthChange()"
+              class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100"
+            >
+              @for(year of [2024, 2025, 2026, 2027]; track year) {
+                <option [value]="year">{{ year }}年</option>
+              }
+            </select>
+          </div>
+        } @else {
+          <!-- 其他頁籤：顯示年月篩選 -->
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-600 whitespace-nowrap">月份:</label>
+            <select
+              [(ngModel)]="selectedYear"
+              (change)="onMonthChange()"
+              class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100"
+            >
+              @for(year of [2024, 2025, 2026, 2027]; track year) {
+                <option [value]="year">{{ year }}年</option>
+              }
+            </select>
+            <select
+              [(ngModel)]="selectedMonth"
+              (change)="onMonthChange()"
+              class="border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-100"
+            >
+              @for(month of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; track month) {
+                <option [value]="month">{{ month }}月</option>
+              }
+            </select>
+          </div>
+        }
+        <button
+          (click)="resetFilter()"
+          title="重設篩選"
+          class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200"
+        >
+          <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 頁籤導航 -->
+  <div class="flex gap-4 border-b border-gray-200">
+    <button
+      (click)="switchTab('daily')"
+      [class.border-b-2]="activeTab() === 'daily'"
+      [class.border-indigo-600]="activeTab() === 'daily'"
+      [class.text-indigo-600]="activeTab() === 'daily'"
+      class="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+    >
+      <ion-icon name="calendar-outline" class="text-base align-middle mr-2"></ion-icon>
+      每月薪資
+    </button>
+    <button
+      (click)="switchTab('wages')"
+      [class.border-b-2]="activeTab() === 'wages'"
+      [class.border-indigo-600]="activeTab() === 'wages'"
+      [class.text-indigo-600]="activeTab() === 'wages'"
+      class="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+    >
+      <ion-icon name="people-outline" class="text-base align-middle mr-2"></ion-icon>
+      員工薪資設定
+    </button>
+    <button
+      (click)="switchTab('special')"
+      [class.border-b-2]="activeTab() === 'special'"
+      [class.border-indigo-600]="activeTab() === 'special'"
+      [class.text-indigo-600]="activeTab() === 'special'"
+      class="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+    >
+      <ion-icon name="star-outline" class="text-base align-middle mr-2"></ion-icon>
+      特殊工作日
+    </button>
+    <button
+      (click)="switchTab('payables')"
+      [class.border-b-2]="activeTab() === 'payables'"
+      [class.border-indigo-600]="activeTab() === 'payables'"
+      [class.text-indigo-600]="activeTab() === 'payables'"
+      class="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+    >
+      <ion-icon name="wallet-outline" class="text-base align-middle mr-2"></ion-icon>
+      應付薪資
+    </button>
+  </div>
+
+  <!-- 每月薪資頁籤 -->
+  @if (activeTab() === 'daily') {
+    <div class="space-y-6">
+      <!-- 統計卡片 -->
+      @if (!dailyLoading() && dailySummaries().length > 0) {
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+            <p class="text-xs text-gray-500 mb-1">筆數</p>
+            <p class="text-2xl font-semibold text-gray-900">{{ dailyStats().totalRecords }}</p>
+          </div>
+          <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+            <p class="text-xs text-gray-500 mb-1">總薪資</p>
+            <p class="text-lg font-semibold text-gray-900">{{ formatCurrency(dailyStats().totalWages) }}</p>
+          </div>
+          <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+            <p class="text-xs text-gray-500 mb-1">已核對</p>
+            <p class="text-2xl font-semibold text-green-600">{{ dailyStats().verifiedCount }}</p>
+          </div>
+          <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+            <p class="text-xs text-gray-500 mb-1">已發放</p>
+            <p class="text-2xl font-semibold text-blue-600">{{ dailyStats().paidCount }}</p>
+          </div>
+        </div>
+      }
+
+      <!-- 錯誤提示 -->
+      @if (dailyError()) {
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-sm text-red-700">{{ dailyError() }}</p>
+        </div>
+      }
+
+      <!-- 載入中 -->
+      @if (dailyLoading()) {
+        <div class="text-center py-8">
+          <p class="text-gray-500">載入中...</p>
+        </div>
+      }
+
+      <!-- 薪資表格 -->
+      @if (!dailyLoading() && (hourlySummaries().length > 0 || monthlySalarySummaries().length > 0)) {
+        <!-- 計時員工表格 -->
+        @if (hourlySummaries().length > 0) {
+          <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <div class="bg-blue-50 border-b border-blue-200 px-4 py-2">
+              <h3 class="text-sm font-semibold text-blue-900">計時員工</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-100 border-b border-gray-200">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700">工作月份</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700">員工</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-700">總工時</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-700">總薪資</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">缺卡</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">核對</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">發放</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">流水帳</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">勞報單</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  @for(summary of hourlySummaries(); track summary.user_id + '-' + summary.year_month) {
+                    <tr 
+                      (click)="openMonthlyDetails(summary)"
+                      class="hover:bg-indigo-50 transition-colors cursor-pointer"
+                      title="點擊查看明細"
+                    >
+                      <td class="px-4 py-3">{{ summary.year_month }}</td>
+                      <td class="px-4 py-3 font-medium">{{ summary.display_name }}</td>
+                      <td class="px-4 py-3 text-right">{{ (summary.total_work_hours || 0) | number:'1.0-0' }} h</td>
+                      <td class="px-4 py-3 text-right font-semibold">{{ formatCurrency(summary.total_wage) }}</td>
+                      <td class="px-4 py-3 text-center">
+                        @if (summary.missing_records > 0) {
+                          <span class="text-red-600 font-medium">缺卡{{ summary.missing_records }}筆</span>
+                        }
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        @if (summary.is_fully_verified || summary.is_closed || getReleaseStatus(summary) === 'released') {
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <ion-icon name="checkmark-done-outline" class="mr-1"></ion-icon>
+                            已核對
+                          </span>
+                        } @else {
+                          <button
+                            (click)="verifyMonthlySalarySummary(summary); $event.stopPropagation()"
+                            class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors"
+                            title="核對此員工薪資"
+                          >
+                            核對
+                          </button>
+                        }
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        <button
+                          (click)="$event.stopPropagation(); releaseMonthlySalarySummary(summary)"
+                          [disabled]="!canReleaseMonthlySalary(summary)"
+                          class="px-3 py-1 rounded text-xs transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                          [class.bg-blue-600]="canReleaseMonthlySalary(summary)"
+                          [class.text-white]="canReleaseMonthlySalary(summary)"
+                          [class.hover\:bg-blue-700]="canReleaseMonthlySalary(summary)"
+                          [attr.title]="canReleaseMonthlySalary(summary) ? '發放薪資' : (getReleaseStatus(summary) === 'released' ? '已發放' : (getReleaseStatus(summary) === 'partial' ? '部分發放（請至應付薪資頁面補發）' : '需先核對'))"
+                        >
+                          @if (canReleaseMonthlySalary(summary)) {
+                            發放
+                          } @else if (getReleaseStatus(summary) === 'released') {
+                            已發放
+                          } @else if (getReleaseStatus(summary) === 'partial') {
+                            部分發放
+                          } @else {
+                            需核對
+                          }
+                        </button>
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        @if (summary.entry_id) {
+                          <span class="text-gray-700">#{{ summary.entry_id }}</span>
+                        } @else {
+                          <span class="text-gray-400">-</span>
+                        }
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        <button
+                          (click)="downloadLaborReport(summary, $event)"
+                          [disabled]="downloadingReports().has(summary.user_id + '-' + summary.year_month)"
+                          class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                          title="下載勞報單"
+                        >
+                          @if (downloadingReports().has(summary.user_id + '-' + summary.year_month)) {
+                            <span>產生中...</span>
+                          } @else {
+                            <span>下載</span>
+                          }
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        <!-- 正職員工表格 (月薪) -->
+        @if (monthlySalarySummaries().length > 0) {
+          <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="bg-green-50 border-b border-green-200 px-4 py-2">
+              <h3 class="text-sm font-semibold text-green-900">正職員工 (月薪)</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-100 border-b border-gray-200">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700">工作月份</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700">員工</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-700">總工時</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-700">總薪資</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">調整</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">缺卡</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">核對</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">發放</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700">流水帳</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  @for(summary of monthlySalarySummaries(); track summary.user_id + '-' + summary.year_month) {
+                    <tr class="hover:bg-gray-50 transition-colors">
+                      <td class="px-4 py-3">{{ summary.year_month }}</td>
+                      <td class="px-4 py-3 font-medium">{{ summary.display_name }}</td>
+                      <td class="px-4 py-3 text-right">{{ (summary.total_work_hours || 0) | number:'1.0-0' }} h</td>
+                      <td class="px-4 py-3 text-right font-semibold">{{ formatCurrency(summary.total_wage) }}</td>
+                      <td class="px-4 py-3 text-center">
+                        <button
+                          (click)="openMonthlySalaryAdjust(summary)"
+                          [disabled]="summary.is_fully_paid"
+                          class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                          title="調整當月薪資"
+                        >
+                          調整
+                        </button>
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        @if (summary.missing_records > 0) {
+                          <span class="text-red-600 font-medium">缺卡{{ summary.missing_records }}筆</span>
+                        }
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        @if (summary.is_fully_verified || summary.is_closed || getReleaseStatus(summary) === 'released') {
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <ion-icon name="checkmark-done-outline" class="mr-1"></ion-icon>
+                            已核對
+                          </span>
+                        } @else {
+                          <button
+                            (click)="verifyMonthlySalarySummary(summary); $event.stopPropagation()"
+                            class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors"
+                            title="核對此員工薪資"
+                          >
+                            核對
+                          </button>
+                        }
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        <button
+                          (click)="releaseMonthlySalarySummary(summary)"
+                          [disabled]="!canReleaseMonthlySalary(summary)"
+                          class="px-3 py-1 rounded text-xs transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                          [class.bg-blue-600]="canReleaseMonthlySalary(summary)"
+                          [class.text-white]="canReleaseMonthlySalary(summary)"
+                          [class.hover\:bg-blue-700]="canReleaseMonthlySalary(summary)"
+                          [attr.title]="canReleaseMonthlySalary(summary) ? '發放薪資' : (getReleaseStatus(summary) === 'released' ? '已發放' : (getReleaseStatus(summary) === 'partial' ? '部分發放（請至應付薪資頁面補發）' : '需先核對'))"
+                        >
+                          @if (canReleaseMonthlySalary(summary)) {
+                            發放
+                          } @else if (getReleaseStatus(summary) === 'released') {
+                            已發放
+                          } @else if (getReleaseStatus(summary) === 'partial') {
+                            部分發放
+                          } @else {
+                            需核對
+                          }
+                        </button>
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        @if (summary.entry_id) {
+                          <span class="text-gray-700">#{{ summary.entry_id }}</span>
+                        } @else {
+                          <span class="text-gray-400">-</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      }
+
+      <!-- 無資料 -->
+      @if (!dailyLoading() && hourlySummaries().length === 0 && monthlySalarySummaries().length === 0) {
+        <div class="bg-gray-50 rounded-lg p-8 text-center">
+          <p class="text-gray-500 mb-4">{{ getMonthLabel() }} 沒有薪資記錄</p>
+        </div>
+      }
+
+      <!-- 每月薪資明細視窗 -->
+      @if (monthlyDetailsVisible()) {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-lg shadow-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 class="text-lg font-semibold">{{ monthlyDetailsTitle() }}</h2>
+              <button (click)="closeMonthlyDetails()" class="text-gray-500 hover:text-gray-700">
+                <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+              </button>
+            </div>
+
+            <div class="p-6">
+              <!-- 批量操作區 -->
+              <div class="mb-4 flex gap-4 items-center bg-gray-50 p-4 rounded-lg">
+                <div class="flex-1 text-sm text-gray-600">
+                  已選擇 {{ selectedRows().length }} 筆記錄
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    (click)="openCreateClockRecord()"
+                    [disabled]="currentMonthlySummary()?.is_paid"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    <ion-icon name="add-outline"></ion-icon>
+                    新增打卡
+                  </button>
+                  <button
+                    (click)="batchVerifyRecords()"
+                    [disabled]="selectedRows().length === 0"
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    <ion-icon name="checkmark-done-outline"></ion-icon>
+                    批量核對
+                  </button>
+                  <button
+                    (click)="batchReleaseRecords()"
+                    [disabled]="selectedRows().length === 0"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    <ion-icon name="cash-outline"></ion-icon>
+                    批量發放
+                  </button>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-100 border-b border-gray-200">
+                    <tr>
+                      <th class="px-4 py-3 text-center">
+                        <input 
+                          type="checkbox"
+                          (change)="toggleSelectAll($event)"
+                          class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </th>
+                      <th class="px-4 py-3 text-left font-semibold text-gray-700">工作日期</th>
+                      <th class="px-4 py-3 text-left font-semibold text-gray-700">上班打卡時間</th>
+                      <th class="px-4 py-3 text-left font-semibold text-gray-700">下班打卡時間</th>
+                      <th class="px-4 py-3 text-right font-semibold text-gray-700">工作時數</th>
+                      <th class="px-4 py-3 text-right font-semibold text-gray-700">薪資金額</th>
+                      <th class="px-4 py-3 text-center font-semibold text-gray-700">倍數</th>
+                      <th class="px-4 py-3 text-center font-semibold text-gray-700">核對</th>
+                      <th class="px-4 py-3 text-center font-semibold text-gray-700">發放</th>
+                      <th class="px-4 py-3 text-center font-semibold text-gray-700">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200">
+                    @for(row of monthlyDetailsRows(); track row.id) {
+                      <tr class="hover:bg-gray-50 transition-colors"
+                          [class.bg-green-50]="row.is_paid"
+                          [class.opacity-60]="row.is_paid">
+                        <td class="px-4 py-3 text-center">
+                          <input 
+                            type="checkbox"
+                            [checked]="isRowSelected(row.id)"
+                            (change)="toggleRowSelection(row.id, $event)"
+                            [disabled]="row.is_paid"
+                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                          />
+                        </td>
+                        <td class="px-4 py-3">{{ formatDateYMD(row.work_date) }}</td>
+                        <td class="px-4 py-3">
+                          <input
+                            type="time"
+                            [(ngModel)]="row.clock_in_time_input"
+                            (change)="updateMonthlyDetailDisplay(row)"
+                            [disabled]="row.is_paid"
+                            class="w-36 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </td>
+                        <td class="px-4 py-3">
+                          <input
+                            type="time"
+                            [(ngModel)]="row.clock_out_time_input"
+                            (change)="updateMonthlyDetailDisplay(row)"
+                            [disabled]="row.is_paid"
+                            class="w-36 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </td>
+                        <td class="px-4 py-3 text-right">{{ (row.work_hours || 0) | number:'1.1-1' }}</td>
+                        <td class="px-4 py-3 text-right">{{ formatCurrency(row.total_wage) }}</td>
+                        <td class="px-4 py-3 text-center">
+                          @if (row.multiplier && row.multiplier !== 1) {
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              {{ row.multiplier }}x
+                            </span>
+                          } @else {
+                            <span class="text-gray-400">-</span>
+                          }
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                          @if (row.is_verified) {
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <ion-icon name="checkmark-done-outline" class="mr-1"></ion-icon>
+                              已核對
+                            </span>
+                          } @else {
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              未核對
+                            </span>
+                          }
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                          @if (row.is_paid) {
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <ion-icon name="cash-outline" class="mr-1"></ion-icon>
+                              已發放
+                            </span>
+                          } @else {
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              未發放
+                            </span>
+                          }
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                          <div class="flex items-center justify-center gap-2">
+                            <button
+                              (click)="saveMonthlyDetail(row)"
+                              [disabled]="row.is_paid"
+                              title="保存打卡時間"
+                              class="text-indigo-600 hover:text-indigo-800 transition-colors disabled:text-gray-300 disabled:cursor-not-allowed"
+                            >
+                              <ion-icon name="save-outline" class="text-xl"></ion-icon>
+                            </button>
+                            <button
+                              (click)="deleteMonthlyDetail(row)"
+                              [disabled]="row.is_paid"
+                              title="刪除打卡記錄"
+                              class="text-red-600 hover:text-red-800 transition-colors disabled:text-gray-300 disabled:cursor-not-allowed"
+                            >
+                              <ion-icon name="trash-outline" class="text-xl"></ion-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot class="bg-gray-50 border-t-2 border-gray-200">
+                    <tr>
+                      <td class="px-4 py-3"></td>
+                      <td class="px-4 py-3 font-semibold text-gray-700" colspan="3">合計</td>
+                      <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ getMonthlyDetailsTotalWorkHours() | number:'1.1-1' }}</td>
+                      <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatCurrency(getMonthlyDetailsTotalWage()) }}</td>
+                      <td class="px-4 py-3"></td>
+                      <td class="px-4 py-3"></td>
+                      <td class="px-4 py-3"></td>
+                      <td class="px-4 py-3"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- 員工薪資設定頁籤 -->
+  @if (activeTab() === 'wages') {
+    <div class="space-y-6">
+      <!-- 錯誤提示 -->
+      @if (wagesError()) {
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-sm text-red-700">{{ wagesError() }}</p>
+        </div>
+      }
+
+      <!-- 新增按鈕 -->
+      <div class="flex justify-end">
+        <button
+          (click)="openWageForm()"
+          class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+        >
+          <ion-icon name="add-outline"></ion-icon>
+          新增薪資設定
+        </button>
+      </div>
+
+      <!-- 載入中 -->
+      @if (wagesLoading()) {
+        <div class="text-center py-8">
+          <p class="text-gray-500">載入中...</p>
+        </div>
+      }
+
+      <!-- 時薪表格 -->
+      @if (!wagesLoading() && employeeWages().length > 0) {
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">員工 ID</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">員工名稱</th>
+                  <th class="px-4 py-3 text-right font-semibold text-gray-700">薪資</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">類型</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">生效日期</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-700">截止日期</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">狀態</th>
+                  <th class="px-4 py-3 text-center font-semibold text-gray-700">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                @for(wage of employeeWages(); track wage.id) {
+                  <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">{{ wage.user_id }}</td>
+                    <td class="px-4 py-3 font-medium">{{ wage.display_name }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(wage.hourly_rate) }}{{ wage.wage_type === 'hourly' ? '/小時' : '/月' }}</td>
+                    <td class="px-4 py-3">{{ wage.wage_type === 'hourly' ? '計時' : '月薪' }}</td>
+                    <td class="px-4 py-3">{{ formatDate(wage.effective_from) }}</td>
+                    <td class="px-4 py-3">{{ wage.effective_to ? formatDate(wage.effective_to) : '-' }}</td>
+                    <td class="px-4 py-3 text-center">
+                      @if (wage.is_active) {
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          啟用
+                        </span>
+                      } @else {
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          停用
+                        </span>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <button
+                        (click)="openWageForm(wage)"
+                        title="編輯"
+                        class="text-indigo-600 hover:text-indigo-800 transition-colors mr-2"
+                      >
+                        <ion-icon name="pencil-outline"></ion-icon>
+                      </button>
+                      <button
+                        (click)="deleteWageRecord(wage)"
+                        title="刪除"
+                        class="text-red-600 hover:text-red-800 transition-colors"
+                      >
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- 無資料 -->
+      @if (!wagesLoading() && employeeWages().length === 0) {
+        <div class="bg-gray-50 rounded-lg p-8 text-center">
+          <p class="text-gray-500 mb-4">沒有員工薪資設定</p>
+          <button
+            (click)="openWageForm()"
+            class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+          >
+            新增薪資設定
+          </button>
+        </div>
+      }
+
+      <!-- 時薪編輯表單 -->
+      @if (wagesFormVisible()) {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full">
+            <div class="bg-white border-b p-4 flex justify-between items-center">
+              <h2 class="text-lg font-semibold">{{ editingWage() ? '編輯薪資設定' : '新增薪資設定' }}</h2>
+              <button (click)="closeWageForm()" class="text-gray-500 hover:text-gray-700">
+                <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+              </button>
+            </div>
+
+            <form [formGroup]="wageForm" class="p-6 space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">員工 ID *</label>
+                  <input
+                    formControlName="user_id"
+                    type="number"
+                    [readonly]="!!editingWage()"
+                    [class.bg-gray-100]="!!editingWage()"
+                    [class.cursor-not-allowed]="!!editingWage()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">員工名稱</label>
+                  <input
+                    formControlName="display_name"
+                    type="text"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">薪資 *</label>
+                  <input
+                    formControlName="hourly_rate"
+                    type="number"
+                    step="0.01"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">薪資類型</label>
+                  <select
+                    formControlName="wage_type"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="hourly">計時</option>
+                    <option value="monthly">月薪</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">生效日期 *</label>
+                  <input
+                    formControlName="effective_from"
+                    type="date"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">截止日期</label>
+                  <input
+                    formControlName="effective_to"
+                    type="date"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
+                <textarea
+                  formControlName="notes"
+                  rows="2"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                ></textarea>
+              </div>
+
+              <div class="flex justify-end gap-3 pt-6 border-t">
+                <button
+                  type="button"
+                  (click)="closeWageForm()"
+                  class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  (click)="saveWageRecord()"
+                  class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  保存
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- 特殊工作日頁籤 -->
+  @if (activeTab() === 'special') {
+    <div class="space-y-6">
+      <!-- 新增按鈕 -->
+      <div class="flex justify-between items-center">
+        <h2 class="text-xl font-semibold text-gray-900">特殊工作日設定</h2>
+        <button
+          (click)="openSpecialForm()"
+          class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+        >
+          <ion-icon name="add-outline"></ion-icon>
+          新增特殊工作日
+        </button>
+      </div>
+
+      <!-- 載入中 -->
+      @if (specialLoading()) {
+        <div class="text-center py-8">
+          <p class="text-gray-500">載入中...</p>
+        </div>
+      }
+
+      <!-- 錯誤訊息 -->
+      @if (specialError()) {
+        <div class="bg-red-50 text-red-600 p-4 rounded-lg">
+          {{ specialError() }}
+        </div>
+      }
+
+      <!-- 特殊工作日表格 -->
+      @if (!specialLoading() && !specialError()) {
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名稱</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">薪資倍數</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">備註</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              @if (specialDates().length === 0) {
+                <tr>
+                  <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                    目前沒有特殊工作日設定
+                  </td>
+                </tr>
+              }
+              @for (special of specialDates(); track special.id) {
+                <tr class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ formatDateYMD(special.date) }}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-900">
+                    {{ special.name }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                      {{ special.multiplier }}x
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    @if (special.is_active) {
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        啟用
+                      </span>
+                    } @else {
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        停用
+                      </span>
+                    }
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    {{ special.notes || '-' }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-center space-x-2">
+                    <button
+                      (click)="openSpecialForm(special)"
+                      class="text-indigo-600 hover:text-indigo-900"
+                      title="編輯"
+                    >
+                      <ion-icon name="create-outline" class="text-lg align-middle"></ion-icon>
+                    </button>
+                    <button
+                      (click)="deleteSpecialDate(special.id)"
+                      class="text-red-600 hover:text-red-900"
+                      title="刪除"
+                    >
+                      <ion-icon name="trash-outline" class="text-lg align-middle"></ion-icon>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- 編輯表單對話框 -->
+      @if (specialFormVisible()) {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                {{ editingSpecial() ? '編輯特殊工作日' : '新增特殊工作日' }}
+              </h3>
+              
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">日期 *</label>
+                  <input
+                    type="date"
+                    #specialDate
+                    [value]="editingSpecial()?.date || ''"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">名稱 *</label>
+                  <input
+                    type="text"
+                    #specialName
+                    [value]="editingSpecial()?.name || ''"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="例如：春節、國慶日"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">薪資倍數 *</label>
+                  <input
+                    type="number"
+                    #specialMultiplier
+                    [value]="editingSpecial()?.multiplier || 2.0"
+                    step="0.1"
+                    min="1"
+                    max="10"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label class="flex items-center">
+                    <input
+                      type="checkbox"
+                      #specialActive
+                      [checked]="editingSpecial()?.is_active ?? true"
+                      class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span class="ml-2 text-sm text-gray-700">啟用</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
+                  <textarea
+                    #specialNotes
+                    [value]="editingSpecial()?.notes || ''"
+                    rows="3"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="選填"
+                  ></textarea>
+                </div>
+              </div>
+
+              <div class="flex justify-end gap-3 mt-6 pt-6 border-t">
+                <button
+                  type="button"
+                  (click)="closeSpecialForm()"
+                  class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  (click)="saveSpecialDate({
+                    date: specialDate.value,
+                    name: specialName.value,
+                    multiplier: +specialMultiplier.value,
+                    is_active: specialActive.checked,
+                    notes: specialNotes.value || null
+                  })"
+                  class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- 應付薪資頁籤 -->
+  @if (activeTab() === 'payables') {
+    <div class="space-y-6">
+      <!-- 統計金額卡片 -->
+      <div class="bg-gradient-to-r from-red-500 to-pink-600 rounded-xl shadow-lg p-6 text-white">
+        <p class="text-sm uppercase tracking-wide opacity-90 mb-2">總應付薪資</p>
+        @if (payablesLoading()) {
+          <p class="text-3xl font-bold">載入中...</p>
+        } @else {
+          <p class="text-4xl font-bold">
+            {{ formatCurrency(payablesSummary().total_payable) }}
+          </p>
+          <p class="text-sm mt-2 opacity-90">
+            共 {{ payablesSummary().employees.length }} 位員工有應付薪資
+          </p>
+        }
+      </div>
+
+      <!-- 載入中 -->
+      @if (payablesLoading()) {
+        <div class="text-center py-8">
+          <p class="text-gray-500">載入中...</p>
+        </div>
+      }
+
+      <!-- 錯誤訊息 -->
+      @if (payablesError()) {
+        <div class="bg-red-50 text-red-600 p-4 rounded-lg">
+          {{ payablesError() }}
+        </div>
+      }
+
+      <!-- 員工應付薪資表格 -->
+      @if (!payablesLoading() && !payablesError()) {
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">員工應付薪資明細</h2>
+          </div>
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">員工名稱</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">累積應付薪資</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              @if (payablesSummary().employees.length === 0) {
+                <tr>
+                  <td colspan="3" class="px-6 py-8 text-center text-gray-500">
+                    目前沒有應付薪資記錄
+                  </td>
+                </tr>
+              }
+              @for (employee of payablesSummary().employees; track employee.employee_id) {
+                <tr class="hover:bg-gray-50 cursor-pointer transition-colors" (click)="openPayablesDetail(employee)">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <ion-icon name="person-outline" class="text-indigo-600 text-xl"></ion-icon>
+                      </div>
+                      <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900">{{ employee.employee_name }}</div>
+                        <div class="text-xs text-gray-500">ID: {{ employee.employee_id }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-right">
+                    <div class="text-sm font-semibold text-red-600">
+                      {{ formatCurrency(employee.total_payable) }}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-center">
+                    <div class="flex items-center justify-center gap-4">
+                      <button
+                        (click)="openPayablesPaymentModal(employee); $event.stopPropagation()"
+                        class="text-red-600 hover:text-red-800 font-medium text-sm"
+                      >
+                        支付薪資
+                      </button>
+                      <button
+                        (click)="openPayablesDetail(employee); $event.stopPropagation()"
+                        class="text-indigo-600 hover:text-indigo-900 font-medium text-sm"
+                      >
+                        查看明細 <ion-icon name="chevron-forward-outline" class="align-middle"></ion-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- 支付應付薪資 Modal -->
+  @if (payablesPaymentModalVisible()) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          支付薪資 - {{ payingEmployee()?.employee_name }}
+        </h3>
+
+        <div class="mb-4 p-3 bg-red-50 rounded-lg border border-red-100">
+          <p class="text-sm text-gray-600">待支付薪資總額</p>
+          <p class="text-xl font-bold text-red-600">
+            {{ formatCurrency(payingEmployee()?.total_payable || 0) }}
+          </p>
+        </div>
+
+        <form [formGroup]="payablesPaymentForm" (ngSubmit)="submitPayablesPayment()">
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-gray-700 mb-2">支付金額</label>
+            <input
+              type="number"
+              formControlName="pay_amount"
+              min="0"
+              step="0.01"
+              [max]="payingEmployee()?.total_payable || 0"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="請輸入支付金額"
+            />
+            <p class="text-xs text-gray-500 mt-2">
+              可輸入範圍：0 ~ {{ formatCurrency(payingEmployee()?.total_payable || 0) }}
+            </p>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-gray-700 mb-2">備註</label>
+            <textarea
+              formControlName="remark"
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="請輸入備註（可選）"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="closePayablesPaymentModal()"
+              class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              [disabled]="payablesPaymentSubmitting()"
+              class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-400 transition-colors"
+            >
+              {{ payablesPaymentSubmitting() ? '處理中...' : '確認支付' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 應付薪資明細Modal -->
+  @if (payablesDetailModalVisible()) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">
+              {{ payablesDetails()?.employee_name }} - 應付薪資明細
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">
+              累計應付：<span class="font-semibold text-red-600">{{ formatCurrency(payablesDetails()?.total_payable || 0) }}</span>
+            </p>
+          </div>
+          <button
+            (click)="closePayablesDetailModal()"
+            class="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-6">
+          @if (payablesDetailsLoading()) {
+            <div class="text-center py-8">
+              <p class="text-gray-500">載入中...</p>
+            </div>
+          } @else if (payablesDetails()) {
+            @if (payablesDetails()!.monthly_summary.length === 0) {
+              <div class="text-center py-8 text-gray-500">
+                暫無應付薪資記錄
+              </div>
+            } @else {
+              <!-- 按月彙總表格 -->
+              <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                  <thead>
+                    <tr class="bg-gradient-to-r from-indigo-50 to-blue-50 border-b-2 border-indigo-200">
+                      <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">日期</th>
+                      <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">薪水</th>
+                      <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">實際付款</th>
+                      <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">應付薪資</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (month of payablesDetails()!.monthly_summary; track month.source_month) {
+                      <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-sm text-gray-900">
+                          {{ formatDateYM(month.source_month) }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                          {{ formatCurrency(month.total_salary) }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right text-green-600 font-medium">
+                          {{ formatCurrency(month.paid_amount) }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-right font-semibold" 
+                            [class.text-red-600]="month.payable_amount > 0"
+                            [class.text-gray-400]="month.payable_amount <= 0">
+                          {{ formatCurrency(month.payable_amount) }}
+                        </td>
+                      </tr>
+                      <!-- 該月詳細記錄（可選展開） -->
+                      @if (month.records.length > 1) {
+                        <tr class="bg-gray-50">
+                          <td colspan="4" class="px-4 py-2">
+                            <details class="text-xs text-gray-600">
+                              <summary class="cursor-pointer hover:text-indigo-600 font-medium">
+                                查看該月明細（共 {{ month.records.length }} 筆記錄）
+                              </summary>
+                              <div class="mt-2 pl-4 space-y-1">
+                                @for (record of month.records; track record.payable_id) {
+                                  <div class="flex justify-between items-center py-1 border-b border-gray-200 last:border-0">
+                                    <div class="flex-1">
+                                      <span class="text-gray-700">{{ record.reference_note }}</span>
+                                      @if (record.entry_id) {
+                                        <span class="ml-2 text-gray-400">(流水帳 #{{ record.entry_id }})</span>
+                                      }
+                                    </div>
+                                    <div class="text-right">
+                                      <span [class.text-green-600]="record.amount < 0"
+                                            [class.text-red-600]="record.amount > 0"
+                                            class="font-mono">
+                                        {{ record.amount >= 0 ? '+' : '' }}{{ formatCurrency(record.amount) }}
+                                      </span>
+                                    </div>
+                                  </div>
+                                }
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                  <tfoot>
+                    <tr class="bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-300">
+                      <td class="px-4 py-3 text-sm font-bold text-gray-900">總計</td>
+                      <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">
+                        {{ formatCurrency(calculateTotalSalary(payablesDetails()!.monthly_summary)) }}
+                      </td>
+                      <td class="px-4 py-3 text-sm text-right font-bold text-green-600">
+                        {{ formatCurrency(calculateTotalPaid(payablesDetails()!.monthly_summary)) }}
+                      </td>
+                      <td class="px-4 py-3 text-sm text-right font-bold text-red-600">
+                        {{ formatCurrency(payablesDetails()!.total_payable) }}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            }
+          }
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+          <button
+            (click)="closePayablesDetailModal()"
+            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            關閉
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 月薪調整Modal -->
+  @if (monthlySalaryAdjustModalVisible()) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-lg p-6 w-96">
+        <h3 class="text-lg font-bold mb-4">{{ adjustingMonthlySalarySummary()?.display_name }} 薪資調整</h3>
+
+        <form [formGroup]="adjustingAmountForm" (ngSubmit)="confirmMonthlySalaryAdjust()">
+          <div class="mb-4">
+            <label for="adjustTotalWage" class="block text-sm font-medium text-gray-700 mb-2">調整後薪資</label>
+            <input
+              id="adjustTotalWage"
+              type="number"
+              formControlName="total_wage"
+              step="0.01"
+              min="0"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="輸入調整後薪資"
+            />
+            @if (adjustingAmountForm.get('total_wage')?.errors?.['required']) {
+              <p class="text-red-600 text-sm mt-1">必填欄位</p>
+            }
+            @if (adjustingAmountForm.get('total_wage')?.errors?.['min']) {
+              <p class="text-red-600 text-sm mt-1">金額不能為負數</p>
+            }
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="closeMonthlySalaryAdjustModal()"
+              class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              [disabled]="!adjustingAmountForm.valid"
+              class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              確認調整
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 月薪發放金額輸入Modal -->
+  @if (monthlySalaryReleaseModalVisible()) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-lg p-6 w-96">
+        <h3 class="text-lg font-bold mb-4">{{ releasingMonthlySalarySummary()?.display_name }} 薪資發放</h3>
+        
+        <form [formGroup]="releasingAmountForm" (ngSubmit)="confirmReleaseMonthlySalarySummary()">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">員工薪資總額</label>
+            <div class="text-2xl font-bold text-blue-600 mb-4">
+              {{ formatCurrency(releasingMonthlySalarySummary()?.total_wage || 0) }}
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="releaseAmount" class="block text-sm font-medium text-gray-700 mb-2">發放金額</label>
+            <input
+              id="releaseAmount"
+              type="number"
+              formControlName="release_amount"
+              step="0.01"
+              min="0"
+              [max]="releasingMonthlySalarySummary()?.total_wage"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="輸入發放金額"
+            />
+            @if (releasingAmountForm.get('release_amount')?.errors?.['required']) {
+              <p class="text-red-600 text-sm mt-1">必填欄位</p>
+            }
+            @if (releasingAmountForm.get('release_amount')?.errors?.['min']) {
+              <p class="text-red-600 text-sm mt-1">金額不能為負數</p>
+            }
+          </div>
+
+          <div class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <p class="text-sm text-gray-700">
+              <strong>說明：</strong>
+              @if ((releasingAmountForm.get('release_amount')?.value || 0) < (releasingMonthlySalarySummary()?.total_wage || 0)) {
+                發放金額低於薪資總額，差額將自動記錄到應付薪資科目
+              } @else {
+                發放金額等於薪資總額，將直接記錄到薪資支出科目
+              }
+            </p>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="closeMonthlySalaryReleaseModal()"
+              class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              [disabled]="!releasingAmountForm.valid"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              確認發放
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 新增/編輯打卡記錄表單 Modal -->
+  @if (dailyFormVisible()) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+          <h2 class="text-lg font-semibold">{{ editingDaily() ? '編輯打卡記錄' : '新增打卡記錄' }}</h2>
+          <button (click)="closeDailyForm()" class="text-gray-500 hover:text-gray-700">
+            <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+          </button>
+        </div>
+
+        <form [formGroup]="dailyForm" (ngSubmit)="saveDailyRecord()" class="p-6 space-y-4">
+          <!-- 員工資訊 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">員工 ID</label>
+              <input
+                type="number"
+                formControlName="user_id"
+                readonly
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">員工姓名</label>
+              <input
+                type="text"
+                formControlName="display_name"
+                readonly
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+              />
+            </div>
+          </div>
+
+          <!-- 工作日期 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">工作日期 *</label>
+            <input
+              type="date"
+              formControlName="work_date"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            @if (dailyForm.get('work_date')?.errors?.['required']) {
+              <p class="text-red-600 text-sm mt-1">必填欄位</p>
+            }
+          </div>
+
+          <!-- 打卡時間 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">上班打卡時間</label>
+              <input
+                type="time"
+                formControlName="clock_in_time"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">下班打卡時間</label>
+              <input
+                type="time"
+                formControlName="clock_out_time"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          <!-- 薪資計算 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">基本時薪 *</label>
+              <input
+                type="number"
+                formControlName="base_wage"
+                step="0.01"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              @if (dailyForm.get('base_wage')?.errors?.['required']) {
+                <p class="text-red-600 text-sm mt-1">必填欄位</p>
+              }
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">倍數</label>
+              <input
+                type="number"
+                formControlName="multiplier"
+                step="0.01"
+                min="0.5"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          <!-- 特殊獎金 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">特殊獎金</label>
+            <input
+              type="number"
+              formControlName="special_bonus"
+              step="0.01"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <!-- 特殊日期標記 -->
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              formControlName="is_special_day"
+              id="is_special_day"
+              class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <label for="is_special_day" class="ml-2 text-sm font-medium text-gray-700">特殊日期</label>
+          </div>
+
+          <!-- 備註 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
+            <textarea
+              formControlName="notes"
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            ></textarea>
+          </div>
+
+          <!-- 按鈕 -->
+          <div class="flex justify-end gap-3 pt-4 border-t">
+            <button
+              type="button"
+              (click)="closeDailyForm()"
+              class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              [disabled]="!dailyForm.valid"
+              class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ editingDaily() ? '更新' : '新增' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,30 @@
+@if(authService.isAuthenticated()) {
+  <div class="relative flex h-dvh bg-gray-100 overflow-hidden">
+    @if (isMobile() && isSidebarOpen()) {
+      <button
+        type="button"
+        aria-label="關閉側邊選單"
+        class="fixed inset-0 z-30 bg-black/40 lg:hidden"
+        (click)="closeSidebar()"></button>
+    }
+
+    <app-sidebar
+      class="z-40"
+      [isMobile]="isMobile()"
+      [isMobileOpen]="isSidebarOpen()"
+      (closeMobile)="closeSidebar()"></app-sidebar>
+
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <app-header
+        [isMobile]="isMobile()"
+        (menuToggle)="toggleSidebar()"></app-header>
+      <main class="flex-1 overflow-x-auto overflow-y-auto bg-gray-50">
+        <div class="container mx-auto max-w-full px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+          <router-outlet></router-outlet>
+        </div>
+      </main>
+    </div>
+  </div>
+} @else {
+  <router-outlet></router-outlet>
+}

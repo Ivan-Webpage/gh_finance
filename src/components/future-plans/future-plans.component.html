@@ -1,0 +1,127 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">未來計畫</h1>
+    <button (click)="openModal(null)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增計畫</span>
+    </button>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="bg-white p-4 rounded-xl shadow-md flex flex-wrap items-end gap-4">
+    <div class="flex-1 min-w-[200px]">
+      <label class="block text-xs text-gray-500 mb-1">關鍵字</label>
+      <input type="text" [ngModel]="keyword()" (ngModelChange)="keyword.set($event)" placeholder="搜尋標題或內容" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-gray-50">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">負責人</label>
+      <select [ngModel]="ownerFilter()" (ngModelChange)="ownerFilter.set($event)" class="w-40 border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-gray-50">
+        <option [ngValue]="null">所有負責人</option>
+        @for (owner of owners(); track owner.id) {
+          <option [ngValue]="owner.id">{{ owner.name }}</option>
+        }
+      </select>
+    </div>
+    <button type="button" (click)="applyFilters()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">查詢</button>
+    <button type="button" (click)="resetFilters()" class="text-gray-500 hover:text-gray-800 px-3 py-2 rounded-lg text-sm border">重設篩選</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    @for (plan of plans(); track plan.id) {
+      <div (click)="openModal(plan)" class="bg-white rounded-xl shadow-md p-5 cursor-pointer hover:shadow-lg transition-shadow group relative">
+        <div class="flex justify-between items-start gap-2">
+          <h3 class="text-lg font-bold text-gray-800">{{ plan.title }}</h3>
+          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <button (click)="openModal(plan); $event.stopPropagation()" class="text-gray-400 hover:text-indigo-600 p-1.5 rounded-full hover:bg-gray-100" title="編輯"><ion-icon name="create-outline"></ion-icon></button>
+            <button (click)="deletePlan(plan, $event)" class="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-gray-100" title="刪除"><ion-icon name="trash-outline"></ion-icon></button>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500 mt-2">負責人：{{ plan.ownerEmployeeName }}</p>
+        <p class="text-sm text-gray-500">更新時間：{{ formatDateTime(plan.updatedAt) }}</p>
+        <p class="text-xs text-indigo-500 mt-3">點擊卡片查看內容</p>
+      </div>
+    } @empty {
+      <p class="text-sm text-gray-400 col-span-full text-center py-8">目前沒有符合條件的未來計畫。</p>
+    }
+  </div>
+</div>
+
+<!-- 新增/編輯計畫 Modal -->
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingPlan() ? '編輯計畫' : '新增計畫' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="planForm" (ngSubmit)="handleFormSubmit()" class="space-y-4">
+          <div>
+            <label for="title" class="block text-sm font-medium text-gray-700">標題*</label>
+            <div class="mt-1 flex gap-2">
+              <input type="text" id="title" formControlName="title" class="flex-1 rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <button type="button" (click)="generateTopic()" [disabled]="isGeneratingTopic()" class="px-3 py-2 border rounded-md text-sm text-indigo-600 border-indigo-200 hover:bg-indigo-50 disabled:opacity-50 whitespace-nowrap flex items-center gap-1">
+                @if (isGeneratingTopic()) {
+                  <ion-icon name="hourglass-outline" class="animate-spin"></ion-icon>
+                  <span>AI產出主題中...</span>
+                } @else {
+                  <ion-icon name="sparkles-outline"></ion-icon>
+                  <span>AI產出主題</span>
+                }
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label for="content" class="block text-sm font-medium text-gray-700">內容*</label>
+            <div class="mt-1 flex items-center gap-2 text-xs">
+              <button type="button" title="粗體" (click)="applyTextFormat('bold', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                <ion-icon name="text-outline" class="text-base"></ion-icon>
+              </button>
+              <button type="button" title="斜體" (click)="applyTextFormat('italic', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                <ion-icon name="code-slash-outline" class="text-base"></ion-icon>
+              </button>
+              <button type="button" title="底線" (click)="applyTextFormat('underline', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                <ion-icon name="remove-outline" class="text-base"></ion-icon>
+              </button>
+              <button type="button" title="項目符號" (click)="applyTextFormat('bullet', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                <ion-icon name="list-outline" class="text-base"></ion-icon>
+              </button>
+              <button type="button" title="項目編號" (click)="applyTextFormat('numbered', contentArea)" class="h-8 w-8 border rounded bg-white flex items-center justify-center">
+                <ion-icon name="list-circle-outline" class="text-base"></ion-icon>
+              </button>
+            </div>
+            <div
+              #contentArea
+              id="content"
+              contenteditable="true"
+              class="mt-2 block w-full min-h-[160px] rounded-md border border-gray-300 shadow-sm bg-gray-50 p-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+              (input)="onEditorInput(contentArea)">
+            </div>
+          </div>
+
+          <div>
+            <label for="ownerEmployeeId" class="block text-sm font-medium text-gray-700">負責人*</label>
+            <select id="ownerEmployeeId" formControlName="ownerEmployeeId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <option [ngValue]="null">請選擇經營團隊成員</option>
+              @for (owner of owners(); track owner.id) {
+                <option [ngValue]="owner.id">{{ owner.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" [disabled]="isSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="isSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ isSaving() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

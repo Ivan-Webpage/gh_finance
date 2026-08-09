@@ -1,0 +1,251 @@
+<div class="space-y-8">
+  <!-- 標題與新增按鈕 -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-3xl font-bold text-gray-900">營收目標</h1>
+    <button 
+      (click)="openAddForm()"
+      class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+    >
+      <ion-icon name="add-outline" class="text-xl"></ion-icon>
+      <span>新增目標</span>
+    </button>
+  </div>
+
+  <!-- 成功訊息 -->
+  @if (successMessage()) {
+    <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
+      <div class="flex items-center gap-3">
+        <ion-icon name="checkmark-circle" class="text-2xl text-green-600"></ion-icon>
+        <p class="text-green-900 font-medium">{{ successMessage() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- 錯誤訊息 -->
+  @if (error()) {
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+      <div class="flex items-center gap-3">
+        <ion-icon name="alert-circle-outline" class="text-2xl text-red-600"></ion-icon>
+        <p class="text-red-900 font-medium">{{ error() }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- 主要內容區 -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- Loading 狀態 -->
+    @if (isLoading()) {
+      <div class="flex items-center justify-center h-64">
+        <div class="flex flex-col items-center space-y-2">
+          <div class="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p class="text-sm text-gray-500">載入資料中...</p>
+        </div>
+      </div>
+    }
+
+    <!-- 資料表格 -->
+    @if (!isLoading() && targets().length > 0) {
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+            <tr>
+              <th class="py-3 px-4">月份</th>
+              <th class="py-3 px-4 text-right">月營業目標</th>
+              <th class="py-3 px-4 text-right">活動營收目標</th>
+              <th class="py-3 px-4 text-right">總目標</th>
+              <th class="py-3 px-4 text-right">日均目標</th>
+              <th class="py-3 px-4">備註</th>
+              <th class="py-3 px-4 text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (target of targets(); track target.targetId) {
+              <tr class="border-b hover:bg-gray-50 transition-colors">
+                <td class="py-3 px-4 font-medium text-gray-900">
+                  {{ formatMonth(target.targetMonth) }}
+                </td>
+                <td class="py-3 px-4 text-right">
+                  {{ formatCurrency(target.monthlyRevenueTarget) }}
+                </td>
+                <td class="py-3 px-4 text-right">
+                  {{ formatCurrency(target.eventRevenueTarget) }}
+                </td>
+                <td class="py-3 px-4 text-right font-semibold text-indigo-600">
+                  {{ formatCurrency(target.totalTarget) }}
+                </td>
+                <td class="py-3 px-4 text-right text-gray-600">
+                  {{ formatCurrency(target.dailyAvgTarget) }}
+                </td>
+                <td class="py-3 px-4 text-gray-600">
+                  {{ target.remark || '-' }}
+                </td>
+                <td class="py-3 px-4">
+                  <div class="flex items-center justify-center gap-2">
+                    <button
+                      (click)="openEditForm(target)"
+                      class="text-indigo-600 hover:text-indigo-800 p-1 rounded transition-colors"
+                      title="編輯"
+                    >
+                      <ion-icon name="create-outline" class="text-xl"></ion-icon>
+                    </button>
+                    <button
+                      (click)="deleteTarget(target)"
+                      class="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+                      title="刪除"
+                    >
+                      <ion-icon name="trash-outline" class="text-xl"></ion-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="py-8 text-center text-gray-500">
+                  尚無資料
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- 空狀態 -->
+    @if (!isLoading() && targets().length === 0 && !error()) {
+      <div class="flex flex-col items-center justify-center h-64 text-gray-500">
+        <ion-icon name="document-text-outline" class="text-6xl mb-4"></ion-icon>
+        <p class="text-lg font-medium">尚無營收目標資料</p>
+        <p class="text-sm mt-2">點擊上方「新增目標」按鈕開始設定</p>
+      </div>
+    }
+  </div>
+
+  <!-- 表單 Modal -->
+  @if (showForm()) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <!-- Modal 標題 -->
+        <div class="flex items-center justify-between p-6 border-b">
+          <h2 class="text-2xl font-bold text-gray-900">
+            {{ isEditing() ? '編輯營收目標' : '新增營收目標' }}
+          </h2>
+          <button
+            (click)="closeForm()"
+            class="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <ion-icon name="close-outline" class="text-3xl"></ion-icon>
+          </button>
+        </div>
+
+        <!-- 表單內容 -->
+        <div class="p-6 space-y-4">
+          <!-- 表單錯誤訊息 -->
+          @if (formError()) {
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+              <div class="flex items-center gap-3">
+                <ion-icon name="alert-circle-outline" class="text-2xl text-red-600 flex-shrink-0"></ion-icon>
+                <p class="text-red-900 text-sm">{{ formError() }}</p>
+              </div>
+            </div>
+          }
+
+          <!-- 月份選擇 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              月份 <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="month"
+              [ngModel]="formData().targetMonth"
+              (ngModelChange)="updateTargetMonth($event)"
+              [disabled]="isEditing()"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              required
+            />
+            @if (isEditing()) {
+              <p class="mt-1 text-xs text-gray-500">月份不可修改</p>
+            }
+          </div>
+
+          <!-- 月營業目標 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              月營業目標 <span class="text-red-500">*</span>
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">NT$</span>
+              <input
+                type="number"
+                [ngModel]="formData().monthlyRevenueTarget"
+                (ngModelChange)="updateMonthlyRevenueTarget($event)"
+                min="0"
+                step="1000"
+                class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="0"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- 活動營收目標 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              活動營收目標
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">NT$</span>
+              <input
+                type="number"
+                [ngModel]="formData().eventRevenueTarget"
+                (ngModelChange)="updateEventRevenueTarget($event)"
+                min="0"
+                step="1000"
+                class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="0"
+              />
+            </div>
+            <p class="mt-1 text-xs text-gray-500">特殊活動或促銷的預期營收（可選）</p>
+          </div>
+
+          <!-- 備註 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              備註
+            </label>
+            <textarea
+              [ngModel]="formData().remark"
+              (ngModelChange)="updateRemark($event)"
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+              placeholder="輸入備註（可選）"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Modal 按鈕 -->
+        <div class="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+          <button
+            (click)="closeForm()"
+            [disabled]="isSaving()"
+            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            取消
+          </button>
+          <button
+            (click)="submitForm()"
+            [disabled]="isSaving()"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            @if (isSaving()) {
+              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>處理中...</span>
+            } @else {
+              <ion-icon name="checkmark-outline" class="text-xl"></ion-icon>
+              <span>{{ isEditing() ? '更新' : '新增' }}</span>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

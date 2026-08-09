@@ -1,0 +1,230 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">進貨 & 廠商管理</h1>
+    <button (click)="openModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm">
+      <ion-icon name="add-outline"></ion-icon>
+      <span>{{ activeView() === 'vendors' ? '新增廠商' : '新增進貨單' }}</span>
+    </button>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <!-- Tabs -->
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+        <button (click)="changeView('purchaseOrders')"
+                [class]="activeView() === 'purchaseOrders' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          進貨單管理
+        </button>
+        <button (click)="changeView('vendors')"
+                [class]="activeView() === 'vendors' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          廠商管理
+        </button>
+      </nav>
+    </div>
+
+    <div class="pt-6">
+      <!-- Vendors View -->
+      @if (activeView() === 'vendors') {
+        <div class="space-y-4">
+          <!-- Vendor Filters -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div class="md:col-span-2">
+              <input type="text" [ngModel]="vendorSearchTerm()" (ngModelChange)="vendorSearchTerm.set($event)" placeholder="搜尋廠商名稱、類別或聯絡方式..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+            </div>
+            <div>
+              <select [ngModel]="selectedVendorCategory()" (ngModelChange)="selectedVendorCategory.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+                <option value="">所有類別</option>
+                @for(cat of vendorCategories(); track cat) {
+                  <option [value]="cat">{{ cat }}</option>
+                }
+              </select>
+            </div>
+            <div class="flex items-center gap-2 md:col-span-3 justify-end">
+                <button (click)="resetVendorFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                  <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+                </button>
+              </div>
+          </div>
+          <!-- Vendor Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left whitespace-nowrap">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                <tr>
+                  <th class="px-4 py-3">類別</th>
+                  <th class="px-4 py-3">廠商</th>
+                  <th class="px-4 py-3">聯絡方式</th>
+                  <th class="px-4 py-3">休息時間</th>
+                  <th class="px-4 py-3">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(vendor of filteredVendors(); track vendor.id) {
+                  <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-2">{{ vendor.category }}</td>
+                    <td class="px-4 py-2 font-medium">{{ vendor.name }}</td>
+                    <td class="px-4 py-2">{{ vendor.contactInfo }}</td>
+                    <td class="px-4 py-2">{{ vendor.restDays }}</td>
+                    <td class="px-4 py-2">
+                      <div class="flex items-center gap-2">
+                        <button (click)="openModal(vendor)" class="text-indigo-600 hover:text-indigo-800 p-1"><ion-icon name="create-outline" class="text-lg"></ion-icon></button>
+                        <button (click)="deleteVendor(vendor)" class="text-red-500 hover:text-red-700 p-1"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="5" class="text-center py-8 text-gray-500">無符合條件的廠商資料。</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- Purchase Orders View -->
+      @if (activeView() === 'purchaseOrders') {
+        <div class="space-y-4">
+          <!-- PO Filters -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div class="lg:col-span-4">
+              <input type="text" [ngModel]="poSearchTerm()" (ngModelChange)="poSearchTerm.set($event)" placeholder="搜尋進貨單號或廠商..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="poStartDate" class="text-sm font-medium text-gray-600 shrink-0">從:</label>
+                <input type="date" id="poStartDate" [ngModel]="poStartDate()" (ngModelChange)="poStartDate.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="poEndDate" class="text-sm font-medium text-gray-600 shrink-0">至:</label>
+                <input type="date" id="poEndDate" [ngModel]="poEndDate()" (ngModelChange)="poEndDate.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+            </div>
+            <div class="lg:col-span-2">
+              <select [ngModel]="selectedPOVendor()" (ngModelChange)="selectedPOVendor.set($event)" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+                <option value="">所有廠商</option>
+                @for(vendor of allVendors(); track vendor.id) {
+                  <option [value]="vendor.id">{{ vendor.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="flex items-center gap-2 lg:col-span-4 justify-end">
+              <button (click)="resetPOFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+              </button>
+            </div>
+          </div>
+           <!-- PO Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left whitespace-nowrap">
+              <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                <tr>
+                  <th class="px-4 py-3">進貨單號</th>
+                  <th class="px-4 py-3">廠商</th>
+                  <th class="px-4 py-3">日期</th>
+                  <th class="px-4 py-3 text-right">總金額</th>
+                  <th class="px-4 py-3">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for(po of filteredPOs(); track po.id) {
+                  <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-2 font-medium">{{ po.poNumber }}</td>
+                    <td class="px-4 py-2">{{ getVendorName(po.vendorId) }}</td>
+                    <td class="px-4 py-2">{{ po.date }}</td>
+                    <td class="px-4 py-2 text-right font-semibold">{{ formatCurrency(po.totalAmount) }}</td>
+                     <td class="px-4 py-2">
+                      <div class="flex items-center gap-2">
+                        <button (click)="openModal(po)" class="text-indigo-600 hover:text-indigo-800 p-1"><ion-icon name="create-outline" class="text-lg"></ion-icon></button>
+                        <button (click)="deletePurchaseOrder(po.id)" class="text-red-500 hover:text-red-700 p-1"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="5" class="text-center py-8 text-gray-500">無符合條件的進貨單資料。</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Vendor Modal -->
+@if (isModalOpen() && activeView() === 'vendors') {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingVendor() ? '編輯廠商' : '新增廠商' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="vendorForm" (ngSubmit)="handleVendorSubmit()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">類別*</span><input formControlName="category" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">廠商名稱*</span><input formControlName="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">統一編號</span><input formControlName="taxId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">聯絡方式*</span><input formControlName="contactInfo" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <label class="block"><span class="text-gray-700">休息時間</span><input formControlName="restDays" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Purchase Order Modal -->
+@if (isModalOpen() && activeView() === 'purchaseOrders') {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+       <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ editingPO() ? '編輯進貨單' : '新增進貨單' }}</h3>
+        <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="poForm" (ngSubmit)="handlePOSubmit()" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label class="block"><span class="text-gray-700">進貨單號*</span><input formControlName="poNumber" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+            <label class="block"><span class="text-gray-700">日期*</span><input type="date" formControlName="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+          </div>
+          <label class="block"><span class="text-gray-700">廠商*</span>
+            <select formControlName="vendorId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <option value="" disabled>選擇廠商</option>
+              @for(v of allVendors(); track v.id) { <option [value]="v.id">{{ v.name }}</option> }
+            </select>
+          </label>
+
+          <h4 class="font-semibold pt-4 border-t">品項</h4>
+          <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-xs font-medium text-gray-500">
+            <div class="col-span-5">品項名稱</div>
+            <div class="col-span-2 text-right">數量</div>
+            <div class="col-span-2 text-right">單價</div>
+            <div class="col-span-2 text-right">小計</div>
+            <div class="col-span-1"></div>
+          </div>
+          <div formArrayName="items" class="space-y-2">
+            @for(item of poItems.controls; track i; let i = $index) {
+              <div [formGroupName]="i" class="grid grid-cols-12 gap-2 items-center p-2 rounded-md bg-gray-50">
+                <input formControlName="productName" placeholder="品項名稱" class="col-span-5 p-1 border border-gray-300 bg-white rounded-md shadow-sm">
+                <input type="number" formControlName="quantity" placeholder="數量" class="col-span-2 p-1 border border-gray-300 bg-white rounded-md shadow-sm text-right">
+                <input type="number" formControlName="unitPrice" placeholder="單價" class="col-span-2 p-1 border border-gray-300 bg-white rounded-md shadow-sm text-right">
+                <span class="col-span-2 text-right">{{ formatCurrency(item.get('total')?.value) }}</span>
+                <button type="button" (click)="removeItem(i)" class="col-span-1 text-red-500"><ion-icon name="remove-circle-outline"></ion-icon></button>
+              </div>
+            }
+          </div>
+          <button type="button" (click)="addItem()" class="text-indigo-600 text-sm">+ 新增品項</button>
+          
+          <div class="text-right font-bold text-lg">總計: {{ formatCurrency(poForm.get('totalAmount')?.value) }}</div>
+          
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeModal()" class="px-4 py-2 border rounded-md">取消</button>
+            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

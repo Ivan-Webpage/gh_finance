@@ -1,0 +1,81 @@
+<div class="space-y-6 max-w-4xl mx-auto">
+  <div class="flex items-center gap-4">
+    <button (click)="onCancel()" class="text-gray-500 hover:text-gray-800 transition-colors p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+      <ion-icon name="arrow-back-outline" class="text-2xl"></ion-icon>
+    </button>
+    <h1 class="text-3xl font-bold text-gray-900">
+      編輯當日營收 - <span class="text-indigo-600">{{ date() }}</span>
+    </h1>
+  </div>
+  
+  <form [formGroup]="revenueForm" (ngSubmit)="onSubmit()" novalidate>
+    <div class="bg-white p-6 md:p-8 rounded-xl shadow-md space-y-6">
+      
+      <!-- Revenue Breakdown -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Editable Non-Event Revenue -->
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <label for="nonEventRevenue" class="block text-sm font-medium text-gray-700">非活動營收*</label>
+          <input type="number" id="nonEventRevenue" formControlName="nonEventRevenue" 
+                 class="mt-2 block w-full border bg-white rounded-md shadow-sm p-2 text-lg text-right font-semibold"
+                 [class.border-red-500]="submitted() && revenueForm.get('nonEventRevenue')?.invalid">
+          <p class="text-xs text-gray-500 mt-1">手動輸入當天非活動相關的營收。</p>
+        </div>
+
+        <!-- Calculated Event Revenue -->
+        <div class="bg-blue-50 p-4 rounded-lg">
+          <p class="text-sm font-medium text-gray-700">活動總營收</p>
+          <p class="mt-2 text-lg text-right font-semibold text-blue-800">{{ formatCurrency(totalEventRevenue()) }}</p>
+           <p class="text-xs text-gray-500 mt-1">來自下方活動列表的加總。</p>
+        </div>
+
+        <!-- Calculated Total Revenue -->
+        <div class="bg-green-50 p-4 rounded-lg">
+          <p class="text-sm font-medium text-gray-700">當日總營收</p>
+          <p class="mt-2 text-lg text-right font-semibold text-green-800">{{ formatCurrency(totalDailyRevenue()) }}</p>
+          <p class="text-xs text-gray-500 mt-1">非活動營收 + 活動總營收。</p>
+        </div>
+      </div>
+
+      <!-- Events on this Day -->
+      <div>
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">本日活動</h3>
+        <div class="border rounded-lg overflow-hidden">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-100 text-xs uppercase">
+              <tr>
+                <th class="px-4 py-2">活動名稱</th>
+                <th class="px-4 py-2">介紹人</th>
+                <th class="px-4 py-2 text-right">實際收入</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for(event of eventsOnDay(); track event.id) {
+                <tr class="border-t">
+                  <td class="px-4 py-2 font-medium">{{ event.name }}</td>
+                  <td class="px-4 py-2 text-gray-600">{{ event.organizer }}</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ formatCurrency(event.actualRevenue) }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="3" class="px-4 py-4 text-center text-gray-500">本日無活動。</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Buttons -->
+      <div class="flex items-center justify-end gap-4 pt-4 border-t mt-6">
+        <button type="button" (click)="onCancel()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+          取消
+        </button>
+        <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          儲存變更
+        </button>
+      </div>
+
+    </div>
+  </form>
+</div>

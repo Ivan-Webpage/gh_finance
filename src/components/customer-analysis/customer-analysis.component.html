@@ -1,0 +1,240 @@
+<div class="space-y-8">
+  <h1 class="text-3xl font-bold text-gray-900">顧客管理</h1>
+
+  <!-- Customer Segmentation Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+      <div class="bg-blue-100 p-3 rounded-full"><ion-icon name="people-outline" class="text-2xl text-blue-600"></ion-icon></div>
+      <div>
+        <p class="text-sm text-gray-500">總顧客數</p>
+        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().total }}</p>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+      <div class="bg-green-100 p-3 rounded-full"><ion-icon name="person-outline" class="text-2xl text-green-600"></ion-icon></div>
+      <div>
+        <p class="text-sm text-gray-500">一般顧客</p>
+        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().regularCount }}</p>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+      <div class="bg-purple-100 p-3 rounded-full"><ion-icon name="ribbon-outline" class="text-2xl text-purple-600"></ion-icon></div>
+      <div>
+        <p class="text-sm text-gray-500">雪茄會員</p>
+        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().cigarCount }}</p>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+      <div class="bg-gray-100 p-3 rounded-full"><ion-icon name="time-outline" class="text-2xl text-gray-600"></ion-icon></div>
+      <div>
+        <p class="text-sm text-gray-500">前雪茄會員</p>
+        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().exCigarCount }}</p>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+      <div class="bg-yellow-100 p-3 rounded-full"><ion-icon name="briefcase-outline" class="text-2xl text-yellow-600"></ion-icon></div>
+      <div>
+        <p class="text-sm text-gray-500">股東</p>
+        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().shareholderCount }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Left Column: Customer List -->
+    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md flex flex-col">
+      <h3 class="text-lg font-semibold text-gray-800 mb-4">顧客列表</h3>
+      
+      <!-- Loading State -->
+      @if(isLoading()) {
+        <div class="flex items-center justify-center h-32">
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <p class="text-sm text-gray-500">加載顧客列表中...</p>
+          </div>
+        </div>
+      }
+      
+      <!-- Error State -->
+      @if(errorMessage()) {
+        <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm">
+          <p class="font-semibold">加載失敗</p>
+          <p>{{ errorMessage() }}</p>
+        </div>
+      }
+      
+      <!-- Normal State -->
+      @if(!isLoading()) {
+        <!-- 分類篩選下拉選單 -->
+        <div class="mb-3">
+          <select [(ngModel)]="categoryFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+            <option value="all">全部顧客</option>
+            <option value="regular">一般顧客</option>
+            <option value="cigar">雪茄會員</option>
+            <option value="exCigar">前雪茄會員</option>
+            <option value="shareholder">股東</option>
+          </select>
+        </div>
+        
+        <!-- 搜尋框 -->
+        <div class="relative mb-4">
+          <input type="text" [(ngModel)]="searchTerm" placeholder="依姓名或電話搜尋..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 pl-10 bg-gray-50">
+          <ion-icon name="search-outline" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></ion-icon>
+        </div>
+        <div class="flex-1 overflow-y-auto -mx-2 px-2">
+          <div class="space-y-2">
+            @for(customer of filteredCustomers(); track customer.id) {
+              <div (click)="selectCustomer(customer)" 
+                   class="p-3 rounded-lg cursor-pointer transition-colors"
+                   [class.bg-indigo-100]="selectedCustomer()?.id === customer.id"
+                   [class.hover:bg-gray-100]="selectedCustomer()?.id !== customer.id">
+                <div class="flex justify-between items-center">
+                  <p class="font-medium text-gray-800">{{ getCleanCustomerName(customer) }}</p>
+                  <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
+                </div>
+                <p class="text-sm text-gray-500">{{ customer.phone }}</p>
+              </div>
+            } @empty {
+              <p class="text-center text-gray-500 py-4">找不到顧客。</p>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Right Column: Customer Details -->
+    <div class="lg:col-span-2 space-y-8">
+      @if(selectedCustomer(); as customer) {
+        <div>
+          <!-- Basic Info Card -->
+          <div class="bg-white p-6 rounded-xl shadow-md">
+            <div class="flex justify-between items-start">
+              <div>
+                <h2 class="text-2xl font-bold text-gray-900">{{ getCleanCustomerName(customer) }}</h2>
+                <span class="text-sm font-semibold px-2 py-1 rounded-full mt-1 inline-block" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
+              </div>
+              <button (click)="clearSelection()" class="text-gray-500 hover:text-gray-700">
+                <ion-icon name="close-circle-outline" class="text-2xl"></ion-icon>
+              </button>
+            </div>
+            <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm border-t pt-4">
+              <div><strong class="block text-gray-500">電話</strong><span class="text-gray-800">{{ customer.phone || '-' }}</span></div>
+              <div><strong class="block text-gray-500">性別</strong><span class="text-gray-800">{{ customer.gender || '-' }}</span></div>
+              <div><strong class="block text-gray-500">生日</strong><span class="text-gray-800">{{ customer.birthday || '-' }}</span></div>
+              <div><strong class="block text-gray-500">出生年份</strong><span class="text-gray-800">{{ customer.birthYear || '-' }}</span></div>
+              <div><strong class="block text-gray-500">積分點數</strong><span class="text-gray-800 font-bold">{{ customer.loyaltyPoints || 0 }} 點</span></div>
+              <div><strong class="block text-gray-500">原始門店</strong><span class="text-gray-800">{{ customer.originStore || '-' }}</span></div>
+            </div>
+            @if(customer.lastCheckoutAt) {
+              <div class="mt-4 pt-4 border-t text-sm">
+                <strong class="block text-gray-500 mb-1">最後結帳時間</strong>
+                <span class="text-gray-800">{{ customer.lastCheckoutAt | date: 'yyyy-MM-dd HH:mm' }}</span>
+              </div>
+            }
+            @if(customer.note) {
+              <div class="mt-4 pt-4 border-t text-sm">
+                <strong class="block text-gray-500 mb-1">備註</strong>
+                <span class="text-gray-800">{{ customer.note }}</span>
+              </div>
+            }
+          </div>
+          
+          <!-- Transaction History -->
+          <div class="bg-white p-6 rounded-xl shadow-md mt-8">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">交易歷史</h3>
+            <div class="overflow-x-auto max-h-60">
+              @if(customerSales().length > 0) {
+                <table class="w-full text-sm text-left text-gray-500">
+                  <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                    <tr>
+                      <th class="px-4 py-2">日期</th>
+                      <th class="px-4 py-2">品項</th>
+                      <th class="px-4 py-2 text-right">總金額</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for(sale of customerSales(); track sale.transactionId) {
+                      <tr class="bg-white border-b hover:bg-gray-50">
+                        <td class="px-4 py-2">{{ sale.date }}</td>
+                        <td class="px-4 py-2">{{ formatSaleItems(sale.items) }}</td>
+                        <td class="px-4 py-2 text-right font-medium">{{ formatCurrency(sale.total) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <p class="text-center text-gray-500 py-4">無交易紀錄。</p>
+              }
+            </div>
+          </div>
+
+
+        </div>
+      } @else {
+        <div class="h-full flex items-center justify-center bg-white p-6 rounded-xl shadow-md">
+          <div class="text-center">
+            <ion-icon name="person-add-outline" class="text-5xl text-gray-400"></ion-icon>
+            <p class="mt-2 text-gray-500">請從左側選擇一位顧客以查看詳細資訊。</p>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- AI Market Basket Analysis -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="flex justify-between items-center mb-4">
+      <div class="flex items-center space-x-3">
+        <ion-icon name="basket-outline" class="text-2xl text-indigo-600"></ion-icon>
+        <h3 class="text-lg font-semibold text-gray-800">顧客行為分析 (整體)</h3>
+      </div>
+      <button (click)="runBasketAnalysis()" [disabled]="geminiService.basketAnalysisState() === 'loading'" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex items-center space-x-2">
+         @if(geminiService.basketAnalysisState() === 'loading') {
+          <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+        }
+        <span>分析購物籃</span>
+      </button>
+    </div>
+    
+     @switch (geminiService.basketAnalysisState()) {
+      @case ('idle') {
+        <p class="text-gray-500">點擊按鈕以對全體顧客的 POS 數據運行 AI 購物籃分析。</p>
+      }
+      @case ('loading') {
+        <p class="text-gray-500 animate-pulse">AI 正在分析交易紀錄...</p>
+      }
+      @case ('error') {
+        <div class="bg-red-50 text-red-700 p-4 rounded-lg">
+          <p class="font-semibold">發生錯誤</p>
+          <p>{{ geminiService.basketAnalysisError() }}</p>
+        </div>
+      }
+      @case ('success') {
+        @if(geminiService.basketAnalysis(); as analysis) {
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-2">經常一起購買的商品</h4>
+               @for(combo of analysis.frequently_bought_together; track $index) {
+                <div class="bg-indigo-50 p-4 rounded-lg mb-4">
+                  <p class="font-semibold text-indigo-800">{{ combo.items.join(' + ') }}</p>
+                  <p class="text-indigo-700 mt-1"><span class="font-medium">建議：</span> {{ combo.suggestion }}</p>
+                </div>
+               } @empty {
+                <p class="text-gray-500">未找到顯著的商品組合。</p>
+               }
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800 mb-2">顧客行為洞察</h4>
+              <ul class="list-disc list-inside space-y-2 text-gray-600 bg-gray-50 p-4 rounded-lg">
+                @for(insight of analysis.customer_behavior_insights; track $index) {
+                  <li>{{ insight }}</li>
+                }
+              </ul>
+            </div>
+          </div>
+        }
+      }
+    }
+  </div>
+</div>

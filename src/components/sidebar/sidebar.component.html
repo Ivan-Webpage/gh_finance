@@ -1,0 +1,89 @@
+<aside 
+  class="flex-shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+  [class.fixed]="isMobile"
+  [class.inset-y-0]="isMobile"
+  [class.left-0]="isMobile"
+  [class.h-dvh]="isMobile"
+  [class.w-72]="isMobile"
+  [class.max-w-[85vw]]="isMobile"
+  [class.shadow-2xl]="isMobile"
+  [class.-translate-x-full]="isMobile && !isMobileOpen"
+  [class.translate-x-0]="!isMobile || isMobileOpen"
+  [class.relative]="!isMobile"
+  [class.h-full]="!isMobile"
+  [class.w-64]="!isMobile && !isCollapsed()"
+  [class.w-20]="!isMobile && isCollapsed()">
+  
+  <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200 flex-shrink-0">
+    <div class="flex items-center space-x-2" [class.opacity-0]="isCollapsed()" [class.w-0]="isCollapsed()">
+      <img src="favicon.png" alt="Galaxy House Finance" class="w-8 h-8 rounded-md object-cover" />
+      <h1 class="text-xl font-semibold text-gray-800 whitespace-nowrap">GH Finance</h1>
+    </div>
+    @if (!isMobile) {
+      <button 
+        (click)="toggleCollapse()"
+        class="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0">
+        <ion-icon 
+          [name]="isCollapsed() ? 'chevron-forward-outline' : 'chevron-back-outline'"
+          class="text-xl text-gray-600"></ion-icon>
+      </button>
+    }
+  </div>
+  
+  <div class="flex-1 flex flex-col overflow-y-auto">
+    <nav class="flex-1 px-2 py-6 space-y-1">
+      @for(link of navLinks(); track link.name) {
+        @if (link.children && link.children.length > 0) {
+          <div>
+            <button 
+              (click)="toggleMenu(link.name)" 
+              [title]="isCollapsed() ? link.name : ''"
+              class="w-full flex items-center justify-between px-4 py-2.5 text-gray-600 transition-colors duration-200 transform rounded-lg hover:bg-gray-100 hover:text-gray-800"
+              [class.text-indigo-600]="isMenuActive(link.children)"
+              [class.font-semibold]="isMenuActive(link.children)">
+              <div class="flex items-center flex-1">
+                <ion-icon [name]="link.icon" class="text-xl flex-shrink-0"></ion-icon>
+                <span class="mx-4 font-medium whitespace-nowrap" [class.hidden]="!isMobile && isCollapsed()">{{ link.name }}</span>
+              </div>
+              <ion-icon 
+                name="chevron-down-outline" 
+                class="text-sm transition-transform duration-300 flex-shrink-0" 
+                [class.rotate-180]="openMenu() === link.name"
+                [class.hidden]="!isMobile && isCollapsed()"></ion-icon>
+            </button>
+            @if(openMenu() === link.name && (isMobile || !isCollapsed())) {
+              <div class="mt-1 ml-4 pl-2 space-y-1 border-l border-gray-200">
+                @for(child of link.children; track child.path) {
+                  <a 
+                    [routerLink]="child.path"
+                    (click)="onNavigate()"
+                    routerLinkActive="bg-indigo-50 text-indigo-600 font-semibold"
+                    [routerLinkActiveOptions]="{exact: true}"
+                    class="flex items-center w-full px-4 py-2 text-sm text-gray-600 transition-colors duration-200 transform rounded-lg hover:bg-gray-100 hover:text-gray-800">
+                    <ion-icon [name]="child.icon" class="text-lg flex-shrink-0"></ion-icon>
+                    <span class="mx-4 font-normal whitespace-nowrap">{{ child.name }}</span>
+                  </a>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <a 
+            [routerLink]="link.path"
+            (click)="onNavigate()"
+            [title]="isCollapsed() ? link.name : ''"
+            routerLinkActive="bg-indigo-50 text-indigo-600"
+            [routerLinkActiveOptions]="{exact: true}"
+            class="flex items-center px-4 py-2.5 text-gray-600 transition-colors duration-200 transform rounded-lg hover:bg-gray-100 hover:text-gray-800">
+            <ion-icon [name]="link.icon" class="text-xl flex-shrink-0"></ion-icon>
+            <span class="mx-4 font-medium whitespace-nowrap" [class.hidden]="!isMobile && isCollapsed()">{{ link.name }}</span>
+          </a>
+        }
+      }
+    </nav>
+  </div>
+  
+  <div class="px-4 py-6 border-t border-gray-200 flex-shrink-0">
+    <p class="text-xs text-center text-gray-500" [class.hidden]="!isMobile && isCollapsed()">© 2024 內部系統</p>
+  </div>
+</aside>

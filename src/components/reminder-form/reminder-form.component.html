@@ -1,0 +1,56 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">新增事項提醒</h1>
+    <a routerLink="/reminders" class="text-gray-600 hover:text-gray-900 text-sm">返回列表</a>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+    @if (errorMessage()) {
+      <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ errorMessage() }}</div>
+    }
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+        <input type="date" [ngModel]="date()" (ngModelChange)="date.set($event)"
+               class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">時間</label>
+        <input type="text" [ngModel]="time()" (ngModelChange)="time.set($event)" placeholder="例如 09:00 或 09:00~10:00"
+               class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">分類</label>
+        <input type="text" [ngModel]="category()" (ngModelChange)="category.set($event)" placeholder="例如 行銷 / 活動 / 內部"
+               class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">狀態</label>
+        <select [ngModel]="status()" (ngModelChange)="status.set($event)"
+                class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+          <option value="pending">待確定</option>
+          <option value="active">進行中</option>
+          <option value="cancelled">取消</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">事件</label>
+        <input type="text" [ngModel]="event()" (ngModelChange)="event.set($event)" placeholder="請輸入需要提醒的事項"
+               class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-white">
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 pt-2">
+      <button (click)="save()" [disabled]="isSaving() || createdId()"
+              class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+        @if (isSaving()) { 儲存中... } @else if (createdId()) { 已新增 } @else { 儲存 }
+      </button>
+      <a routerLink="/reminders" class="px-4 py-2 rounded-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors text-sm">取消</a>
+    </div>
+  </div>
+</div>

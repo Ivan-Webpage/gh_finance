@@ -1,0 +1,35 @@
+<header class="h-16 flex-shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6">
+  @if (isMobile) {
+    <button
+      type="button"
+      (click)="menuToggle.emit()"
+      class="inline-flex items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 lg:hidden"
+      aria-label="切換側邊選單">
+      <ion-icon name="menu-outline" class="text-2xl"></ion-icon>
+    </button>
+  }
+
+  @if(authService.currentAdmin(); as admin) {
+    <div class="ml-auto flex items-center gap-3 sm:gap-4">
+      <div class="text-right">
+        <p class="text-sm font-semibold text-gray-800">{{ admin.name }}</p>
+        <p class="text-xs font-medium px-2 py-0.5 rounded-full inline-block" [class]="getRoleClass(admin.roles[0]?.role_name || '')">
+          {{ admin.roles[0]?.display_name || 'User' }}
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        @if (showAvatar()) {
+          <img
+            [src]="avatarSrc()!"
+            (error)="handleAvatarError()"
+            referrerpolicy="no-referrer"
+            alt="Avatar"
+            class="w-10 h-10 rounded-full object-cover"
+          />
+        } @else {
+          <ion-icon name="person-circle-outline" class="text-3xl text-gray-500"></ion-icon>
+        }
+      </div>
+    </div>
+  }
+</header>

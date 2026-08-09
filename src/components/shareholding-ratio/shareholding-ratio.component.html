@@ -1,0 +1,173 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold text-gray-900">股權比例</h1>
+    <button
+      type="button"
+      (click)="openModal()"
+      [disabled]="isLoading()"
+      class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <ion-icon name="add-outline"></ion-icon>
+      <span>新增股東</span>
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="hourglass-outline" class="text-blue-600 text-xl animate-spin"></ion-icon>
+      <span class="text-blue-700">正在載入資料...</span>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left whitespace-nowrap">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-100 border-b border-gray-200">
+          <tr>
+            <th class="px-4 py-3">股東名稱</th>
+            <th class="px-4 py-3 text-right">股份占比</th>
+            <th class="px-4 py-3 text-right">投入金額</th>
+            <th class="px-4 py-3">入股時間</th>
+            <th class="px-4 py-3 text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of shareholders(); track row.shareholder_id) {
+            <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+              <td class="px-4 py-3 font-medium text-gray-900">{{ row.shareholder_name }}</td>
+              <td class="px-4 py-3 text-right text-gray-700">{{ formatPercentage(row.share_percentage) }}</td>
+              <td class="px-4 py-3 text-right text-gray-700">{{ formatCurrency(row.invested_amount) }}</td>
+              <td class="px-4 py-3 text-gray-700">{{ formatDate(row.joined_at) }}</td>
+              <td class="px-4 py-3 text-center">
+                <div class="inline-flex items-center gap-2">
+                  <button
+                    type="button"
+                    (click)="openEditModal(row)"
+                    class="px-3 py-1 border rounded-md hover:bg-gray-50 text-gray-700 text-xs"
+                    title="編輯"
+                  >
+                    <ion-icon name="create-outline" class="align-middle"></ion-icon>
+                    <span class="ml-1">編輯</span>
+                  </button>
+                  <button
+                    type="button"
+                    (click)="deleteShareholder(row)"
+                    class="px-3 py-1 border rounded-md hover:bg-red-50 text-red-600 text-xs"
+                    title="刪除"
+                  >
+                    <ion-icon name="trash-outline" class="align-middle"></ion-icon>
+                    <span class="ml-1">刪除</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="text-center py-10 text-gray-500">目前尚無股東資料。</td>
+            </tr>
+          }
+        </tbody>
+        @if (shareholders().length > 0) {
+          <tfoot>
+            <tr class="bg-gray-50 border-t border-gray-200">
+              <td class="px-4 py-3 font-semibold text-gray-900">總計</td>
+              <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatPercentage(totalSharePercentage()) }}</td>
+              <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatCurrency(totalInvestedAmount()) }}</td>
+              <td class="px-4 py-3 text-gray-700">-</td>
+              <td class="px-4 py-3 text-center text-gray-700">-</td>
+            </tr>
+          </tfoot>
+        }
+      </table>
+    </div>
+  </div>
+</div>
+
+@if (isModalOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">{{ modalTitle() }}</h3>
+        <button type="button" (click)="closeModal()" class="text-gray-400 hover:text-gray-600">
+          <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto">
+        <form [formGroup]="shareholderForm" (ngSubmit)="handleSubmit()" class="space-y-4">
+          <label class="block">
+            <span class="text-gray-700">股東名稱*</span>
+            <input formControlName="shareholder_name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2" />
+          </label>
+
+          <label class="block">
+            <span class="text-gray-700">股份占比 (%)*</span>
+            <input
+              formControlName="share_percentage"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"
+              placeholder="例如：25"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-gray-700">投入金額*</span>
+            <input
+              formControlName="invested_amount"
+              type="number"
+              min="0"
+              step="1"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"
+              placeholder="例如：1000000"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-gray-700">入股時間*</span>
+            <input formControlName="joined_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2" />
+          </label>
+
+          @if (errorMessage()) {
+            <div class="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+              <ion-icon name="alert-circle-outline" class="text-red-600 text-lg"></ion-icon>
+              <span class="text-red-700 text-sm">{{ errorMessage() }}</span>
+            </div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button
+              type="button"
+              (click)="closeModal()"
+              [disabled]="isLoading()"
+              class="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              [disabled]="isLoading()"
+              class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              @if (isLoading()) {
+                <ion-icon name="hourglass-outline" class="animate-spin"></ion-icon>
+                <span>儲存中...</span>
+              } @else {
+                <span>儲存</span>
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
