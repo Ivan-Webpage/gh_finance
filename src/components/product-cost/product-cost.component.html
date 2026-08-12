@@ -250,6 +250,15 @@
             </select>
             <button (click)="resetItemCostLinkFilters()" title="重設篩選" class="text-gray-500 hover:text-gray-800 p-2 rounded-full bg-gray-100 hover:bg-gray-200"><ion-icon name="refresh-outline" class="text-xl"></ion-icon></button>
           </div>
+          <div class="md:col-span-3 flex items-center gap-2">
+            <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+              <input type="checkbox" [ngModel]="itemCostLinkHideDeletedInIchef()" (ngModelChange)="itemCostLinkHideDeletedInIchef.set($event); itemCostLinkPage.set(1)" class="rounded border-gray-300">
+              隱藏已在 iChef 刪除的品項
+            </label>
+            @if (deletedInIchefCount() > 0) {
+              <span class="text-xs text-gray-400">（共 {{ deletedInIchefCount() }} 筆已刪除，資料來自每日排程同步）</span>
+            }
+          </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left whitespace-nowrap">
@@ -265,8 +274,13 @@
             </thead>
             <tbody>
               @for (item of pagedItemCostLinks(); track item.itemUuid) {
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-2 font-medium">{{ item.itemName }}</td>
+                <tr class="border-b hover:bg-gray-50" [class.opacity-60]="item.isActiveInIchef === false">
+                  <td class="px-4 py-2 font-medium">
+                    {{ item.itemName }}
+                    @if (item.isActiveInIchef === false) {
+                      <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600" title="已在 iChef 刪除，資料保留供歷史對應查詢">iChef 已刪除</span>
+                    }
+                  </td>
                   <td class="px-4 py-2">{{ item.categoryName }}</td>
                   <td class="px-4 py-2 text-right">{{ formatCurrency(item.totalSalesAmount) }}</td>
                   <td class="px-4 py-2 text-right">{{ item.totalSalesNumber }}</td>

@@ -866,6 +866,9 @@ export interface ItemCostLink {
   linkIsActive: boolean | null;
   mappedProductName: string | null;
   mappedCategory: string | null;
+  /** false = 已在 iChef 端刪除；null = 排程尚未同步過品項主檔 */
+  isActiveInIchef: boolean | null;
+  enabledInIchef: boolean | null;
 }
 
 // ========== 太魯閣威士忌銷售追蹤 (tarakou-whisky-sales) ==========

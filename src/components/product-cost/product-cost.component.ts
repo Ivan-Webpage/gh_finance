@@ -192,6 +192,7 @@ export class ProductCostComponent implements OnInit {
   allItemCostLinks = signal<ItemCostLink[]>([]);
   itemCostLinkSearchTerm = signal('');
   itemCostLinkStatusFilter = signal<'' | 'unmapped' | 'mapped'>('');
+  itemCostLinkHideDeletedInIchef = signal(true);
   itemCostLinkPage = signal(1);
   itemCostLinkPageSize = 15;
   isItemCostLinkModalOpen = signal(false);
@@ -202,10 +203,13 @@ export class ProductCostComponent implements OnInit {
 
   unmappedItemCostLinkCount = computed(() => this.allItemCostLinks().filter(l => !l.mappedProductName).length);
 
+  deletedInIchefCount = computed(() => this.allItemCostLinks().filter(l => l.isActiveInIchef === false).length);
+
   filteredItemCostLinks = computed(() => {
     const term = this.itemCostLinkSearchTerm().toLowerCase();
     const status = this.itemCostLinkStatusFilter();
     let all = this.allItemCostLinks();
+    if (this.itemCostLinkHideDeletedInIchef()) all = all.filter(l => l.isActiveInIchef !== false);
     if (status === 'unmapped') all = all.filter(l => !l.mappedProductName);
     if (status === 'mapped') all = all.filter(l => !!l.mappedProductName);
     if (term) {
@@ -227,6 +231,7 @@ export class ProductCostComponent implements OnInit {
   resetItemCostLinkFilters(): void {
     this.itemCostLinkSearchTerm.set('');
     this.itemCostLinkStatusFilter.set('');
+    this.itemCostLinkHideDeletedInIchef.set(true);
     this.itemCostLinkPage.set(1);
   }
 

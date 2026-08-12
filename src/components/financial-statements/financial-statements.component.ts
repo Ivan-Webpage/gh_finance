@@ -10,7 +10,7 @@ type Statement = 'summary' | 'income' | 'balance' | 'monthlyRevenue' | 'tax401';
 const ACTUAL_COST_ROW_HINTS: Partial<Record<MonthlyRevenueRowKey, string>> = {
   drinksActualCost: '依 iChef 實際出貨品項數量 x 該品項對應的酒水成本計算，非流水帳資料。尚未於「商品成本管理 > iChef 品項對應」設定對應的品項，成本暫計為 0。',
   diningActualCost: '依 iChef 實際出貨品項數量 x 該品項對應的餐點食譜成本計算，非流水帳資料。尚未於「商品成本管理 > iChef 品項對應」設定對應的品項，成本暫計為 0。',
-  cigarActualCost: '依 iChef 實際出貨品項數量 x 該品項對應的雪茄成本計算，非流水帳資料。尚未於「商品成本管理 > iChef 品項對應」設定對應的品項，成本暫計為 0。',
+  cigarActualCost: '依 iChef 實際出貨品項數量 x 該品項對應雪茄的「理晟成本」計算（非流水帳資料，也不是百泇成本）。尚未於「商品成本管理 > iChef 品項對應」設定對應的品項，成本暫計為 0。',
 };
 
 interface Tax401FormState {
