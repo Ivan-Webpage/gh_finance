@@ -509,13 +509,23 @@ export interface CigarCost {
   sellingPrice: number;
 }
 
+/** 從貨單明細（vendor.shipment_items）反查到的最近一筆進貨單價，僅供對照參考 */
+export interface LatestShipmentPrice {
+  unitPrice: number;
+  unit: string | null;
+  issueDate: string;
+  vendorName: string | null;
+}
+
 export interface WineCost {
   id: string;
+  vendorId?: number | null;
   vendor: string; // 廠商
   productName: string;
   type: string; // 類型
   cost: number; // 進貨成本
   sellingPrice: number; // 售價
+  latestShipmentPrice?: LatestShipmentPrice | null;
 }
 
 
@@ -747,6 +757,9 @@ export interface ShipmentItem {
   remark: string | null; // 備註
   createdAt: string; // 建立時間
   updatedAt: string; // 更新時間
+  productType: 'wine' | 'ingredient' | null; // 對應到酒水成本還是餐飲食材，null 代表尚未對應
+  productId: number | null; // 依 productType 指向 vendor.wines.id 或 vendor.ingredients.id
+  mappedProductName: string | null; // 對應商品的名稱（唯讀，方便顯示）
 }
 
 /**
@@ -783,11 +796,42 @@ export interface PurchaseOrderAiImportRow {
   movedTo?: string;
 }
 
+/** 已存在日期+金額皆相同分錄，掃描時先不匯入、待使用者確認的一筆發票資料。 */
+export interface PurchaseOrderAiDuplicateMatch {
+  entryId: number;
+  entryDate: string;
+  amount: number;
+  itemGroup: string | null;
+  subjectName: string | null;
+  description: string | null;
+  vendorName: string | null;
+}
+
+export interface PurchaseOrderAiPendingRow {
+  fileId: string;
+  fileName: string;
+  issueDate: string;
+  amount: number;
+  invoiceNo: string | null;
+  vendorId: number | null;
+  vendorName: string;
+  vendorTaxId: string;
+  itemGroup: string;
+  subjectName: string;
+  glAccountId: number | null;
+  description: string | null;
+  items: Array<{ 品名?: string; 數量?: string | number; 單價?: string | number; 單位?: string; 小計?: string | number }>;
+  remarkText: string | null;
+  duplicates: PurchaseOrderAiDuplicateMatch[];
+}
+
 export interface PurchaseOrderAiImportResult {
   total: number;
   successCount: number;
   failedCount: number;
+  pendingCount?: number;
   rows: PurchaseOrderAiImportRow[];
+  pending?: PurchaseOrderAiPendingRow[];
 }
 
 // ========== 未來計畫 (collaboration/future-plans) ==========
@@ -818,6 +862,7 @@ export interface Ingredient {
   countUnit: string | null;
   isActive: boolean;
   remark: string | null;
+  latestShipmentPrice?: LatestShipmentPrice | null;
 }
 
 export type RecipeComponentType = 'ingredient' | 'recipe';

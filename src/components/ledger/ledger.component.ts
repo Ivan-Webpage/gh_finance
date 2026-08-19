@@ -43,6 +43,10 @@ export class LedgerComponent {
   errorMessage = signal<string | null>(null);
   confirmationState = signal<{ message: string; isChecked: boolean; target: HTMLInputElement; } | null>(null);
 
+  // 新增流水帳前的重複提醒（日期+金額皆相同的既有分錄）
+  isCheckingDuplicate = signal(false);
+  duplicateWarning = signal<{ entries: LedgerEntry[]; pendingEntryData: Record<string, unknown> } | null>(null);
+
   // Shipment Items (進貨資料)
   shipmentItems = signal<ShipmentItem[]>([]);
   isLoadingShipmentItems = signal(false);
@@ -872,67 +876,83 @@ export class LedgerComponent {
       }
     }
 
+    const formValue = this.ledgerForm.value;
+    const entryData = {
+      entry_date: formValue.entry_date,
+      item_group: formValue.item_group,
+      subject_name: formValue.subject_name,
+      amount: Number(formValue.amount),
+      invoice_no: formValue.invoice_no,
+      vendor_tax_id: formValue.vendor_tax_id,
+      vendor_name: formValue.vendor_name,
+      vendor_id: formValue.vendor_id,
+      description: formValue.description,
+      is_sigh_off: formValue.is_sigh_off || false,
+      gl_account_id: formValue.gl_account_id || null,
+    };
+
+    if (this.editingTransaction()) {
+      await this.saveExistingLedgerEntry(entryData);
+      return;
+    }
+
+    // 新增流水帳前，先檢查是否已有日期+金額皆相同的既有分錄，避免重複輸入
+    // 導致成本暴衝（曾實際發生過）。同日同金額不保證是同一筆交易，所以只
+    // 提示、不阻擋，交由使用者自己決定是否仍要新增。
+    this.isCheckingDuplicate.set(true);
+    this.errorMessage.set(null);
+    try {
+      const dupResponse = await this.apiService.checkLedgerDuplicate(entryData.entry_date!, entryData.amount);
+      if (dupResponse.success && dupResponse.data?.hasDuplicates) {
+        this.duplicateWarning.set({ entries: dupResponse.data.entries, pendingEntryData: entryData });
+        return;
+      }
+    } catch (error) {
+      // 檢查失敗不阻擋新增流程，只記錄警告
+      console.warn('檢查重複流水帳時發生錯誤：', error);
+    } finally {
+      this.isCheckingDuplicate.set(false);
+    }
+
+    await this.saveNewLedgerEntry(entryData);
+  }
+
+  /**
+   * 使用者在重複提醒視窗中確認「仍要新增」
+   */
+  async confirmAddDuplicateEntry(): Promise<void> {
+    const warning = this.duplicateWarning();
+    if (!warning) return;
+    this.duplicateWarning.set(null);
+    await this.saveNewLedgerEntry(warning.pendingEntryData as any);
+  }
+
+  /**
+   * 使用者在重複提醒視窗中取消新增
+   */
+  cancelAddDuplicateEntry(): void {
+    this.duplicateWarning.set(null);
+  }
+
+  private async saveExistingLedgerEntry(entryData: Record<string, unknown>): Promise<void> {
     this.isLoading.set(true);
     this.errorMessage.set(null);
-
     try {
-      const formValue = this.ledgerForm.value;
-      const entryData = {
-        entry_date: formValue.entry_date,
-        item_group: formValue.item_group,
-        subject_name: formValue.subject_name,
-        amount: Number(formValue.amount),
-        invoice_no: formValue.invoice_no,
-        vendor_tax_id: formValue.vendor_tax_id,
-        vendor_name: formValue.vendor_name,
-        vendor_id: formValue.vendor_id,
-        description: formValue.description,
-        is_sigh_off: formValue.is_sigh_off || false,
-        gl_account_id: formValue.gl_account_id || null,
-      };
-
-      if (this.editingTransaction()) {
-        // Update existing - 修改現有資料
-        const editingTx = this.editingTransaction()!;
-        const response = await this.apiService.updateLedgerEntry({ 
-          entry_id: editingTx.entry_id,
-          ...entryData
+      const editingTx = this.editingTransaction()!;
+      const response = await this.apiService.updateLedgerEntry({
+        entry_id: editingTx.entry_id,
+        ...entryData
+      } as any);
+      if (response.success) {
+        // 直接在前端更新該筆資料，避免重新載入所有資料
+        const updatedTransactions = this.allTransactions().map(tx => {
+          if (tx.entry_id === editingTx.entry_id) {
+            return { ...tx, ...entryData };
+          }
+          return tx;
         });
-        if (response.success) {
-          // 直接在前端更新該筆資料，避免重新載入所有資料
-          const updatedTransactions = this.allTransactions().map(tx => {
-            if (tx.entry_id === editingTx.entry_id) {
-              return { ...tx, ...entryData };
-            }
-            return tx;
-          });
-          this.allTransactions.set(updatedTransactions);
-          this.closeModal();
-        }
-      } else {
-        // Add new - 新增資料
-        const response = await this.apiService.createLedgerEntry(entryData);
-        if (response.success && response.data) {
-          // 設置新建立的流水帳記錄，以便在 add 視圖中顯示進貨資料管理界面
-          const newEntry: LedgerEntry = {
-            entry_id: response.data.entry_id,
-            entry_date: response.data.entry_date,
-            item_group: response.data.item_group,
-            subject_name: response.data.subject_name,
-            amount: response.data.amount,
-            invoice_no: response.data.invoice_no,
-            vendor_tax_id: response.data.vendor_tax_id,
-            vendor_name: response.data.vendor_name,
-            vendor_id: response.data.vendor_id,
-            description: response.data.description,
-            is_sigh_off: response.data.is_sigh_off || false,
-            gl_account_id: response.data.gl_account_id || null,
-          };
-          this.newlyCreatedEntry.set(newEntry);
-          this.resetForm();
-          // 加載新建立記錄的進貨資料
-          await this.loadShipmentItemsForEntry(newEntry.entry_id);
-        }
+        this.allTransactions.set(updatedTransactions);
+        this.closeModal();
       }
     } catch (error) {
       console.error('保存失敗:', error);
@@ -940,11 +960,43 @@ export class LedgerComponent {
     } finally {
       this.isLoading.set(false);
     }
-    if (!this.editingTransaction()) {
-      this.applyFilters();
-    }
   }
-  
+
+  private async saveNewLedgerEntry(entryData: Record<string, unknown>): Promise<void> {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+    try {
+      const response = await this.apiService.createLedgerEntry(entryData as any);
+      if (response.success && response.data) {
+        // 設置新建立的流水帳記錄，以便在 add 視圖中顯示進貨資料管理界面
+        const newEntry: LedgerEntry = {
+          entry_id: response.data.entry_id,
+          entry_date: response.data.entry_date,
+          item_group: response.data.item_group,
+          subject_name: response.data.subject_name,
+          amount: response.data.amount,
+          invoice_no: response.data.invoice_no,
+          vendor_tax_id: response.data.vendor_tax_id,
+          vendor_name: response.data.vendor_name,
+          vendor_id: response.data.vendor_id,
+          description: response.data.description,
+          is_sigh_off: response.data.is_sigh_off || false,
+          gl_account_id: response.data.gl_account_id || null,
+        };
+        this.newlyCreatedEntry.set(newEntry);
+        this.resetForm();
+        // 加載新建立記錄的進貨資料
+        await this.loadShipmentItemsForEntry(newEntry.entry_id);
+      }
+    } catch (error) {
+      console.error('保存失敗:', error);
+      this.errorMessage.set('保存失敗，請稍後重試');
+    } finally {
+      this.isLoading.set(false);
+    }
+    this.applyFilters();
+  }
+
   resetForm(): void {
       this.ledgerForm.reset({ is_sigh_off: false });
       this.submitted.set(false);

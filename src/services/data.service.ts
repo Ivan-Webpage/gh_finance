@@ -1299,6 +1299,7 @@ export class DataService {
       if (response.success && Array.isArray(response.data)) {
         const mapped = response.data.map((row: any) => ({
           id: String(row.id),
+          vendorId: row.vendorId !== undefined && row.vendorId !== null ? Number(row.vendorId) : (row.vendor_id !== undefined && row.vendor_id !== null ? Number(row.vendor_id) : null),
           vendor: row.vendor ?? row.vendor_name ?? '',
           productName: row.productName ?? row.product_name ?? '',
           type: row.type ?? '',
@@ -1319,7 +1320,7 @@ export class DataService {
     const response = await firstValueFrom(
       this.apiService.post('/product-cost', {
         recordType: 'wines',
-        vendor_name: costData.vendor,
+        vendor_id: costData.vendorId,
         product_name: costData.productName,
         type: costData.type,
         cost: costData.cost,
@@ -1333,13 +1334,13 @@ export class DataService {
 
     await this.getWineCosts();
   }
-  
+
   async updateWineCost(updatedCost: WineCost): Promise<void> {
     const response = await firstValueFrom(
       this.apiService.put('/product-cost', {
         recordType: 'wines',
         id: updatedCost.id,
-        vendor_name: updatedCost.vendor,
+        vendor_id: updatedCost.vendorId,
         product_name: updatedCost.productName,
         type: updatedCost.type,
         cost: updatedCost.cost,

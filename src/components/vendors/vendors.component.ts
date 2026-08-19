@@ -212,9 +212,23 @@ export class VendorsComponent {
         alert('廠商資料已成功更新');
         this.closeModal();
       } else {
-        // 新增廠商（實際應該調用 createVendor，但 API 服務目前沒有）
-        this.errorMessage.set('新增廠商功能尚未實作');
-        console.warn('新增廠商功能需要後端支持');
+        // 新增廠商
+        const response = await this.apiService.createVendor({
+          vendor_name: vendorData.vendor_name,
+          category: vendorData.category,
+          tax_id: vendorData.tax_id,
+          contact_info: vendorData.contact_info,
+          rest_days: vendorData.rest_days,
+        });
+
+        if (!response.success) {
+          this.errorMessage.set(response.error || '新增廠商失敗');
+          return;
+        }
+
+        alert('廠商已成功新增');
+        this.closeModal();
+        await this.loadData();
       }
     } catch (error) {
       console.error('Error submitting vendor:', error);

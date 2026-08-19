@@ -23,7 +23,7 @@
     <!-- Tabs -->
     <div class="border-b border-gray-200">
       <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-        <button (click)="changeView('wines')" [class]="activeView() === 'wines' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">威&紅白酒</button>
+        <button (click)="changeView('wines')" [class]="activeView() === 'wines' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">酒類</button>
         <button (click)="changeView('cigars')" [class]="activeView() === 'cigars' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">雪茄</button>
         <button (click)="changeView('ingredients')" [class]="activeView() === 'ingredients' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">餐飲食材</button>
         <button (click)="changeView('recipes')" [class]="activeView() === 'recipes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">餐點食譜</button>
@@ -48,7 +48,7 @@
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left whitespace-nowrap">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th (click)="sortData('vendor')" class="px-4 py-3 cursor-pointer">廠商</th><th (click)="sortData('productName')" class="px-4 py-3 cursor-pointer">商品</th><th (click)="sortData('type')" class="px-4 py-3 cursor-pointer">類型</th><th (click)="sortData('cost')" class="px-4 py-3 cursor-pointer text-right">進貨成本</th><th (click)="sortData('sellingPrice')" class="px-4 py-3 cursor-pointer text-right">售價</th><th class="px-4 py-3 text-right">毛利率</th><th class="px-4 py-3">操作</th></tr></thead>
+            <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th (click)="sortData('vendor')" class="px-4 py-3 cursor-pointer">廠商</th><th (click)="sortData('productName')" class="px-4 py-3 cursor-pointer">商品</th><th (click)="sortData('type')" class="px-4 py-3 cursor-pointer">類型</th><th (click)="sortData('cost')" class="px-4 py-3 cursor-pointer text-right">進貨成本</th><th class="px-4 py-3">最近進貨價</th><th (click)="sortData('sellingPrice')" class="px-4 py-3 cursor-pointer text-right">售價</th><th class="px-4 py-3 text-right">毛利率</th><th class="px-4 py-3">操作</th></tr></thead>
             <tbody>
               @for(item of paginatedWines(); track item.id) {
                 <tr class="border-b hover:bg-gray-50">
@@ -56,11 +56,20 @@
                   <td class="px-4 py-2 font-medium">{{ item.productName }}</td>
                   <td class="px-4 py-2">{{ item.type }}</td>
                   <td class="px-4 py-2 text-right">{{ formatCurrency(item.cost) }}</td>
+                  <td class="px-4 py-2 text-xs">
+                    @if (item.latestShipmentPrice) {
+                      <div class="text-gray-600">{{ formatCurrency(item.latestShipmentPrice.unitPrice) }}/{{ item.latestShipmentPrice.unit || '單位' }}</div>
+                      <div class="text-gray-400">{{ item.latestShipmentPrice.issueDate }}・{{ item.latestShipmentPrice.vendorName }}</div>
+                      <button (click)="applyLatestShipmentPriceToWine(item)" class="text-indigo-600 hover:text-indigo-800 mt-0.5">套用為進貨成本</button>
+                    } @else {
+                      <span class="text-gray-300">無貨單對應</span>
+                    }
+                  </td>
                   <td class="px-4 py-2 text-right">{{ formatCurrency(item.sellingPrice) }}</td>
                   <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ calculateMargin(item.cost, item.sellingPrice).toFixed(2) }}%</td>
                   <td class="px-4 py-2"><div class="flex items-center gap-2"><button (click)="openModal(item)" class="text-indigo-600 hover:text-indigo-800 p-1" title="編輯"><ion-icon name="create-outline" class="text-lg"></ion-icon></button><button (click)="deleteItem(item.id)" class="text-red-500 hover:text-red-700 p-1" title="刪除"><ion-icon name="trash-outline" class="text-lg"></ion-icon></button></div></td>
                 </tr>
-              } @empty { <tr><td colspan="7" class="text-center py-8 text-gray-500">無資料。</td></tr> }
+              } @empty { <tr><td colspan="8" class="text-center py-8 text-gray-500">無資料。</td></tr> }
             </tbody>
           </table>
         </div>
@@ -125,6 +134,7 @@
                 <th class="px-4 py-3 text-right">價格</th>
                 <th class="px-4 py-3 text-right">單位成本</th>
                 <th class="px-4 py-3">點貨單位</th>
+                <th class="px-4 py-3">最近進貨價（參考）</th>
                 <th class="px-4 py-3">使用中</th>
                 <th class="px-4 py-3">操作</th>
               </tr>
@@ -139,6 +149,14 @@
                   <td class="px-4 py-2 text-right">{{ formatCurrency(item.price) }}</td>
                   <td class="px-4 py-2 text-right font-semibold bg-green-50">{{ item.unitCost }}</td>
                   <td class="px-4 py-2">{{ item.countUnit }}</td>
+                  <td class="px-4 py-2 text-xs">
+                    @if (item.latestShipmentPrice) {
+                      <div class="text-gray-600">{{ formatCurrency(item.latestShipmentPrice.unitPrice) }}/{{ item.latestShipmentPrice.unit || '單位' }}</div>
+                      <div class="text-gray-400">{{ item.latestShipmentPrice.issueDate }}・{{ item.latestShipmentPrice.vendorName }}</div>
+                    } @else {
+                      <span class="text-gray-300">無貨單對應</span>
+                    }
+                  </td>
                   <td class="px-4 py-2">{{ item.isActive ? '是' : '否' }}</td>
                   <td class="px-4 py-2">
                     <div class="flex items-center gap-2">
@@ -147,7 +165,7 @@
                     </div>
                   </td>
                 </tr>
-              } @empty { <tr><td colspan="9" class="text-center py-8 text-gray-500">尚未新增任何食材。</td></tr> }
+              } @empty { <tr><td colspan="10" class="text-center py-8 text-gray-500">尚未新增任何食材。</td></tr> }
             </tbody>
           </table>
         </div>
@@ -339,8 +357,18 @@
             @case('wines') {
               <div [formGroup]="wineCostForm" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label class="block"><span class="text-gray-700">廠商*</span><input formControlName="vendor" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
-                  @if (wineCostForm.get('vendor')?.touched && wineCostForm.get('vendor')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入廠商名稱</p> }
+                  <label class="block"><span class="text-gray-700">廠商*</span>
+                    <div class="mt-1 flex gap-2">
+                      <select formControlName="vendor_id" class="block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+                        <option [ngValue]="null">請選擇廠商</option>
+                        @for (v of sortedVendors(); track v.vendor_id) {
+                          <option [ngValue]="vendorIdOf(v)">{{ v.vendor_name }}</option>
+                        }
+                      </select>
+                      <button type="button" (click)="openVendorQuickAdd('wine')" class="shrink-0 px-3 py-2 text-sm border border-indigo-200 text-indigo-600 rounded-md hover:bg-indigo-50">+ 新增廠商</button>
+                    </div>
+                  </label>
+                  @if (wineCostForm.get('vendor_id')?.touched && wineCostForm.get('vendor_id')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請選擇廠商</p> }
                   <label class="block"><span class="text-gray-700">商品名稱*</span><input formControlName="productName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
                   @if (wineCostForm.get('productName')?.touched && wineCostForm.get('productName')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">請輸入商品名稱</p> }
                   <label class="block"><span class="text-gray-700">類型*</span><input formControlName="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
@@ -400,7 +428,15 @@
             <input [ngModel]="ingredientForm().ingredient_name" (ngModelChange)="updateIngredientFormField('ingredient_name', $event)" name="ingredient_name" placeholder="請輸入食材名稱" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
           </label>
           <label class="block"><span class="text-gray-700">廠商</span>
-            <input [ngModel]="ingredientForm().vendor_name_snapshot" (ngModelChange)="updateIngredientFormField('vendor_name_snapshot', $event)" name="vendor_name_snapshot" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            <div class="mt-1 flex gap-2">
+              <select [ngModel]="ingredientForm().vendor_id" (ngModelChange)="updateIngredientFormField('vendor_id', $event)" name="vendor_id" class="block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+                <option [ngValue]="null">未選擇</option>
+                @for (v of sortedVendors(); track v.vendor_id) {
+                  <option [ngValue]="vendorIdOf(v)">{{ v.vendor_name }}</option>
+                }
+              </select>
+              <button type="button" (click)="openVendorQuickAdd('ingredient')" class="shrink-0 px-3 py-2 text-sm border border-indigo-200 text-indigo-600 rounded-md hover:bg-indigo-50">+ 新增廠商</button>
+            </div>
           </label>
           <div class="grid grid-cols-2 gap-4">
             <label class="block"><span class="text-gray-700">進貨數量*</span>
@@ -574,6 +610,41 @@
           <div class="flex justify-end gap-4 pt-4 border-t mt-4">
             <button type="button" (click)="closeItemCostLinkModal()" [disabled]="itemCostLinkSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
             <button type="submit" [disabled]="itemCostLinkSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ itemCostLinkSaving() ? '儲存中...' : '儲存' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Vendor Quick-Add Modal -->
+@if (isVendorQuickAddOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">新增廠商</h3>
+        <button (click)="closeVendorQuickAdd()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="submitVendorQuickAdd()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">廠商名稱*</span>
+            <input [ngModel]="vendorQuickAddName()" (ngModelChange)="vendorQuickAddName.set($event)" name="quick_vendor_name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <label class="block"><span class="text-gray-700">類別*</span>
+            <input [ngModel]="vendorQuickAddCategory()" (ngModelChange)="vendorQuickAddCategory.set($event)" name="quick_vendor_category" list="vendor-category-options" placeholder="例：紅白酒、菜商" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            <datalist id="vendor-category-options">
+              @for (c of vendorCategoryOptions(); track c) { <option [value]="c"></option> }
+            </datalist>
+          </label>
+          <p class="text-xs text-gray-400">建立後可以到「廠商管理」頁面補上統編、聯絡方式等其他資料。</p>
+
+          @if (vendorQuickAddError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ vendorQuickAddError() }}</div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closeVendorQuickAdd()" [disabled]="vendorQuickAddSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="vendorQuickAddSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ vendorQuickAddSaving() ? '儲存中...' : '新增' }}</button>
           </div>
         </form>
       </div>

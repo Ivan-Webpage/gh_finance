@@ -10,6 +10,9 @@ import {
   ShipmentItem,
   PurchaseOrderAiScanFile,
   PurchaseOrderAiImportResult,
+  PurchaseOrderAiPendingRow,
+  WineCost,
+  Ingredient,
 } from '../../models/financial.model';
 
 @Component({
@@ -31,6 +34,12 @@ export class PurchaseOrdersComponent {
   
   /** 當前編輯的進貨單項目 */
   editingShipmentItem = signal<ShipmentItem | null>(null);
+
+  /** 「對應商品」下拉選單資料來源（酒水成本／餐飲食材，供進貨單品項連結用） */
+  allWineCostsForLink = signal<WineCost[]>([]);
+  allIngredientsForLink = signal<Ingredient[]>([]);
+  productLinkSaving = signal(false);
+  productLinkError = signal<string | null>(null);
 
   allVendors = signal<Vendor[]>([]);
   allPOs = signal<PurchaseOrder[]>([]);
@@ -78,6 +87,12 @@ export class PurchaseOrdersComponent {
 
   aiImportSuccessRows = computed(() => this.aiImportResult()?.rows.filter(row => row.success) ?? []);
   aiImportFailedRows = computed(() => this.aiImportResult()?.rows.filter(row => !row.success) ?? []);
+
+  /** 掃描時偵測到疑似重複（日期+金額皆相同）、暫緩匯入、待使用者確認的項目 */
+  aiImportPendingRows = computed(() => this.aiImportResult()?.pending ?? []);
+  pendingSelection = signal<Set<string>>(new Set());
+  isConfirmingPendingImport = signal(false);
+  confirmPendingError = signal<string | null>(null);
 
   poForm = this.fb.group({
     id: [''],
@@ -259,7 +274,8 @@ export class PurchaseOrdersComponent {
   constructor() {
     this.loadData();
     this.loadShipments();
-    
+    this.loadProductLinkOptions();
+
     this.poItems.valueChanges.subscribe(items => {
       const total = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0);
       this.poForm.get('totalAmount')?.setValue(total, { emitEvent: false });
@@ -336,6 +352,8 @@ export class PurchaseOrdersComponent {
     this.isAiImportModalOpen.set(true);
     this.aiImportError.set(null);
     this.aiImportResult.set(null);
+    this.pendingSelection.set(new Set());
+    this.confirmPendingError.set(null);
     await this.scanAiImportFiles();
   }
 
@@ -344,6 +362,8 @@ export class PurchaseOrdersComponent {
     this.aiImportError.set(null);
     this.aiImportResult.set(null);
     this.aiScanFiles.set([]);
+    this.pendingSelection.set(new Set());
+    this.confirmPendingError.set(null);
   }
 
   async scanAiImportFiles(): Promise<void> {
@@ -377,6 +397,8 @@ export class PurchaseOrdersComponent {
       const response = await this.apiService.importPurchaseOrdersByAi();
       if (response.success && response.data) {
         this.aiImportResult.set(response.data);
+        // 疑似重複的項目預設全選，使用者可以自行取消勾選要略過的項目
+        this.pendingSelection.set(new Set((response.data.pending ?? []).map(p => p.fileId)));
         if ((response.data.failedCount ?? 0) > 0) {
           const firstFailed = response.data.rows.find(row => !row.success);
           this.aiImportError.set(firstFailed?.reason || `共有 ${response.data.failedCount} 筆匯入失敗`);
@@ -390,6 +412,82 @@ export class PurchaseOrdersComponent {
       this.aiImportError.set(this.extractApiErrorMessage(error, 'AI 匯入進貨單失敗，請稍後重試'));
     } finally {
       this.isAiImporting.set(false);
+    }
+  }
+
+  isPendingSelected(fileId: string): boolean {
+    return this.pendingSelection().has(fileId);
+  }
+
+  togglePendingSelection(fileId: string): void {
+    const next = new Set(this.pendingSelection());
+    if (next.has(fileId)) {
+      next.delete(fileId);
+    } else {
+      next.add(fileId);
+    }
+    this.pendingSelection.set(next);
+  }
+
+  selectAllPending(): void {
+    this.pendingSelection.set(new Set(this.aiImportPendingRows().map(p => p.fileId)));
+  }
+
+  deselectAllPending(): void {
+    this.pendingSelection.set(new Set());
+  }
+
+  /**
+   * 匯入使用者勾選、確認不是重複記帳的項目。
+   * 帶回掃描階段已經解析好的資料（不重新呼叫 Gemini OCR），成功匯入的項目
+   * 會併入「成功」清單、從「疑似重複」清單移除；失敗的項目改併入「失敗」清單。
+   */
+  async confirmSelectedPendingImports(): Promise<void> {
+    if (this.isConfirmingPendingImport()) return;
+
+    const selectedIds = this.pendingSelection();
+    const itemsToConfirm = this.aiImportPendingRows().filter(p => selectedIds.has(p.fileId));
+    if (itemsToConfirm.length === 0) return;
+
+    this.isConfirmingPendingImport.set(true);
+    this.confirmPendingError.set(null);
+
+    try {
+      const response = await this.apiService.confirmPurchaseOrderAiImport(itemsToConfirm);
+      if (response.success && response.data) {
+        const confirmedFileIds = new Set(itemsToConfirm.map(p => p.fileId));
+        const current = this.aiImportResult();
+        if (current) {
+          const remainingPending = (current.pending ?? []).filter(p => !confirmedFileIds.has(p.fileId));
+          const newRows = [...current.rows, ...response.data.rows];
+          this.aiImportResult.set({
+            ...current,
+            rows: newRows,
+            successCount: newRows.filter(r => r.success).length,
+            failedCount: newRows.filter(r => !r.success).length,
+            pendingCount: remainingPending.length,
+            pending: remainingPending,
+          });
+        }
+
+        const nextSelection = new Set(this.pendingSelection());
+        confirmedFileIds.forEach(id => nextSelection.delete(id));
+        this.pendingSelection.set(nextSelection);
+
+        const failed = response.data.rows.find(row => !row.success);
+        if (failed) {
+          this.confirmPendingError.set(failed.reason || `共有 ${response.data.failedCount} 筆確認匯入失敗`);
+        }
+
+        await this.loadShipments();
+      } else {
+        this.confirmPendingError.set(response.error || '確認匯入失敗');
+      }
+    } catch (error) {
+      console.error('Error confirming pending AI import:', error);
+      this.confirmPendingError.set(this.extractApiErrorMessage(error, '確認匯入失敗，請稍後重試'));
+    } finally {
+      this.isConfirmingPendingImport.set(false);
     }
   }
 
@@ -435,11 +533,47 @@ export class PurchaseOrdersComponent {
   }
 
   /**
+   * 載入「對應商品」下拉選單資料（酒水成本／餐飲食材）
+   */
+  async loadProductLinkOptions(): Promise<void> {
+    try {
+      this.allWineCostsForLink.set(await this.dataService.getWineCosts());
+    } catch (error) {
+      console.error('Error loading wine costs for shipment link:', error);
+    }
+    try {
+      const response = await this.apiService.getIngredients();
+      if (response.success && response.data) {
+        this.allIngredientsForLink.set(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading ingredients for shipment link:', error);
+    }
+  }
+
+  /** 依「對應類型」回傳可選商品清單，供「對應商品」下拉選單使用 */
+  productLinkOptionsForType(type: 'wine' | 'ingredient' | null): { id: number; name: string }[] {
+    if (type === 'wine') return this.allWineCostsForLink().map(w => ({ id: Number(w.id), name: w.productName }));
+    if (type === 'ingredient') return this.allIngredientsForLink().map(i => ({ id: Number(i.id), name: i.ingredientName }));
+    return [];
+  }
+
+  /** 切換「對應類型」時，先前選的商品不一定還存在於新類型清單裡，一併清空 */
+  onShipmentProductTypeChange(newType: 'wine' | 'ingredient' | ''): void {
+    const item = this.editingShipmentItem();
+    if (!item) return;
+    item.productType = newType === '' ? null : newType;
+    item.productId = null;
+  }
+
+  /**
    * 打開進貨單項目編輯模態視窗
    * @param item 要編輯的進貨單項目
    */
   openShipmentEditModal(item: ShipmentItem): void {
-    this.editingShipmentItem.set(item);
+    this.productLinkError.set(null);
+    // 複製一份，避免使用者在對應區塊按了「取消」之後，list 裡的物件已經被 ngModel 直接改到
+    this.editingShipmentItem.set({ ...item });
     this.isEditModalOpen.set(true);
   }
 
@@ -461,13 +595,17 @@ export class PurchaseOrdersComponent {
     try {
       this.isLoadingShipments.set(true);
       
-      // 調用 API 更新進貨單項目
+      // 調用 API 更新進貨單項目（productType/productId 一律帶上目前的值——
+      // 三態欄位裡「帶值」跟「帶 null」都代表要覆蓋，只有完全不帶這個 key 才是
+      // 不變更，這裡永遠知道目前完整狀態，所以直接送出即可）
       const response = await this.apiService.updateShipmentItem(item.shipment_id, {
         itemName: item.itemName,
         qty: item.qty || undefined,
         unitPrice: item.unitPrice || undefined,
         unit: item.unit || undefined,
         remark: item.remark || undefined,
+        productType: item.productType,
+        productId: item.productId,
       });
 
       if (response.success && response.data) {

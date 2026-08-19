@@ -96,6 +96,7 @@
                   <th class="px-4 py-3 text-right">單位</th>
                   <th class="px-4 py-3 text-right">單價</th>
                   <th class="px-4 py-3 text-right">小計</th>
+                  <th class="px-4 py-3">對應商品</th>
                   <th class="px-4 py-3">備註</th>
                 </tr>
               </thead>
@@ -127,11 +128,18 @@
                         -
                       }
                     </td>
+                    <td class="px-4 py-2">
+                      @if(item.mappedProductName) {
+                        <span class="text-green-700 text-xs">{{ item.productType === 'wine' ? '酒水' : '食材' }}：{{ item.mappedProductName }}</span>
+                      } @else {
+                        <span class="text-amber-600 text-xs">未對應</span>
+                      }
+                    </td>
                     <td class="px-4 py-2 text-gray-600 text-xs">{{ item.remark || '-' }}</td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="8" class="text-center py-8 text-gray-500">未找到進貨單資料。</td>
+                    <td colspan="9" class="text-center py-8 text-gray-500">未找到進貨單資料。</td>
                   </tr>
                 }
               </tbody>
@@ -259,7 +267,7 @@
         }
 
         @if(aiImportResult()) {
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
             <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <div class="text-xs text-gray-500">總處理數</div>
               <div class="text-xl font-bold text-gray-900">{{ aiImportResult()?.total ?? 0 }}</div>
@@ -268,11 +276,82 @@
               <div class="text-xs text-emerald-700">成功</div>
               <div class="text-xl font-bold text-emerald-900">{{ aiImportResult()?.successCount ?? 0 }}</div>
             </div>
+            <div class="rounded-lg border border-orange-200 bg-orange-50 p-3">
+              <div class="text-xs text-orange-700">疑似重複，待確認</div>
+              <div class="text-xl font-bold text-orange-900">{{ aiImportPendingRows().length }}</div>
+            </div>
             <div class="rounded-lg border border-red-200 bg-red-50 p-3">
               <div class="text-xs text-red-700">失敗</div>
               <div class="text-xl font-bold text-red-900">{{ aiImportResult()?.failedCount ?? 0 }}</div>
             </div>
           </div>
+
+          @if(aiImportPendingRows().length > 0) {
+            <div class="rounded-lg border border-orange-200">
+              <div class="flex items-center justify-between border-b border-orange-200 bg-orange-50 px-3 py-2">
+                <div class="text-xs font-semibold uppercase text-orange-700">
+                  疑似重複明細（已有日期與金額皆相同的既有分錄，請確認是否仍要匯入）
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                  <button type="button" (click)="selectAllPending()" class="text-orange-700 hover:underline">全選</button>
+                  <button type="button" (click)="deselectAllPending()" class="text-orange-700 hover:underline">取消全選</button>
+                </div>
+              </div>
+
+              @if(confirmPendingError()) {
+                <div class="border-b border-orange-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {{ confirmPendingError() }}
+                </div>
+              }
+
+              <div class="max-h-72 overflow-auto">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-orange-50 text-xs uppercase text-orange-700">
+                    <tr>
+                      <th class="px-3 py-2 w-8"></th>
+                      <th class="px-3 py-2">檔名</th>
+                      <th class="px-3 py-2">日期</th>
+                      <th class="px-3 py-2">廠商</th>
+                      <th class="px-3 py-2 text-right">金額</th>
+                      <th class="px-3 py-2">重複的既有分錄</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for(row of aiImportPendingRows(); track row.fileId) {
+                      <tr class="border-t border-orange-100 align-top">
+                        <td class="px-3 py-2">
+                          <input type="checkbox" [checked]="isPendingSelected(row.fileId)" (change)="togglePendingSelection(row.fileId)">
+                        </td>
+                        <td class="px-3 py-2">{{ row.fileName }}</td>
+                        <td class="px-3 py-2">{{ row.issueDate }}</td>
+                        <td class="px-3 py-2">{{ row.vendorName || '-' }}</td>
+                        <td class="px-3 py-2 text-right">{{ formatCurrency(row.amount) }}</td>
+                        <td class="px-3 py-2 text-xs text-gray-600">
+                          @for(dup of row.duplicates; track dup.entryId) {
+                            <div>#{{ dup.entryId }}・{{ dup.itemGroup }}/{{ dup.subjectName }}@if(dup.vendorName){・{{ dup.vendorName }}}</div>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="flex justify-end border-t border-orange-200 bg-orange-50 px-3 py-2">
+                <button
+                  type="button"
+                  (click)="confirmSelectedPendingImports()"
+                  [disabled]="isConfirmingPendingImport() || pendingSelection().size === 0"
+                  class="inline-flex items-center gap-2 rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  @if(isConfirmingPendingImport()) {
+                    <ion-icon name="refresh-outline" class="animate-spin"></ion-icon>
+                  }
+                  匯入已勾選的 {{ pendingSelection().size }} 筆
+                </button>
+              </div>
+            </div>
+          }
 
           <div class="max-h-72 overflow-auto rounded-lg border border-gray-200">
             <table class="w-full text-left text-sm">
@@ -455,10 +534,40 @@
               disabled
               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-gray-100 p-2 text-right cursor-not-allowed text-gray-600"></label>
             
-            <label class="block"><span class="text-gray-700 text-sm">備註</span><textarea 
-              [(ngModel)]="editingShipmentItem().remark" 
-              rows="3" 
+            <label class="block"><span class="text-gray-700 text-sm">備註</span><textarea
+              [(ngModel)]="editingShipmentItem().remark"
+              rows="3"
               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2"></textarea></label>
+
+            <div class="border-t pt-4">
+              <span class="text-gray-700 text-sm font-medium">對應商品</span>
+              <p class="text-xs text-gray-400 mt-0.5 mb-2">連結到「酒水成本」或「餐飲食材」的一筆商品，之後在那邊的分頁可以看到這筆貨單當「最近進貨價」參考。AI 匯入時若品名完全相符會自動連好，這裡可以手動修正或清除。</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="block">
+                  <span class="text-gray-700 text-sm">對應類型</span>
+                  <select
+                    [ngModel]="editingShipmentItem().productType"
+                    (ngModelChange)="onShipmentProductTypeChange($event)"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2">
+                    <option [ngValue]="null">未對應</option>
+                    <option value="wine">酒水</option>
+                    <option value="ingredient">食材</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-gray-700 text-sm">商品</span>
+                  <select
+                    [(ngModel)]="editingShipmentItem().productId"
+                    [disabled]="!editingShipmentItem().productType"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                    <option [ngValue]="null">請選擇</option>
+                    @for(opt of productLinkOptionsForType(editingShipmentItem().productType); track opt.id) {
+                      <option [ngValue]="opt.id">{{ opt.name }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+            </div>
           </div>
           
           <div class="flex justify-end gap-4 pt-4 border-t mt-4">

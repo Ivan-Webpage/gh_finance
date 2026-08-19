@@ -14,7 +14,7 @@ type ProductCostView = 'cigars' | 'wines' | 'ingredients' | 'recipes' | 'itemCos
 
 interface IngredientFormState {
   id: string | null;
-  vendor_name_snapshot: string;
+  vendor_id: number | null;
   ingredient_name: string;
   purchase_qty: number | null;
   purchase_unit: string;
@@ -28,7 +28,7 @@ interface IngredientFormState {
 function emptyIngredientForm(): IngredientFormState {
   return {
     id: null,
-    vendor_name_snapshot: '',
+    vendor_id: null,
     ingredient_name: '',
     purchase_qty: null,
     purchase_unit: '',
@@ -105,6 +105,16 @@ export class ProductCostComponent implements OnInit {
 
   // --- Data & State ---
   allVendors = signal<Vendor[]>([]);
+  sortedVendors = computed(() => [...this.allVendors()].sort((a, b) => (a.vendor_name || '').localeCompare(b.vendor_name || '', 'zh-Hant')));
+
+  // --- 廠商快速新增（酒水/食材表單下拉選單找不到廠商時使用） ---
+  isVendorQuickAddOpen = signal(false);
+  vendorQuickAddTarget = signal<'wine' | 'ingredient' | null>(null);
+  vendorQuickAddName = signal('');
+  vendorQuickAddCategory = signal('');
+  vendorQuickAddError = signal<string | null>(null);
+  vendorQuickAddSaving = signal(false);
+  vendorCategoryOptions = computed(() => [...new Set(this.allVendors().map(v => v.category).filter((c): c is string => !!c))].sort());
 
   // Cigars
   allCigarCosts = signal<CigarCost[]>([]);
@@ -249,7 +259,7 @@ export class ProductCostComponent implements OnInit {
 
   wineCostForm = this.fb.group({
     id: [''],
-    vendor: ['', Validators.required],
+    vendor_id: [null as number | null, Validators.required],
     productName: ['', Validators.required],
     type: ['', Validators.required],
     cost: [null as number | null, [Validators.required, Validators.min(0)]],
@@ -278,16 +288,16 @@ export class ProductCostComponent implements OnInit {
   }
 
   async loadData(): Promise<void> {
+    await this.loadVendors();
+
     try {
       this.allCigarCosts.set(await this.dataService.getCigarCosts());
       this.allWineCosts.set(await this.dataService.getWineCosts());
-      this.allVendors.set(this.dataService.getVendors());
     } catch (error) {
       console.error('Error loading product cost data:', error);
       // Fallback to empty data
       this.allCigarCosts.set([]);
       this.allWineCosts.set([]);
-      this.allVendors.set(this.dataService.getVendors());
     }
 
     await Promise.all([
@@ -295,6 +305,70 @@ export class ProductCostComponent implements OnInit {
       this.loadRecipes(),
       this.loadItemCostLinks(),
     ]);
+  }
+
+  async loadVendors(): Promise<void> {
+    try {
+      const response = await this.apiService.getVendors();
+      if (response.success && response.data) {
+        this.allVendors.set(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading vendors:', error);
+    }
+  }
+
+  vendorIdOf(vendor: Vendor): number | null {
+    return vendor.vendor_id !== undefined && vendor.vendor_id !== null ? Number(vendor.vendor_id) : null;
+  }
+
+  // ========== 廠商快速新增 ==========
+
+  openVendorQuickAdd(target: 'wine' | 'ingredient'): void {
+    this.vendorQuickAddTarget.set(target);
+    this.vendorQuickAddName.set('');
+    this.vendorQuickAddCategory.set('');
+    this.vendorQuickAddError.set(null);
+    this.isVendorQuickAddOpen.set(true);
+  }
+
+  closeVendorQuickAdd(): void {
+    this.isVendorQuickAddOpen.set(false);
+  }
+
+  async submitVendorQuickAdd(): Promise<void> {
+    const name = this.vendorQuickAddName().trim();
+    const category = this.vendorQuickAddCategory().trim();
+    if (!name || !category) {
+      this.vendorQuickAddError.set('請輸入廠商名稱與類別');
+      return;
+    }
+
+    this.vendorQuickAddSaving.set(true);
+    this.vendorQuickAddError.set(null);
+
+    try {
+      const response = await this.apiService.createVendor({ vendor_name: name, category });
+      if (!response.success || !response.data) {
+        this.vendorQuickAddError.set(response.error || '新增廠商失敗');
+        return;
+      }
+
+      await this.loadVendors();
+      const newVendorId = this.vendorIdOf(response.data);
+      const target = this.vendorQuickAddTarget();
+      if (target === 'wine') {
+        this.wineCostForm.patchValue({ vendor_id: newVendorId });
+      } else if (target === 'ingredient') {
+        this.updateIngredientFormField('vendor_id', newVendorId);
+      }
+      this.isVendorQuickAddOpen.set(false);
+    } catch (error) {
+      console.error('Error creating vendor:', error);
+      this.vendorQuickAddError.set('新增廠商失敗，請稍後再試');
+    } finally {
+      this.vendorQuickAddSaving.set(false);
+    }
   }
 
   changeView(view: ProductCostView): void {
@@ -334,7 +408,7 @@ export class ProductCostComponent implements OnInit {
     if (ingredient) {
       this.ingredientForm.set({
         id: ingredient.id,
-        vendor_name_snapshot: ingredient.vendor || '',
+        vendor_id: ingredient.vendorId,
         ingredient_name: ingredient.ingredientName,
         purchase_qty: ingredient.purchaseQty,
         purchase_unit: ingredient.purchaseUnit || '',
@@ -373,8 +447,10 @@ export class ProductCostComponent implements OnInit {
     this.ingredientError.set(null);
 
     try {
+      const selectedVendor = form.vendor_id !== null ? this.allVendors().find(v => this.vendorIdOf(v) === form.vendor_id) : null;
       const payload = {
-        vendor_name_snapshot: form.vendor_name_snapshot.trim() || null,
+        vendor_id: form.vendor_id,
+        vendor_name_snapshot: selectedVendor?.vendor_name || null,
         ingredient_name: form.ingredient_name.trim(),
         purchase_qty: Number(form.purchase_qty),
         purchase_unit: form.purchase_unit.trim() || null,
@@ -729,11 +805,35 @@ export class ProductCostComponent implements OnInit {
       this.cigarCostForm.reset();
       if (item) this.cigarCostForm.patchValue(item);
     } else if (view === 'wines') {
-      this.editingWineCost.set(item as WineCost | null);
+      const wine = item as WineCost | null;
+      this.editingWineCost.set(wine);
       this.wineCostForm.reset();
-      if (item) this.wineCostForm.patchValue(item);
+      if (wine) {
+        this.wineCostForm.patchValue({
+          id: wine.id,
+          vendor_id: wine.vendorId,
+          productName: wine.productName,
+          type: wine.type,
+          cost: wine.cost,
+          sellingPrice: wine.sellingPrice,
+        });
+      }
     }
     this.isModalOpen.set(true);
+  }
+
+  /**
+   * 用「最近進貨價」（來自貨單明細對應，見進貨單頁面的「對應商品」）預填成本欄位，
+   * 開啟編輯視窗讓使用者確認後手動儲存——不會略過使用者確認直接覆蓋成本。
+   * 只給酒水用：酒水成本是「每瓶」，貨單明細的 unitPrice 通常也是每瓶，計量基準一致；
+   * 食材的 price 是「一次採購 purchaseQty 個 purchaseUnit 的總價」，跟貨單的
+   * 「每個進貨單位單價」計量基準不一定相同，直接套用可能會把不同基準的數字覆蓋進去，
+   * 所以食材那邊刻意不做這個按鈕，只顯示參考數字。
+   */
+  applyLatestShipmentPriceToWine(item: WineCost): void {
+    if (!item.latestShipmentPrice) return;
+    this.openModal(item);
+    this.wineCostForm.patchValue({ cost: item.latestShipmentPrice.unitPrice });
   }
 
   closeModal(): void {
@@ -779,7 +879,14 @@ export class ProductCostComponent implements OnInit {
 
   private async handleWineSubmit(): Promise<void> {
     if (this.wineCostForm.invalid) return;
-    const itemData = this.wineCostForm.value;
+    const formValue = this.wineCostForm.value;
+    const itemData = {
+      vendorId: formValue.vendor_id ?? null,
+      productName: formValue.productName,
+      type: formValue.type,
+      cost: formValue.cost,
+      sellingPrice: formValue.sellingPrice,
+    };
     if (this.editingWineCost()) {
       await this.dataService.updateWineCost({ ...itemData, id: this.editingWineCost()!.id } as WineCost);
     } else {

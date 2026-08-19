@@ -210,7 +210,9 @@
             </div>
             <div class="flex justify-end gap-4">
               <button type="button" (click)="resetForm()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">取消</button>
-              <button type="submit" [disabled]="isViewer()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">送出</button>
+              <button type="submit" [disabled]="isViewer() || isCheckingDuplicate()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                @if (isCheckingDuplicate()) { 檢查重複中... } @else { 送出 }
+              </button>
             </div>
           </form>
         } @else {
@@ -506,6 +508,47 @@
             </div>
           }
         </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Duplicate Ledger Entry Warning Modal -->
+@if (duplicateWarning(); as dup) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl m-4">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="flex items-center justify-center h-10 w-10 rounded-full bg-orange-100 flex-shrink-0">
+            <ion-icon name="warning-outline" class="h-5 w-5 text-orange-600"></ion-icon>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900">發現可能重複的流水帳</h3>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">
+          已有 <strong>{{ dup.entries.length }}</strong> 筆日期與金額皆相同的既有流水帳記錄，請確認這不是重複輸入後再新增：
+        </p>
+        <div class="max-h-64 overflow-y-auto border rounded-md divide-y">
+          @for (entry of dup.entries; track entry.entry_id) {
+            <div class="p-3 text-sm">
+              <div class="flex justify-between">
+                <span class="font-medium text-gray-900">{{ entry.entry_date?.toString()?.substring(0, 10) }}</span>
+                <span class="font-medium text-gray-900">{{ formatCurrency(entry.amount) }}</span>
+              </div>
+              <div class="text-gray-500 mt-1">
+                {{ entry.item_group }} / {{ entry.subject_name }}
+                @if (entry.vendor_name) { ・{{ entry.vendor_name }} }
+                @if (entry.invoice_no) { ・發票 {{ entry.invoice_no }} }
+              </div>
+              @if (entry.description) {
+                <div class="text-gray-400 mt-1 whitespace-pre-line">{{ entry.description }}</div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+      <div class="flex justify-end gap-4 bg-gray-50 px-6 py-4 rounded-b-xl">
+        <button type="button" (click)="cancelAddDuplicateEntry()" class="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">取消，不新增</button>
+        <button type="button" (click)="confirmAddDuplicateEntry()" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-sm font-medium">確定仍要新增</button>
       </div>
     </div>
   </div>

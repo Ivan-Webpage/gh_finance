@@ -19,6 +19,8 @@ import type {
   ShipmentItemsResponse,
   PurchaseOrderAiScanFile,
   PurchaseOrderAiImportResult,
+  PurchaseOrderAiImportRow,
+  PurchaseOrderAiPendingRow,
   OffBookInvoice,
   FinancialPlanTask,
   FinancialPlanTaskStatus,
@@ -212,6 +214,22 @@ export class ApiService {
   }
 
   /**
+   * 檢查是否已存在日期與金額皆相同的流水帳記錄（新增前的重複提醒用）
+   * @param entryDate 日期 (YYYY-MM-DD)
+   * @param amount 金額
+   * @returns Promise<ApiResponse<{ hasDuplicates: boolean; entries: LedgerEntry[] }>>
+   */
+  checkLedgerDuplicate(entryDate: string, amount: number): Promise<ApiResponse<{ count: number; hasDuplicates: boolean; entries: LedgerEntry[] }>> {
+    const params = new HttpParams().set('entryDate', entryDate).set('amount', String(amount));
+    return firstValueFrom(
+      this.http.get<ApiResponse<{ count: number; hasDuplicates: boolean; entries: LedgerEntry[] }>>(
+        `${this.baseUrl}/ledger/check-duplicate`,
+        { params }
+      )
+    );
+  }
+
+  /**
    * 更新流水帳記錄
    * @param entry 更新資料（必須包含entry_id）
    * @returns Promise<ApiResponse<LedgerEntry>>
@@ -303,6 +321,22 @@ export class ApiService {
    */
   getVendors(): Promise<ApiResponse<Vendor[]>> {
     return firstValueFrom(this.http.get<ApiResponse<Vendor[]>>(`${this.baseUrl}/vendors`));
+  }
+
+  /**
+   * 新增廠商資料
+   * @returns Promise<ApiResponse<Vendor>>
+   */
+  createVendor(vendor: {
+    vendor_name: string;
+    category: string;
+    tax_id?: string;
+    aliases?: string[];
+    contact_info?: string;
+    rest_days?: string[];
+    remark?: string;
+  }): Promise<ApiResponse<Vendor>> {
+    return firstValueFrom(this.http.post<ApiResponse<Vendor>>(`${this.baseUrl}/vendors`, vendor));
   }
 
   /**
@@ -1062,6 +1096,9 @@ export class ApiService {
     unit?: string | null;
     remark?: string | null;
     entryId?: number | null;
+    /** 三態欄位：不帶 = 對應關係不變；帶 'wine'/'ingredient' + productId = 設定對應；帶 null = 清除對應 */
+    productType?: 'wine' | 'ingredient' | null;
+    productId?: number | null;
   }): Promise<ApiResponse<ShipmentItem>> {
     const payload = {
       shipmentId,
@@ -1116,6 +1153,19 @@ export class ApiService {
       this.http.post<ApiResponse<PurchaseOrderAiImportResult>>(
         `${this.baseUrl}/purchase-orders/ai-import`,
         { fileIds: Array.isArray(fileIds) ? fileIds : [] }
+      )
+    );
+  }
+
+  /**
+   * 確認匯入「AI 掃描進貨單」流程中偵測到疑似重複、暫緩匯入的項目。
+   * 帶回掃描時原封不動回傳的 PurchaseOrderAiPendingRow，不會重新呼叫 OCR。
+   */
+  confirmPurchaseOrderAiImport(items: PurchaseOrderAiPendingRow[]): Promise<ApiResponse<{ total: number; successCount: number; failedCount: number; rows: PurchaseOrderAiImportRow[] }>> {
+    return firstValueFrom(
+      this.http.post<ApiResponse<{ total: number; successCount: number; failedCount: number; rows: PurchaseOrderAiImportRow[] }>>(
+        `${this.baseUrl}/purchase-orders/ai-import/confirm`,
+        { items }
       )
     );
   }

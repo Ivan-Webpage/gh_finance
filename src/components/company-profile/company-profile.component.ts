@@ -9,6 +9,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { resolveApiBaseUrl } from '../../utils/api-base-url';
+import { environment } from '../../environments/environment';
 
 interface EmployeeInfo {
   id: number;
@@ -920,11 +922,16 @@ export class CompanyProfileComponent implements OnInit {
       return imagePath;
     }
     
-    // 如果是相對路徑，附加後端基礎 URL
+    // 如果是相對路徑（例如 /api/payroll/id-card-image?...），附加後端來源網址。
+    // 與 ApiService 使用同一套環境判斷邏輯（resolveApiBaseUrl），避免正式環境/
+    // Docker/GitHub Pages 下指向使用者自己電腦的 localhost:3000。
+    // resolveApiBaseUrl() 回傳值本身已包含 /api 結尾（例如 '/api' 或
+    // 'https://xxx.zeabur.app/api'），但 imagePath 也已經以 /api 開頭，
+    // 所以這裡只取來源網址（去掉尾端的 /api），避免疊成 /api/api/...
     if (imagePath.startsWith('/')) {
-      // 後端 URL 通常是 http://localhost:3000（開發環境）
-      const backendBaseUrl = 'http://localhost:3000';
-      return backendBaseUrl + imagePath;
+      const backendBaseUrl = resolveApiBaseUrl(environment.apiUrl, environment.githubPagesApiUrl);
+      const origin = backendBaseUrl.endsWith('/api') ? backendBaseUrl.slice(0, -4) : backendBaseUrl;
+      return origin + imagePath;
     }
     
     return imagePath;
