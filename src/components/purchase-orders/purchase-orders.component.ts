@@ -88,11 +88,21 @@ export class PurchaseOrdersComponent {
   aiImportSuccessRows = computed(() => this.aiImportResult()?.rows.filter(row => row.success) ?? []);
   aiImportFailedRows = computed(() => this.aiImportResult()?.rows.filter(row => !row.success) ?? []);
 
-  /** 掃描時偵測到疑似重複（日期+金額皆相同）、暫緩匯入、待使用者確認的項目 */
+  /** 掃描時偵測到疑似重複（日期+金額皆相同）、或廠商比對不到、暫緩匯入、待使用者確認的項目 */
   aiImportPendingRows = computed(() => this.aiImportResult()?.pending ?? []);
   pendingSelection = signal<Set<string>>(new Set());
   isConfirmingPendingImport = signal(false);
   confirmPendingError = signal<string | null>(null);
+
+  /** 「待確認」畫面用的廠商下拉選單選項——一律走真實 API，跟 dataService.getVendors() 的假資料分開 */
+  pendingVendorOptions = signal<Vendor[]>([]);
+  isPendingVendorQuickAddOpen = signal(false);
+  pendingVendorQuickAddFileId = signal<string | null>(null);
+  pendingVendorQuickAddName = signal('');
+  pendingVendorQuickAddCategory = signal('');
+  pendingVendorQuickAddError = signal<string | null>(null);
+  pendingVendorQuickAddSaving = signal(false);
+  pendingVendorCategoryOptions = computed(() => [...new Set(this.pendingVendorOptions().map(v => v.category).filter((c): c is string => !!c))].sort());
 
   poForm = this.fb.group({
     id: [''],
@@ -354,7 +364,120 @@ export class PurchaseOrdersComponent {
     this.aiImportResult.set(null);
     this.pendingSelection.set(new Set());
     this.confirmPendingError.set(null);
-    await this.scanAiImportFiles();
+    await Promise.all([this.scanAiImportFiles(), this.loadPendingVendorOptions()]);
+  }
+
+  /** 「待確認」畫面的廠商下拉選單資料，來自真實 API（不是 dataService 的假資料）。 */
+  async loadPendingVendorOptions(): Promise<void> {
+    try {
+      const response = await this.apiService.getVendors();
+      if (response.success && response.data) {
+        this.pendingVendorOptions.set(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading vendors for pending confirmation:', error);
+    }
+  }
+
+  vendorIdOf(vendor: Vendor): number | null {
+    return vendor.vendor_id !== undefined && vendor.vendor_id !== null ? Number(vendor.vendor_id) : null;
+  }
+
+  /** 待確認列的廠商下拉選單目前應該顯示的 value：真實廠商 id、`'__raw__'`（明確選擇不指定）、或 `null`（尚未選擇）。 */
+  pendingVendorSelectValue(row: PurchaseOrderAiPendingRow): number | '__raw__' | null {
+    if (row.vendorId !== null) return row.vendorId;
+    if (row.vendorDecided) return '__raw__';
+    return null;
+  }
+
+  /** 待確認列的廠商是否還沒決定——沒決定前不能勾選匯入，避免又拿 OCR 原始文字誤建新資料夾。 */
+  pendingVendorUndecided(row: PurchaseOrderAiPendingRow): boolean {
+    return row.vendorId === null && !row.vendorDecided;
+  }
+
+  onPendingVendorSelectChange(row: PurchaseOrderAiPendingRow, value: number | '__raw__' | null): void {
+    if (value === '__raw__') {
+      this.applyPendingRowVendor(row.fileId, { vendorId: null, vendorName: row.aiVendorName || row.vendorName, vendorTaxId: '', decided: true });
+      return;
+    }
+    if (value === null) {
+      this.applyPendingRowVendor(row.fileId, { vendorId: null, vendorName: row.aiVendorName || row.vendorName, vendorTaxId: '', decided: false });
+      return;
+    }
+    const vendor = this.pendingVendorOptions().find(v => this.vendorIdOf(v) === value);
+    if (!vendor) return;
+    this.applyPendingRowVendor(row.fileId, {
+      vendorId: this.vendorIdOf(vendor),
+      vendorName: vendor.vendor_name || vendor.name || row.vendorName,
+      vendorTaxId: vendor.tax_id || vendor.taxId || '',
+      decided: true,
+    });
+  }
+
+  private applyPendingRowVendor(
+    fileId: string,
+    picked: { vendorId: number | null; vendorName: string; vendorTaxId: string; decided: boolean }
+  ): void {
+    const current = this.aiImportResult();
+    if (!current) return;
+    const nextPending = (current.pending ?? []).map(row => row.fileId === fileId
+      ? { ...row, vendorId: picked.vendorId, vendorName: picked.vendorName, vendorTaxId: picked.vendorTaxId, vendorDecided: picked.decided }
+      : row);
+    this.aiImportResult.set({ ...current, pending: nextPending });
+
+    // 廠商還沒決定（或改回未決定）就不該留在勾選清單裡
+    if (!picked.decided && picked.vendorId === null) {
+      const next = new Set(this.pendingSelection());
+      next.delete(fileId);
+      this.pendingSelection.set(next);
+    }
+  }
+
+  openPendingVendorQuickAdd(row: PurchaseOrderAiPendingRow): void {
+    this.pendingVendorQuickAddFileId.set(row.fileId);
+    this.pendingVendorQuickAddName.set(row.aiVendorName || row.vendorName || '');
+    this.pendingVendorQuickAddCategory.set('');
+    this.pendingVendorQuickAddError.set(null);
+    this.isPendingVendorQuickAddOpen.set(true);
+  }
+
+  closePendingVendorQuickAdd(): void {
+    this.isPendingVendorQuickAddOpen.set(false);
+  }
+
+  async submitPendingVendorQuickAdd(): Promise<void> {
+    const name = this.pendingVendorQuickAddName().trim();
+    const category = this.pendingVendorQuickAddCategory().trim();
+    const fileId = this.pendingVendorQuickAddFileId();
+    if (!name || !category || !fileId) {
+      this.pendingVendorQuickAddError.set('請輸入廠商名稱與類別');
+      return;
+    }
+
+    this.pendingVendorQuickAddSaving.set(true);
+    this.pendingVendorQuickAddError.set(null);
+
+    try {
+      const response = await this.apiService.createVendor({ vendor_name: name, category });
+      if (!response.success || !response.data) {
+        this.pendingVendorQuickAddError.set(response.error || '新增廠商失敗');
+        return;
+      }
+
+      await this.loadPendingVendorOptions();
+      this.applyPendingRowVendor(fileId, {
+        vendorId: this.vendorIdOf(response.data),
+        vendorName: response.data.vendor_name || name,
+        vendorTaxId: response.data.tax_id || '',
+        decided: true,
+      });
+      this.isPendingVendorQuickAddOpen.set(false);
+    } catch (error) {
+      console.error('Error creating vendor from pending confirmation:', error);
+      this.pendingVendorQuickAddError.set('新增廠商失敗，請稍後再試');
+    } finally {
+      this.pendingVendorQuickAddSaving.set(false);
+    }
   }
 
   closeAiImportModal(): void {
@@ -364,6 +487,7 @@ export class PurchaseOrdersComponent {
     this.aiScanFiles.set([]);
     this.pendingSelection.set(new Set());
     this.confirmPendingError.set(null);
+    this.isPendingVendorQuickAddOpen.set(false);
   }
 
   async scanAiImportFiles(): Promise<void> {
@@ -397,8 +521,11 @@ export class PurchaseOrdersComponent {
       const response = await this.apiService.importPurchaseOrdersByAi();
       if (response.success && response.data) {
         this.aiImportResult.set(response.data);
-        // 疑似重複的項目預設全選，使用者可以自行取消勾選要略過的項目
-        this.pendingSelection.set(new Set((response.data.pending ?? []).map(p => p.fileId)));
+        // 疑似重複的項目預設全選，使用者可以自行取消勾選要略過的項目；
+        // 廠商比對不到的項目掃描時一定還沒決定廠商，不能預先勾選（見 pendingVendorUndecided()）
+        this.pendingSelection.set(new Set(
+          (response.data.pending ?? []).filter(p => !this.pendingVendorUndecided(p)).map(p => p.fileId)
+        ));
         if ((response.data.failedCount ?? 0) > 0) {
           const firstFailed = response.data.rows.find(row => !row.success);
           this.aiImportError.set(firstFailed?.reason || `共有 ${response.data.failedCount} 筆匯入失敗`);
@@ -430,7 +557,9 @@ export class PurchaseOrdersComponent {
   }
 
   selectAllPending(): void {
-    this.pendingSelection.set(new Set(this.aiImportPendingRows().map(p => p.fileId)));
+    this.pendingSelection.set(new Set(
+      this.aiImportPendingRows().filter(p => !this.pendingVendorUndecided(p)).map(p => p.fileId)
+    ));
   }
 
   deselectAllPending(): void {
@@ -446,7 +575,8 @@ export class PurchaseOrdersComponent {
     if (this.isConfirmingPendingImport()) return;
 
     const selectedIds = this.pendingSelection();
-    const itemsToConfirm = this.aiImportPendingRows().filter(p => selectedIds.has(p.fileId));
+    // 保險起見再擋一次：廠商還沒決定的項目就算勾選狀態被前端邏輯以外的方式改到，也不該送出去匯入
+    const itemsToConfirm = this.aiImportPendingRows().filter(p => selectedIds.has(p.fileId) && !this.pendingVendorUndecided(p));
     if (itemsToConfirm.length === 0) return;
 
     this.isConfirmingPendingImport.set(true);

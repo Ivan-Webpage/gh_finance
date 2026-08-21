@@ -816,6 +816,8 @@ export interface PurchaseOrderAiPendingRow {
   vendorId: number | null;
   vendorName: string;
   vendorTaxId: string;
+  /** AI 從發票 OCR 出來的原始廠商名稱（比對前）。`vendorId` 為 null 時，畫面用這個欄位顯示「原始辨識」供使用者對照挑選正確廠商。 */
+  aiVendorName: string | null;
   itemGroup: string;
   subjectName: string;
   glAccountId: number | null;
@@ -823,6 +825,8 @@ export interface PurchaseOrderAiPendingRow {
   items: Array<{ 品名?: string; 數量?: string | number; 單價?: string | number; 單位?: string; 小計?: string | number }>;
   remarkText: string | null;
   duplicates: PurchaseOrderAiDuplicateMatch[];
+  /** 前端專用：使用者是否已經在待確認畫面對這筆的廠商做出選擇（含明確選「不指定」）。後端不會送這個欄位。 */
+  vendorDecided?: boolean;
 }
 
 export interface PurchaseOrderAiImportResult {

@@ -277,7 +277,7 @@
               <div class="text-xl font-bold text-emerald-900">{{ aiImportResult()?.successCount ?? 0 }}</div>
             </div>
             <div class="rounded-lg border border-orange-200 bg-orange-50 p-3">
-              <div class="text-xs text-orange-700">疑似重複，待確認</div>
+              <div class="text-xs text-orange-700">待確認（疑似重複／廠商未確認）</div>
               <div class="text-xl font-bold text-orange-900">{{ aiImportPendingRows().length }}</div>
             </div>
             <div class="rounded-lg border border-red-200 bg-red-50 p-3">
@@ -290,7 +290,7 @@
             <div class="rounded-lg border border-orange-200">
               <div class="flex items-center justify-between border-b border-orange-200 bg-orange-50 px-3 py-2">
                 <div class="text-xs font-semibold uppercase text-orange-700">
-                  疑似重複明細（已有日期與金額皆相同的既有分錄，請確認是否仍要匯入）
+                  待確認明細（日期與金額皆相同的既有分錄、或 AI 辨識的廠商對不到廠商主檔，請確認後再匯入）
                 </div>
                 <div class="flex items-center gap-3 text-xs">
                   <button type="button" (click)="selectAllPending()" class="text-orange-700 hover:underline">全選</button>
@@ -304,29 +304,57 @@
                 </div>
               }
 
-              <div class="max-h-72 overflow-auto">
+              <div class="max-h-96 overflow-auto">
                 <table class="w-full text-left text-sm">
                   <thead class="bg-orange-50 text-xs uppercase text-orange-700">
                     <tr>
                       <th class="px-3 py-2 w-8"></th>
                       <th class="px-3 py-2">檔名</th>
                       <th class="px-3 py-2">日期</th>
-                      <th class="px-3 py-2">廠商</th>
+                      <th class="px-3 py-2 min-w-[220px]">廠商</th>
                       <th class="px-3 py-2 text-right">金額</th>
-                      <th class="px-3 py-2">重複的既有分錄</th>
+                      <th class="px-3 py-2">待處理原因</th>
                     </tr>
                   </thead>
                   <tbody>
                     @for(row of aiImportPendingRows(); track row.fileId) {
                       <tr class="border-t border-orange-100 align-top">
                         <td class="px-3 py-2">
-                          <input type="checkbox" [checked]="isPendingSelected(row.fileId)" (change)="togglePendingSelection(row.fileId)">
+                          <input type="checkbox" [checked]="isPendingSelected(row.fileId)" [disabled]="pendingVendorUndecided(row)" (change)="togglePendingSelection(row.fileId)">
                         </td>
                         <td class="px-3 py-2">{{ row.fileName }}</td>
                         <td class="px-3 py-2">{{ row.issueDate }}</td>
-                        <td class="px-3 py-2">{{ row.vendorName || '-' }}</td>
+                        <td class="px-3 py-2">
+                          @if(row.vendorId !== null) {
+                            {{ row.vendorName || '-' }}
+                          } @else {
+                            <div class="space-y-1">
+                              <div class="text-xs text-gray-500">AI 原始辨識：「{{ row.aiVendorName || row.vendorName }}」</div>
+                              <div class="flex items-center gap-1">
+                                <select
+                                  [ngModel]="pendingVendorSelectValue(row)"
+                                  (ngModelChange)="onPendingVendorSelectChange(row, $event)"
+                                  class="flex-1 rounded-md border-gray-300 text-xs shadow-sm"
+                                >
+                                  <option [ngValue]="null">－ 請選擇廠商 －</option>
+                                  <option [ngValue]="'__raw__'">不指定，直接用「{{ row.aiVendorName || row.vendorName }}」建立資料夾</option>
+                                  @for(v of pendingVendorOptions(); track vendorIdOf(v)) {
+                                    <option [ngValue]="vendorIdOf(v)">{{ v.vendor_name || v.name }}</option>
+                                  }
+                                </select>
+                                <button type="button" (click)="openPendingVendorQuickAdd(row)" class="shrink-0 rounded-md border border-orange-200 px-2 py-1 text-xs text-orange-700 hover:bg-orange-100">+新增</button>
+                              </div>
+                              @if(pendingVendorUndecided(row)) {
+                                <div class="text-xs text-red-600">請先選擇廠商才能匯入</div>
+                              }
+                            </div>
+                          }
+                        </td>
                         <td class="px-3 py-2 text-right">{{ formatCurrency(row.amount) }}</td>
                         <td class="px-3 py-2 text-xs text-gray-600">
+                          @if(row.vendorId === null) {
+                            <div class="mb-1 inline-block rounded bg-orange-100 px-1.5 py-0.5 text-orange-700">廠商未確認</div>
+                          }
                           @for(dup of row.duplicates; track dup.entryId) {
                             <div>#{{ dup.entryId }}・{{ dup.itemGroup }}/{{ dup.subjectName }}@if(dup.vendorName){・{{ dup.vendorName }}}</div>
                           }
@@ -436,6 +464,40 @@
   </div>
 }
 
+<!-- Pending Vendor Quick-Add Modal（AI 匯入待確認畫面用，z-index 要高於上面的 AI 匯入 modal） -->
+@if (isPendingVendorQuickAddOpen()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">新增廠商</h3>
+        <button (click)="closePendingVendorQuickAdd()" class="text-gray-400 hover:text-gray-600"><ion-icon name="close-outline" class="text-2xl"></ion-icon></button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <form (ngSubmit)="submitPendingVendorQuickAdd()" class="space-y-4">
+          <label class="block"><span class="text-gray-700">廠商名稱*</span>
+            <input [ngModel]="pendingVendorQuickAddName()" (ngModelChange)="pendingVendorQuickAddName.set($event)" name="pending_quick_vendor_name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+          </label>
+          <label class="block"><span class="text-gray-700">類別*</span>
+            <input [ngModel]="pendingVendorQuickAddCategory()" (ngModelChange)="pendingVendorQuickAddCategory.set($event)" name="pending_quick_vendor_category" list="pending-vendor-category-options" placeholder="例：紅白酒、菜商" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+            <datalist id="pending-vendor-category-options">
+              @for (c of pendingVendorCategoryOptions(); track c) { <option [value]="c"></option> }
+            </datalist>
+          </label>
+          <p class="text-xs text-gray-400">建立後可以到「廠商管理」頁面補上統編、聯絡方式等其他資料。</p>
+
+          @if (pendingVendorQuickAddError()) {
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ pendingVendorQuickAddError() }}</div>
+          }
+
+          <div class="flex justify-end gap-4 pt-4 border-t mt-4">
+            <button type="button" (click)="closePendingVendorQuickAdd()" [disabled]="pendingVendorQuickAddSaving()" class="px-4 py-2 border rounded-md disabled:opacity-50">取消</button>
+            <button type="submit" [disabled]="pendingVendorQuickAddSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-60">{{ pendingVendorQuickAddSaving() ? '儲存中...' : '新增' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
 
 <!-- Purchase Order Modal -->
 @if (isModalOpen()) {
