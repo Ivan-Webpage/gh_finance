@@ -397,6 +397,52 @@
                   @if (cigarCostForm.get('baijiaCost')?.touched && cigarCostForm.get('baijiaCost')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">百泇成本需大於等於 0</p> }
                   <label class="block md:col-span-2"><span class="text-gray-700">賣價*</span><input type="number" formControlName="sellingPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
                   @if (cigarCostForm.get('sellingPrice')?.touched && cigarCostForm.get('sellingPrice')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">賣價需大於等於 0</p> }
+                  <label class="block md:col-span-2"><span class="text-gray-700">風味</span><input formControlName="flavorNotes" placeholder="例如：可可 堅果 奶油" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2"></label>
+                  <div class="block">
+                    <span class="text-gray-700">茄芯產地（可複選）</span>
+                    <div class="mt-1 grid grid-cols-2 gap-1 rounded-md border border-gray-300 bg-gray-50 p-2">
+                      @for (origin of cigarOriginOptions; track origin) {
+                        <label class="flex items-center gap-1.5 text-sm text-gray-700">
+                          <input type="checkbox" [checked]="isCigarOriginSelected('fillerOrigin', origin)" (change)="toggleCigarOrigin('fillerOrigin', origin, $any($event.target).checked)">
+                          {{ origin }}
+                        </label>
+                      }
+                    </div>
+                  </div>
+                  <div class="block">
+                    <span class="text-gray-700">茄套產地（可複選）</span>
+                    <div class="mt-1 grid grid-cols-2 gap-1 rounded-md border border-gray-300 bg-gray-50 p-2">
+                      @for (origin of cigarOriginOptions; track origin) {
+                        <label class="flex items-center gap-1.5 text-sm text-gray-700">
+                          <input type="checkbox" [checked]="isCigarOriginSelected('binderOrigin', origin)" (change)="toggleCigarOrigin('binderOrigin', origin, $any($event.target).checked)">
+                          {{ origin }}
+                        </label>
+                      }
+                    </div>
+                  </div>
+                  <div class="block">
+                    <span class="text-gray-700">茄衣產地（可複選）</span>
+                    <div class="mt-1 grid grid-cols-2 gap-1 rounded-md border border-gray-300 bg-gray-50 p-2">
+                      @for (origin of cigarOriginOptions; track origin) {
+                        <label class="flex items-center gap-1.5 text-sm text-gray-700">
+                          <input type="checkbox" [checked]="isCigarOriginSelected('wrapperOrigin', origin)" (change)="toggleCigarOrigin('wrapperOrigin', origin, $any($event.target).checked)">
+                          {{ origin }}
+                        </label>
+                      }
+                    </div>
+                  </div>
+                  <label class="block">
+                    <span class="text-gray-700">濃度（1~5）</span>
+                    <select formControlName="strength" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+                      <option [ngValue]="null">請選擇</option>
+                      <option [ngValue]="1">1（最低）</option>
+                      <option [ngValue]="2">2</option>
+                      <option [ngValue]="3">3</option>
+                      <option [ngValue]="4">4</option>
+                      <option [ngValue]="5">5（最高）</option>
+                    </select>
+                  </label>
+                  @if (cigarCostForm.get('strength')?.touched && cigarCostForm.get('strength')?.invalid) { <p class="text-xs text-red-600 -mt-2 md:col-span-2">濃度需介於 1 到 5</p> }
                 </div>
               </div>
             }

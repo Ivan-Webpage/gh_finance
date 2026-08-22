@@ -1224,6 +1224,11 @@ export class DataService {
           lishengCost: Number(row.lishengCost ?? row.lisheng_cost ?? 0),
           baijiaCost: Number(row.baijiaCost ?? row.baijia_cost ?? 0),
           sellingPrice: Number(row.sellingPrice ?? row.selling_price ?? 0),
+          flavorNotes: row.flavorNotes ?? row.flavor_notes ?? '',
+          fillerOrigin: row.fillerOrigin ?? row.filler_origin ?? [],
+          binderOrigin: row.binderOrigin ?? row.binder_origin ?? [],
+          wrapperOrigin: row.wrapperOrigin ?? row.wrapper_origin ?? [],
+          strength: row.strength !== null && row.strength !== undefined ? Number(row.strength) : undefined,
         })) as CigarCost[];
         this.mockCigarCosts.set(mapped);
         return mapped;
@@ -1246,6 +1251,11 @@ export class DataService {
         lisheng_cost: costData.lishengCost,
         baijia_cost: costData.baijiaCost,
         selling_price: costData.sellingPrice,
+        flavor_notes: costData.flavorNotes || null,
+        filler_origin: costData.fillerOrigin || null,
+        binder_origin: costData.binderOrigin || null,
+        wrapper_origin: costData.wrapperOrigin || null,
+        strength: costData.strength ?? null,
       })
     ) as any;
 
@@ -1268,6 +1278,11 @@ export class DataService {
         lisheng_cost: updatedCost.lishengCost,
         baijia_cost: updatedCost.baijiaCost,
         selling_price: updatedCost.sellingPrice,
+        flavor_notes: updatedCost.flavorNotes || null,
+        filler_origin: updatedCost.fillerOrigin || null,
+        binder_origin: updatedCost.binderOrigin || null,
+        wrapper_origin: updatedCost.wrapperOrigin || null,
+        strength: updatedCost.strength ?? null,
       })
     ) as any;
 

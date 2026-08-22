@@ -498,6 +498,27 @@ export interface ProductCost {
   notes?: string; // 備註
 }
 
+/**
+ * 雪茄產地選項：茄芯／茄套／茄衣 共用，可複選（同一支雪茄常混合多國產地）。
+ * 除了使用者指定的 8 個國家，另補上實際資料（Canva「雪茄價格牌」）核對時出現、
+ * 但原本清單沒有的「哥倫比亞」「墨西哥」，避免這兩國的既有資料無法透過下拉選單編輯。
+ * 「印度」也是核對時發現的資料（Flor De Oliva 茄衣標示），該品牌常見的其實是印尼
+ * 茄衣、懷疑是價格牌上的手誤，但使用者確認要保留原文「印度」寫入，故一併加入選項。
+ */
+export const CIGAR_ORIGIN_OPTIONS = [
+  '尼加拉瓜',
+  '宏都拉斯',
+  '多明尼加',
+  '印尼',
+  '巴西',
+  '美國',
+  '厄瓜多',
+  '喀麥隆',
+  '哥倫比亞',
+  '墨西哥',
+  '印度',
+] as const;
+
 export interface CigarCost {
   id: string;
   brand: string;
@@ -507,6 +528,11 @@ export interface CigarCost {
   lishengCost: number; // 理晟成本
   baijiaCost: number; // 百泇進貨成本
   sellingPrice: number;
+  flavorNotes?: string; // 風味，例如「可可 堅果 奶油」
+  fillerOrigin?: string[]; // 茄芯產地（可複選）
+  binderOrigin?: string[]; // 茄套產地（可複選）
+  wrapperOrigin?: string[]; // 茄衣產地（可複選）
+  strength?: number; // 濃度，1(最低)~5(最高)
 }
 
 /** 從貨單明細（vendor.shipment_items）反查到的最近一筆進貨單價，僅供對照參考 */

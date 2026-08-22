@@ -6,7 +6,7 @@ import { ApiService } from '../../services/api.service';
 import {
   Vendor, CigarCost, WineCost,
   Ingredient, Recipe, RecipeItem, RecipeComponentType, RecipeType, RecipeTopLevelCategory,
-  ItemCostLink, ItemCostLinkProductType,
+  ItemCostLink, ItemCostLinkProductType, CIGAR_ORIGIN_OPTIONS,
 } from '../../models/financial.model';
 
 type SortDirection = 'asc' | 'desc';
@@ -246,6 +246,8 @@ export class ProductCostComponent implements OnInit {
   }
 
   // --- Forms ---
+  cigarOriginOptions = CIGAR_ORIGIN_OPTIONS;
+
   cigarCostForm = this.fb.group({
     id: [''],
     brand: ['', Validators.required],
@@ -255,7 +257,25 @@ export class ProductCostComponent implements OnInit {
     lishengCost: [null as number | null, [Validators.required, Validators.min(0)]],
     baijiaCost: [null as number | null, [Validators.required, Validators.min(0)]],
     sellingPrice: [null as number | null, [Validators.required, Validators.min(0)]],
+    flavorNotes: [''],
+    fillerOrigin: [[] as string[]],
+    binderOrigin: [[] as string[]],
+    wrapperOrigin: [[] as string[]],
+    strength: [null as number | null, [Validators.min(1), Validators.max(5)]],
   });
+
+  private static readonly CIGAR_ORIGIN_RESET_STATE = { fillerOrigin: [] as string[], binderOrigin: [] as string[], wrapperOrigin: [] as string[] };
+
+  toggleCigarOrigin(field: 'fillerOrigin' | 'binderOrigin' | 'wrapperOrigin', origin: string, checked: boolean): void {
+    const control = this.cigarCostForm.get(field)!;
+    const current: string[] = control.value || [];
+    control.setValue(checked ? [...current, origin] : current.filter(o => o !== origin));
+  }
+
+  isCigarOriginSelected(field: 'fillerOrigin' | 'binderOrigin' | 'wrapperOrigin', origin: string): boolean {
+    const current: string[] = this.cigarCostForm.get(field)?.value || [];
+    return current.includes(origin);
+  }
 
   wineCostForm = this.fb.group({
     id: [''],
@@ -802,7 +822,7 @@ export class ProductCostComponent implements OnInit {
     const view = this.activeView();
     if (view === 'cigars') {
       this.editingCigarCost.set(item as CigarCost | null);
-      this.cigarCostForm.reset();
+      this.cigarCostForm.reset(ProductCostComponent.CIGAR_ORIGIN_RESET_STATE);
       if (item) this.cigarCostForm.patchValue(item);
     } else if (view === 'wines') {
       const wine = item as WineCost | null;
