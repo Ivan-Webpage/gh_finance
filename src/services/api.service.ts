@@ -36,7 +36,8 @@ import type {
   MonthlyRevenueTable,
   TarakouWhiskySalesData,
   TarakouExternalOperation,
-  FuturePlan
+  FuturePlan,
+  CustomerConsumptionSummary
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -908,6 +909,16 @@ export class ApiService {
       params = params.set('offset', options.offset.toString());
     }
     return firstValueFrom(this.http.get<any>(`${this.baseUrl}/customers`, { params }));
+  }
+
+  /**
+   * 獲取單一顧客的消費統計（依年份分組 + 累積總額）
+   * 資料來源：pos.invoices，依會員 UUID 對應
+   * @param memberUuid 會員 UUID（對應 Customer.id）
+   */
+  getCustomerConsumptionSummary(memberUuid: string): Promise<ApiResponse<CustomerConsumptionSummary>> {
+    const params = new HttpParams().set('memberUuid', memberUuid);
+    return firstValueFrom(this.http.get<ApiResponse<CustomerConsumptionSummary>>(`${this.baseUrl}/customers/consumption-summary`, { params }));
   }
 
   // ========== PRODUCT SALES API METHODS (商品銷售) ==========

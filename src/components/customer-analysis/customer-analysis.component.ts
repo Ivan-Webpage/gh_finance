@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { GeminiService } from '../../services/gemini.service';
-import type { Customer } from '../../models/financial.model';
+import type { Customer, CustomerConsumptionSummary } from '../../models/financial.model';
 import { POSSale, CustomerFeedback } from '../../models/financial.model';
 
 @Component({
@@ -54,11 +54,21 @@ export class CustomerAnalysisComponent {
    * 數據加載狀態
    */
   isLoading = signal(false);
-  
+
   /**
    * 錯誤訊息
    */
   errorMessage = signal<string | null>(null);
+
+  /**
+   * 所選顧客的消費統計（依年份分組 + 累積總額）
+   */
+  consumptionSummary = signal<CustomerConsumptionSummary | null>(null);
+
+  /**
+   * 消費統計加載狀態
+   */
+  isConsumptionLoading = signal(false);
 
   // --- Computed Properties ---
   /**
@@ -168,6 +178,8 @@ export class CustomerAnalysisComponent {
    */
   selectCustomer(customer: Customer): void {
     this.selectedCustomer.set(customer);
+    this.consumptionSummary.set(null);
+    this.loadConsumptionSummary(customer.id);
     // TODO: 未來可實現獲取該顧客的銷售記錄和反饋
     // const sales = await this.apiService.getCustomerSales(customer.id);
     // this.customerSales.set(sales);
@@ -180,6 +192,27 @@ export class CustomerAnalysisComponent {
     this.selectedCustomer.set(null);
     this.customerSales.set([]);
     this.customerFeedback.set([]);
+    this.consumptionSummary.set(null);
+  }
+
+  /**
+   * 載入所選顧客的消費統計（依年份分組 + 累積總額）
+   * 資料來源：pos.invoices，依會員 UUID 對應
+   *
+   * @param memberUuid 顧客 UUID
+   */
+  async loadConsumptionSummary(memberUuid: string): Promise<void> {
+    this.isConsumptionLoading.set(true);
+    try {
+      const response = await this.apiService.getCustomerConsumptionSummary(memberUuid);
+      if (response.success && response.data) {
+        this.consumptionSummary.set(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading customer consumption summary:', error);
+    } finally {
+      this.isConsumptionLoading.set(false);
+    }
   }
 
   /**

@@ -705,6 +705,26 @@ export interface CustomerListResponse {
   limit: number; // 單頁限制數量
 }
 
+/**
+ * 顧客消費統計 - 單一年度消費金額
+ */
+export interface CustomerYearlyConsumption {
+  year: number; // 年份
+  amount: number; // 該年度消費總額
+  invoiceCount: number; // 該年度交易筆數
+}
+
+/**
+ * 顧客消費統計回應
+ * 資料來源：pos.invoices（依會員 UUID 對應，僅計入未刪除的交易）
+ */
+export interface CustomerConsumptionSummary {
+  memberUuid: string;
+  byYear: CustomerYearlyConsumption[]; // 依年份分組的消費金額（由舊到新）
+  totalAmount: number; // 加入至今的累積消費總額
+  totalInvoiceCount: number; // 加入至今的累積交易筆數
+}
+
 // --- Product Sales Models (商品銷售) ---
 
 /**

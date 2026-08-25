@@ -140,6 +140,51 @@
             }
           </div>
           
+          <!-- Consumption Summary -->
+          <div class="bg-white p-6 rounded-xl shadow-md mt-8">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">總消費統計</h3>
+            @if(isConsumptionLoading()) {
+              <div class="flex items-center justify-center h-24">
+                <div class="w-6 h-6 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+              </div>
+            } @else if(consumptionSummary(); as summary) {
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-indigo-50 p-4 rounded-lg">
+                  <p class="text-sm text-indigo-600">累積總消費金額</p>
+                  <p class="text-2xl font-bold text-indigo-900">{{ formatCurrency(summary.totalAmount) }}</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                  <p class="text-sm text-gray-500">累積交易筆數</p>
+                  <p class="text-2xl font-bold text-gray-900">{{ summary.totalInvoiceCount }} 筆</p>
+                </div>
+              </div>
+              @if(summary.byYear.length > 0) {
+                <table class="w-full text-sm text-left text-gray-500">
+                  <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                      <th class="px-4 py-2">年份</th>
+                      <th class="px-4 py-2 text-right">消費金額</th>
+                      <th class="px-4 py-2 text-right">交易筆數</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for(yearRow of summary.byYear; track yearRow.year) {
+                      <tr class="bg-white border-b hover:bg-gray-50">
+                        <td class="px-4 py-2 font-medium text-gray-800">{{ yearRow.year }}</td>
+                        <td class="px-4 py-2 text-right">{{ formatCurrency(yearRow.amount) }}</td>
+                        <td class="px-4 py-2 text-right">{{ yearRow.invoiceCount }} 筆</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <p class="text-center text-gray-500 py-4">無消費紀錄。</p>
+              }
+            } @else {
+              <p class="text-center text-gray-500 py-4">無法載入消費統計。</p>
+            }
+          </div>
+
           <!-- Transaction History -->
           <div class="bg-white p-6 rounded-xl shadow-md mt-8">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">交易歷史</h3>
