@@ -723,7 +723,9 @@ export class LedgerComponent {
         // 從列表中移除該項目
         const current = this.displayedTransactions();
         this.displayedTransactions.set(current.filter(t => t.entry_id !== confirmation.entryId));
-        
+        // allTransactions 是篩選下拉選單的資料來源，一併移除避免刪除後選單仍殘留該筆
+        this.allTransactions.set(this.allTransactions().filter(t => t.entry_id !== confirmation.entryId));
+
         // 關閉所有確認對話框和模態框
         this.ledgerDeleteConfirmation.set(null);
         this.closeModal();

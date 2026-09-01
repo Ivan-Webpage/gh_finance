@@ -328,10 +328,13 @@ export class EmployeeIdCardUploadComponent implements OnInit {
         await this.apiService.updateEmployeeIdCardPath(employee.employee_number, 'front', response.filepath);
 
         // 更新本地員工資料
+        const updatedEmployee = { ...employee, id_card_front: response.filepath };
         const updatedEmployees = this.employees().map((e) =>
-          e.id === employee.id ? { ...e, id_card_front: response.filepath } : e
+          e.id === employee.id ? updatedEmployee : e
         );
         this.employees.set(updatedEmployees);
+        // 同步更新目前開啟中的 Modal 所綁定的員工資料，讓 Modal 內的預覽圖立即顯示新圖片
+        this.selectedEmployee.set(updatedEmployee);
 
         // 清除已選擇的文件
         this.selectedFrontFile.set(null);
@@ -368,10 +371,13 @@ export class EmployeeIdCardUploadComponent implements OnInit {
         await this.apiService.updateEmployeeIdCardPath(employee.employee_number, 'back', response.filepath);
 
         // 更新本地員工資料
+        const updatedEmployee = { ...employee, id_card_back: response.filepath };
         const updatedEmployees = this.employees().map((e) =>
-          e.id === employee.id ? { ...e, id_card_back: response.filepath } : e
+          e.id === employee.id ? updatedEmployee : e
         );
         this.employees.set(updatedEmployees);
+        // 同步更新目前開啟中的 Modal 所綁定的員工資料，讓 Modal 內的預覽圖立即顯示新圖片
+        this.selectedEmployee.set(updatedEmployee);
 
         // 清除已選擇的文件
         this.selectedBackFile.set(null);

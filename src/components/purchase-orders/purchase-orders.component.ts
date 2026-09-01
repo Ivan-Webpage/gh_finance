@@ -1,11 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DataService } from '../../services/data.service';
 import { ApiService } from '../../services/api.service';
 import {
-  PurchaseOrder,
   Vendor,
   ShipmentItem,
   PurchaseOrderAiScanFile,
@@ -19,16 +18,13 @@ import {
   selector: 'app-purchase-orders',
   templateUrl: './purchase-orders.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class PurchaseOrdersComponent {
   private dataService = inject(DataService);
   private apiService = inject(ApiService);
-  private fb = inject(FormBuilder);
 
-  isModalOpen = signal(false);
-  
   /** 編輯進貨單項目的模態框狀態 */
   isEditModalOpen = signal(false);
   
@@ -40,10 +36,6 @@ export class PurchaseOrdersComponent {
   allIngredientsForLink = signal<Ingredient[]>([]);
   productLinkSaving = signal(false);
   productLinkError = signal<string | null>(null);
-
-  allVendors = signal<Vendor[]>([]);
-  allPOs = signal<PurchaseOrder[]>([]);
-  editingPO = signal<PurchaseOrder | null>(null);
 
   // ========== 新的進貨單API資料狀態 ==========
   /** 從API獲取的進貨單項目資料 */
@@ -104,15 +96,6 @@ export class PurchaseOrdersComponent {
   pendingVendorQuickAddSaving = signal(false);
   pendingVendorCategoryOptions = computed(() => [...new Set(this.pendingVendorOptions().map(v => v.category).filter((c): c is string => !!c))].sort());
 
-  poForm = this.fb.group({
-    id: [''],
-    poNumber: ['', Validators.required],
-    vendorId: ['', Validators.required],
-    date: ['', Validators.required],
-    items: this.fb.array([]),
-    totalAmount: [0],
-  });
-
   // ========== 進貨單篩選條件 ==========
   /** 進貨單搜尋文字 */
   poSearchTerm = signal('');
@@ -160,38 +143,6 @@ export class PurchaseOrdersComponent {
   setTab(tab: 'api' | 'analysis'): void {
     this.currentTab.set(tab);
   }
-
-  /**
-   * 過濾後的進貨單（範例資料）
-   * 根據搜尋條件、廠商、日期範圍過濾本地資料
-   */
-  filteredPOs = computed(() => {
-    const term = this.poSearchTerm().toLowerCase();
-    const vendorId = this.selectedPOVendor();
-    const startDate = this.poStartDate();
-    const endDate = this.poEndDate();
-    let pos = this.allPOs();
-
-    if (vendorId) {
-      pos = pos.filter(po => po.vendorId === vendorId);
-    }
-
-    if (startDate) {
-      pos = pos.filter(po => po.date >= startDate);
-    }
-
-    if (endDate) {
-      pos = pos.filter(po => po.date <= endDate);
-    }
-
-    if (term) {
-      pos = pos.filter(po => 
-        po.poNumber.toLowerCase().includes(term) ||
-        this.getVendorName(po.vendorId).toLowerCase().includes(term)
-      );
-    }
-    return pos;
-  });
 
   /**
    * 過濾後的進貨單（API資料）
@@ -282,22 +233,8 @@ export class PurchaseOrdersComponent {
   });
 
   constructor() {
-    this.loadData();
     this.loadShipments();
     this.loadProductLinkOptions();
-
-    this.poItems.valueChanges.subscribe(items => {
-      const total = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0);
-      this.poForm.get('totalAmount')?.setValue(total, { emitEvent: false });
-    });
-  }
-
-  /**
-   * 載入範例進貨單資料（本地）
-   */
-  loadData(): void {
-    this.allVendors.set(this.dataService.getVendors());
-    this.allPOs.set(this.dataService.getPurchaseOrders());
   }
 
   /**
@@ -640,29 +577,6 @@ export class PurchaseOrdersComponent {
   }
 
   /**
-   * 打開進貨單編輯/新增模態視窗
-   * @param po 要編輯的進貨單，null 表示新增
-   */
-  openModal(po: PurchaseOrder | null = null): void {
-    this.editingPO.set(po);
-    this.poForm.reset({ totalAmount: 0 });
-    this.poItems.clear();
-    if (po) {
-      this.poForm.patchValue(po);
-      po.items.forEach(i => this.addItem(i.productName, i.quantity, i.unitPrice));
-    }
-    this.isModalOpen.set(true);
-  }
-
-  /**
-   * 關閉進貨單編輯/新增模態視窗
-   */
-  closeModal(): void {
-    this.isModalOpen.set(false);
-    this.editingPO.set(null);
-  }
-
-  /**
    * 載入「對應商品」下拉選單資料（酒水成本／餐飲食材）
    */
   async loadProductLinkOptions(): Promise<void> {
@@ -771,93 +685,6 @@ export class PurchaseOrdersComponent {
    * @param price 單價
    * @returns 品項表單群組
    */
-  createItem(name = '', qty = 1, price = 0) {
-    const itemGroup = this.fb.group({
-      productName: [name, Validators.required],
-      quantity: [qty, [Validators.required, Validators.min(1)]],
-      unitPrice: [price, [Validators.required, Validators.min(0)]],
-      total: [qty * price],
-    });
-
-    itemGroup.get('quantity')?.valueChanges.subscribe(() => this.updateItemTotal(itemGroup));
-    itemGroup.get('unitPrice')?.valueChanges.subscribe(() => this.updateItemTotal(itemGroup));
-    
-    return itemGroup;
-  }
-
-  /**
-   * 更新品項小計
-   * @param itemGroup 品項表單群組
-   */
-  updateItemTotal(itemGroup: any) {
-    const qty = itemGroup.get('quantity')?.value || 0;
-    const price = itemGroup.get('unitPrice')?.value || 0;
-    itemGroup.get('total')?.setValue(qty * price, { emitEvent: false });
-  }
-
-  /**
-   * 新增進貨單品項
-   * @param name 品項名稱（可選）
-   * @param qty 數量（可選，默認 1）
-   * @param price 單價（可選，默認 0）
-   */
-  addItem(name = '', qty = 1, price = 0): void {
-    this.poItems.push(this.createItem(name, qty, price));
-  }
-
-  /**
-   * 移除進貨單品項
-   * @param index 品項在陣列中的索引
-   */
-  removeItem(index: number): void {
-    this.poItems.removeAt(index);
-  }
-
-  /**
-   * 處理進貨單表單提交
-   * 保存或更新進貨單到本地資料
-   */
-  handlePOSubmit(): void {
-    if (this.poForm.invalid) return;
-    const formData = this.poForm.getRawValue();
-    const poData = {
-      poNumber: formData.poNumber,
-      vendorId: formData.vendorId,
-      date: formData.date,
-      items: formData.items,
-      totalAmount: formData.totalAmount
-    } as Omit<PurchaseOrder, 'id'>;
-
-    if (this.editingPO()) {
-      this.dataService.updatePurchaseOrder({ ...poData, id: this.editingPO()!.id });
-    } else {
-      this.dataService.addPurchaseOrder(poData);
-    }
-    this.loadData();
-    this.closeModal();
-  }
-
-  /**
-   * 刪除進貨單
-   * @param id 進貨單 ID
-   */
-  deletePurchaseOrder(id: string): void {
-    if (confirm('確定要刪除此進貨單嗎？')) {
-      this.dataService.deletePurchaseOrder(id);
-      this.loadData();
-    }
-  }
-
-  /**
-   * 取得廠商名稱
-   * @param vendorId 廠商 ID
-   * @returns 廠商名稱，如果未找到則返回 'N/A'
-   */
-  getVendorName(vendorId: string | number): string {
-    const id = vendorId.toString();
-    return this.allVendors().find(v => v.id === id)?.name || 'N/A';
-  }
-
   /**
    * 格式化貨幣
    * 將數字轉換為台幣格式（NT$）
@@ -892,13 +719,6 @@ export class PurchaseOrdersComponent {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  }
-
-  /**
-   * 取得進貨單表單中的品項陣列
-   */
-  get poItems(): FormArray {
-    return this.poForm.get('items') as FormArray;
   }
 
   /**

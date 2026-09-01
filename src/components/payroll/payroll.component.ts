@@ -677,6 +677,9 @@ export class PayrollComponent {
       });
       if (response.success) {
         alert(row.is_verified ? '已取消審核' : '審核成功');
+        // 直接更新月度明細視窗裡的該筆資料，讓「核對」狀態立即反映，不用等重新開啟視窗
+        row.is_verified = !row.is_verified;
+        this.monthlyDetailsRows.set([...this.monthlyDetailsRows()]);
         this.loadDailySummaries();
       } else {
         alert('操作失敗: ' + (response.error || '未知錯誤'));
@@ -696,6 +699,9 @@ export class PayrollComponent {
       });
       if (response.success) {
         alert(row.is_paid ? '已取消發放' : '發放成功');
+        // 直接更新月度明細視窗裡的該筆資料，讓「發放」狀態立即反映，不用等重新開啟視窗
+        row.is_paid = !row.is_paid;
+        this.monthlyDetailsRows.set([...this.monthlyDetailsRows()]);
         this.loadDailySummaries();
       } else {
         alert('操作失敗: ' + (response.error || '未知錯誤'));

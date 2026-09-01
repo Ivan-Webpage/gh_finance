@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal, CUSTOM_ELEMENTS_SCHEMA, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 
 interface Shareholder {
@@ -42,7 +42,6 @@ export class ShareholderRecordsComponent {
   private fb = inject(FormBuilder);
 
   isRecordModalOpen = signal(false);
-  isShareholderModalOpen = signal(false);
   isMeetingModalOpen = signal(false);
 
   editingRecord = signal<{ record: ProgressRecord | null, meetingId: string } | null>(null);
@@ -936,26 +935,5 @@ export class ShareholderRecordsComponent {
 
   cancelDeleteRecord(): void {
     this.recordToDelete.set(null);
-  }
-  
-  // --- Shareholder Management ---
-  shareholderForm = this.fb.group({ shareholders: this.fb.array([]) });
-  get shareholderControls() { return (this.shareholderForm.get('shareholders') as FormArray).controls; }
-
-  openShareholderModal(): void {
-    const shareholdersArray = this.shareholderForm.get('shareholders') as FormArray;
-    shareholdersArray.clear();
-    const shareholderFGs = this.shareholders().map(s => this.fb.group({ id: [s.id], name: [s.name, Validators.required] }));
-    shareholderFGs.forEach(fg => shareholdersArray.push(fg));
-    this.isShareholderModalOpen.set(true);
-  }
-
-  closeShareholderModal(): void { this.isShareholderModalOpen.set(false); }
-  addShareholder(): void { (this.shareholderForm.get('shareholders') as FormArray).push(this.fb.group({ id: [`sh${Date.now()}`], name: ['', Validators.required] })); }
-  removeShareholder(index: number): void { (this.shareholderForm.get('shareholders') as FormArray).removeAt(index); }
-  saveShareholders(): void {
-    if (this.shareholderForm.invalid) return;
-    this.shareholders.set(this.shareholderForm.value.shareholders as Shareholder[]);
-    this.closeShareholderModal();
   }
 }
