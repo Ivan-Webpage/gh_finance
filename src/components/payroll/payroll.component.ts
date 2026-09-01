@@ -646,32 +646,12 @@ export class PayrollComponent {
       sourceRows = this.dailySummaries().filter(row => this.toNumber(row.user_id) === this.toNumber(summary.user_id));
     }
 
-    const processedRows = sourceRows.map(row => {
-      const workDate = row.work_date || '';
-      let clockInTime = this.combineDateTime(workDate, row.clock_in_time_input || '');
-      let clockOutTime = this.combineDateTime(workDate, row.clock_out_time_input || '');
-      if (clockInTime && clockOutTime) {
-        const clockInDate = new Date(clockInTime).getTime();
-        const clockOutDate = new Date(clockOutTime).getTime();
-        if (clockOutDate < clockInDate) {
-          const [year, month, day] = workDate.split('-');
-          const nextDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day) + 1);
-          const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
-          clockOutTime = this.combineDateTime(nextDayStr, row.clock_out_time_input || '');
-        }
-      }
-      if (clockInTime && clockOutTime) {
-        const newWorkHours = this.calculateWorkHours(clockInTime, clockOutTime);
-        const newTotalWage = this.calculateWage(newWorkHours, this.toNumber(row.base_wage));
-        return {
-          ...row,
-          work_hours: newWorkHours,
-          total_wage: newTotalWage,
-        };
-      }
-      return row;
-    });
-    this.monthlyDetailsRows.set(processedRows);
+    // 直接使用後端回傳的 work_hours／total_wage（已用完整精度時間戳正確算好）。
+    // 這裡過去會用 clock_in_time_input／clock_out_time_input（只到分鐘）重新計算一次，
+    // 但 <input type="time"> 本身就會捨去秒數，載入當下（使用者根本還沒編輯）重算
+    // 反而會讓工時、金額跟後端算出的正確值出現零頭差異，導致「明細」總計對不上
+    // 「總薪資」。使用者實際編輯打卡時間後按儲存時，saveMonthlyDetail() 才需要重算。
+    this.monthlyDetailsRows.set(sourceRows);
     this.currentMonthlySummary.set(summary);
     this.monthlyDetailsTitle.set(`${summary.display_name} - ${yearMonth}`);
     this.monthlyDetailsVisible.set(true);
