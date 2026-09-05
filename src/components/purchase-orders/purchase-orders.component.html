@@ -254,6 +254,11 @@
             <ion-icon name="refresh-outline" class="animate-spin text-xl"></ion-icon>
             <span>正在掃描 OneDrive 待匯入檔案...</span>
           </div>
+        } @else if (aiImportProgress(); as progress) {
+          <div class="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-gray-600">
+            <ion-icon name="refresh-outline" class="animate-spin text-xl"></ion-icon>
+            <span>正在匯入，已處理 {{ progress.done }} / {{ progress.total }} 份（分批處理，避免單次請求逾時）...</span>
+          </div>
         } @else {
           <div class="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-emerald-900">
             掃描完成，共 {{ aiScanFiles().length }} 份待處理檔案。
@@ -455,8 +460,14 @@
           >
             @if(isAiImporting()) {
               <ion-icon name="refresh-outline" class="animate-spin"></ion-icon>
+              @if (aiImportProgress(); as progress) {
+                匯入中 ({{ progress.done }}/{{ progress.total }})
+              } @else {
+                匯入中...
+              }
+            } @else {
+              AI 匯入進貨單
             }
-            AI 匯入進貨單
           </button>
         }
       </div>

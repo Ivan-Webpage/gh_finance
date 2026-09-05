@@ -882,6 +882,8 @@ export interface PurchaseOrderAiImportResult {
   pendingCount?: number;
   rows: PurchaseOrderAiImportRow[];
   pending?: PurchaseOrderAiPendingRow[];
+  /** 這次請求是否因為 MAX_FILES_PER_REQUEST 而被後端截斷（還有候選檔案沒處理到）。 */
+  truncated?: boolean;
 }
 
 // ========== 未來計畫 (collaboration/future-plans) ==========

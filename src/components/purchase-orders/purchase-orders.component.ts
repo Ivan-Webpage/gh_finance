@@ -76,6 +76,8 @@ export class PurchaseOrdersComponent {
   aiImportError = signal<string | null>(null);
   aiScanFiles = signal<PurchaseOrderAiScanFile[]>([]);
   aiImportResult = signal<PurchaseOrderAiImportResult | null>(null);
+  /** 分批呼叫 AI 匯入的進度（{done, total}），null 表示目前沒有在跑。 */
+  aiImportProgress = signal<{ done: number; total: number } | null>(null);
 
   aiImportSuccessRows = computed(() => this.aiImportResult()?.rows.filter(row => row.success) ?? []);
   aiImportFailedRows = computed(() => this.aiImportResult()?.rows.filter(row => !row.success) ?? []);
@@ -448,34 +450,82 @@ export class PurchaseOrdersComponent {
     }
   }
 
+  /**
+   * 每批處理的檔案數（需跟後端 MAX_FILES_PER_REQUEST 一致）。
+   *
+   * 2026-09-01：待掃描資料夾積壓較多檔案（曾發生 25 份）時，一次全部丟給
+   * 後端會逐一下載+呼叫 Gemini OCR，單一請求跑太久會被平台閘道逾時中斷，
+   * 瀏覽器端只看到 `status 0` 的網路錯誤，看不出真正原因。改成固定小批次
+   * 呼叫、迴圈跑到全部處理完，不管積壓多少份都不會讓單一請求跑超過逾時。
+   */
+  private static readonly AI_IMPORT_BATCH_SIZE = 5;
+
   async runAiImport(): Promise<void> {
     if (this.isAiImporting()) return;
 
+    const fileIds = this.aiScanFiles().map(f => f.id);
+    if (fileIds.length === 0) return;
+
     this.isAiImporting.set(true);
     this.aiImportError.set(null);
+    this.aiImportResult.set(null);
+    this.aiImportProgress.set({ done: 0, total: fileIds.length });
+
+    const mergedRows: PurchaseOrderAiImportResult['rows'] = [];
+    const mergedPending: PurchaseOrderAiPendingRow[] = [];
+    let errorMessage: string | null = null;
+
+    // 每批各自 try/catch：就算某一批途中失敗（例如仍然逾時），前面幾批已經
+    // 成功匯入/待確認的結果也不會被丟掉，畫面照樣看得到、資料庫也不會漏記。
+    for (let i = 0; i < fileIds.length; i += PurchaseOrdersComponent.AI_IMPORT_BATCH_SIZE) {
+      const batch = fileIds.slice(i, i + PurchaseOrdersComponent.AI_IMPORT_BATCH_SIZE);
+      try {
+        const response = await this.apiService.importPurchaseOrdersByAi(batch);
+
+        if (!response.success || !response.data) {
+          errorMessage = response.error || 'AI 匯入進貨單失敗';
+          break;
+        }
+
+        mergedRows.push(...response.data.rows);
+        mergedPending.push(...(response.data.pending ?? []));
+        this.aiImportProgress.set({ done: mergedRows.length + mergedPending.length, total: fileIds.length });
+      } catch (error) {
+        console.error('Error importing purchase orders by AI:', error);
+        errorMessage = this.extractApiErrorMessage(error, 'AI 匯入進貨單失敗，請稍後重試');
+        break;
+      }
+    }
+
+    const merged: PurchaseOrderAiImportResult = {
+      total: mergedRows.length + mergedPending.length,
+      successCount: mergedRows.filter(row => row.success).length,
+      failedCount: mergedRows.filter(row => !row.success).length,
+      pendingCount: mergedPending.length,
+      rows: mergedRows,
+      pending: mergedPending,
+    };
+    this.aiImportResult.set(merged);
+    // 疑似重複的項目預設全選，使用者可以自行取消勾選要略過的項目；
+    // 廠商比對不到的項目掃描時一定還沒決定廠商，不能預先勾選（見 pendingVendorUndecided()）
+    this.pendingSelection.set(new Set(
+      mergedPending.filter(p => !this.pendingVendorUndecided(p)).map(p => p.fileId)
+    ));
+
+    if (errorMessage) {
+      this.aiImportError.set(errorMessage);
+    } else if (merged.failedCount > 0) {
+      const firstFailed = merged.rows.find(row => !row.success);
+      this.aiImportError.set(firstFailed?.reason || `共有 ${merged.failedCount} 筆匯入失敗`);
+    }
 
     try {
-      const response = await this.apiService.importPurchaseOrdersByAi();
-      if (response.success && response.data) {
-        this.aiImportResult.set(response.data);
-        // 疑似重複的項目預設全選，使用者可以自行取消勾選要略過的項目；
-        // 廠商比對不到的項目掃描時一定還沒決定廠商，不能預先勾選（見 pendingVendorUndecided()）
-        this.pendingSelection.set(new Set(
-          (response.data.pending ?? []).filter(p => !this.pendingVendorUndecided(p)).map(p => p.fileId)
-        ));
-        if ((response.data.failedCount ?? 0) > 0) {
-          const firstFailed = response.data.rows.find(row => !row.success);
-          this.aiImportError.set(firstFailed?.reason || `共有 ${response.data.failedCount} 筆匯入失敗`);
-        }
-        await this.loadShipments();
-      } else {
-        this.aiImportError.set(response.error || 'AI 匯入進貨單失敗');
-      }
+      await this.loadShipments();
     } catch (error) {
-      console.error('Error importing purchase orders by AI:', error);
-      this.aiImportError.set(this.extractApiErrorMessage(error, 'AI 匯入進貨單失敗，請稍後重試'));
+      console.error('Error reloading shipments after AI import:', error);
     } finally {
       this.isAiImporting.set(false);
+      this.aiImportProgress.set(null);
     }
   }
 
