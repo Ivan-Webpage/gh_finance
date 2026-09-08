@@ -71,6 +71,11 @@ interface GLAccountLite {
   account_name: string;
 }
 
+interface EmployeeOption {
+  id: number;
+  employee_name: string;
+}
+
 @Component({
   selector: 'app-shareholder-rebates',
   templateUrl: './shareholder-rebates.component.html',
@@ -205,6 +210,20 @@ export class ShareholderRebatesComponent {
   payablesDetailsPendingBalance = computed(() => {
     return this.payablesDetails().reduce((sum, detail) => sum + Number(detail.pending_balance || 0), 0);
   });
+
+  // ========== 手動新增股東（整月無任何紀錄時使用）Modal 狀態 ==========
+  manualAddModalVisible = signal<boolean>(false);
+  manualAddEmployees = signal<EmployeeOption[]>([]);
+  manualAddEmployeesLoading = signal<boolean>(false);
+  manualAddSaving = signal<boolean>(false);
+  manualAddError = signal<string>('');
+  manualAddEmployeeId = '';
+  manualAddCheckoutAt = '';
+  manualAddInvoiceNo = '';
+  manualAddDiscountAmount = '';
+  manualAddInvoiceAmount = '';
+  manualAddRebateRate = '';
+  manualAddDiscountNote = '';
 
   // ========== 支付成功提醒 Modal 狀態 ==========
   paymentSuccessModalVisible = signal<boolean>(false);
@@ -379,6 +398,106 @@ export class ShareholderRebatesComponent {
       console.error('Error creating rebate detail:', error);
     } finally {
       this.addDetailSaving.set(false);
+    }
+  }
+
+  // ========== 手動新增股東（整月無任何紀錄時使用） ==========
+
+  async openManualAddModal(): Promise<void> {
+    this.manualAddError.set('');
+    this.manualAddSaving.set(false);
+    this.manualAddEmployeeId = '';
+    this.manualAddInvoiceNo = '';
+    this.manualAddDiscountAmount = '';
+    this.manualAddInvoiceAmount = '';
+    this.manualAddRebateRate = '';
+    this.manualAddDiscountNote = '';
+
+    // 預設消費時間落在目前篩選的年/月中間，避免存檔後因為不在篩選月份內而看不到
+    const defaultDate = new Date(this.selectedYear(), this.selectedMonth() - 1, 15, 12, 0);
+    this.manualAddCheckoutAt = this.formatDateTimeLocal(defaultDate);
+
+    this.manualAddModalVisible.set(true);
+
+    if (this.manualAddEmployees().length === 0) {
+      this.manualAddEmployeesLoading.set(true);
+      try {
+        const response = await this.apiService.getEmployeeInfo();
+        if (response.success && response.data) {
+          const employees = (response.data as any[])
+            .map(emp => ({ id: Number(emp.id), employee_name: emp.employee_name }))
+            .filter(emp => Number.isFinite(emp.id) && emp.id > 0)
+            .sort((a, b) => a.employee_name.localeCompare(b.employee_name, 'zh-Hant'));
+          this.manualAddEmployees.set(employees);
+        }
+      } catch (error: any) {
+        console.error('Error loading employees for manual rebate add:', error);
+        this.manualAddError.set('載入員工清單失敗，請重試');
+      } finally {
+        this.manualAddEmployeesLoading.set(false);
+      }
+    }
+  }
+
+  closeManualAddModal(): void {
+    this.manualAddModalVisible.set(false);
+  }
+
+  async submitManualAdd(): Promise<void> {
+    const employeeId = Number(this.manualAddEmployeeId);
+    const checkoutAtRaw = this.manualAddCheckoutAt;
+    const invoiceNo = this.manualAddInvoiceNo.trim();
+    const discountAmount = Number(String(this.manualAddDiscountAmount).replace(/,/g, ''));
+    const invoiceAmount = Number(String(this.manualAddInvoiceAmount).replace(/,/g, ''));
+    const rebateRate = Number(this.manualAddRebateRate);
+
+    if (!Number.isFinite(employeeId) || employeeId <= 0) {
+      this.manualAddError.set('請選擇股東');
+      return;
+    }
+
+    if (!checkoutAtRaw) {
+      this.manualAddError.set('請填寫消費時間');
+      return;
+    }
+
+    if (Number.isNaN(invoiceAmount) || invoiceAmount <= 0) {
+      this.manualAddError.set('請填寫有效的發票金額');
+      return;
+    }
+
+    this.manualAddError.set('');
+    this.manualAddSaving.set(true);
+
+    const checkoutAt = new Date(checkoutAtRaw).toISOString();
+    const normalizedDiscount = Number.isNaN(discountAmount) ? 0 : discountAmount;
+    const normalizedRate = Number.isNaN(rebateRate) ? 0 : rebateRate;
+
+    const payload = {
+      employee_id: employeeId,
+      checkout_at: checkoutAt,
+      invoice_no: invoiceNo || null,
+      invoice_amount: invoiceAmount,
+      taxable_amount: invoiceAmount,
+      discount_amount: normalizedDiscount,
+      discount_note: this.manualAddDiscountNote.trim() || '無',
+      rebate_rate: normalizedRate,
+      rebate_amount: this.roundTo2(invoiceAmount * (normalizedRate / 100)),
+    };
+
+    try {
+      const response = await this.apiService.createShareholderRebateRecord(payload);
+      if (response.success && response.data) {
+        this.closeManualAddModal();
+        await this.loadMonthlySummary();
+      } else {
+        this.manualAddError.set(response.error || '新增失敗');
+      }
+    } catch (error: any) {
+      this.manualAddError.set(error?.message || '新增失敗');
+      console.error('Error creating manual rebate record:', error);
+    } finally {
+      this.manualAddSaving.set(false);
     }
   }
 
