@@ -147,6 +147,14 @@
       </button>
 
       <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+        <div class="bg-teal-100 p-3 rounded-full"><ion-icon name="walk-outline" class="text-2xl text-teal-600"></ion-icon></div>
+        <div>
+          <p class="text-sm text-gray-500">本月來店會員</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ dashboardMonthlyVisitorCount() ?? '-' }}</p>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
         <div class="bg-green-100 p-3 rounded-full"><ion-icon name="cash-outline" class="text-2xl text-green-600"></ion-icon></div>
         <div>
           <p class="text-sm text-gray-500">收入</p>

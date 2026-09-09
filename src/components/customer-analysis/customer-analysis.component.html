@@ -2,12 +2,19 @@
   <h1 class="text-3xl font-bold text-gray-900">顧客管理</h1>
 
   <!-- Customer Segmentation Stats -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
     <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
       <div class="bg-blue-100 p-3 rounded-full"><ion-icon name="people-outline" class="text-2xl text-blue-600"></ion-icon></div>
       <div>
         <p class="text-sm text-gray-500">總顧客數</p>
         <p class="text-2xl font-semibold text-gray-900">{{ customerStats().total }}</p>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+      <div class="bg-teal-100 p-3 rounded-full"><ion-icon name="walk-outline" class="text-2xl text-teal-600"></ion-icon></div>
+      <div>
+        <p class="text-sm text-gray-500">本月來店會員</p>
+        <p class="text-2xl font-semibold text-gray-900">{{ monthlyVisitorCount() ?? '-' }}</p>
       </div>
     </div>
     <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
@@ -94,6 +101,7 @@
                   <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
                 </div>
                 <p class="text-sm text-gray-500">{{ customer.phone }}</p>
+                <p class="text-xs text-gray-400">最後結帳：{{ customer.lastCheckoutAt ? (customer.lastCheckoutAt | date: 'yyyy-MM-dd HH:mm') : '無紀錄' }}</p>
               </div>
             } @empty {
               <p class="text-center text-gray-500 py-4">找不到顧客。</p>
@@ -294,59 +302,78 @@
     </div>
   </div>
 
-  <!-- AI Market Basket Analysis -->
+  <!-- Market Basket Analysis (整體，關聯規則探勘，非 AI) -->
   <div class="bg-white p-6 rounded-xl shadow-md">
     <div class="flex justify-between items-center mb-4">
       <div class="flex items-center space-x-3">
         <ion-icon name="basket-outline" class="text-2xl text-indigo-600"></ion-icon>
-        <h3 class="text-lg font-semibold text-gray-800">顧客行為分析 (整體)</h3>
+        <h3 class="text-lg font-semibold text-gray-800">購物籃分析 (整體)</h3>
       </div>
-      <button (click)="runBasketAnalysis()" [disabled]="geminiService.basketAnalysisState() === 'loading'" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex items-center space-x-2">
-         @if(geminiService.basketAnalysisState() === 'loading') {
+      <button (click)="loadBasketAnalysis()" [disabled]="isBasketAnalysisLoading()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex items-center space-x-2">
+        @if(isBasketAnalysisLoading()) {
           <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
         }
-        <span>分析購物籃</span>
+        <span>重新整理</span>
       </button>
     </div>
-    
-     @switch (geminiService.basketAnalysisState()) {
-      @case ('idle') {
-        <p class="text-gray-500">點擊按鈕以對全體顧客的 POS 數據運行 AI 購物籃分析。</p>
-      }
-      @case ('loading') {
-        <p class="text-gray-500 animate-pulse">AI 正在分析交易紀錄...</p>
-      }
-      @case ('error') {
-        <div class="bg-red-50 text-red-700 p-4 rounded-lg">
-          <p class="font-semibold">發生錯誤</p>
-          <p>{{ geminiService.basketAnalysisError() }}</p>
+
+    @if(isBasketAnalysisLoading()) {
+      <div class="flex items-center justify-center h-32">
+        <div class="w-6 h-6 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      </div>
+    } @else if(basketAnalysisError()) {
+      <div class="bg-red-50 text-red-700 p-4 rounded-lg text-sm">{{ basketAnalysisError() }}</div>
+    } @else if(basketAnalysis(); as analysis) {
+      <p class="text-xs text-gray-400 mb-4">
+        依 {{ analysis.totalOrdersAnalyzed }} 筆消費紀錄（其中 {{ analysis.ordersWithMultipleItems }} 筆含多項商品）計算，
+        平均每筆 {{ analysis.avgItemsPerOrder.toFixed(1) }} 項商品、共 {{ analysis.uniqueItemCount }} 種商品。
+        下表僅列出同時購買次數 ≥ {{ analysis.minCoCount }} 次的組合，依「提升度(lift)」排序——
+        lift 越高代表這兩項商品一起被購買的頻率，比兩者各自單獨的熱門程度所預期的巧合機率還要高。
+      </p>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 text-sm">
+        <div class="lg:col-span-2">
+          <h4 class="font-semibold text-gray-800 mb-2">經常一起購買的商品組合</h4>
+          @if(analysis.topPairs.length > 0) {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left text-gray-500">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-2">商品組合</th>
+                    <th class="px-4 py-2 text-right">同時購買次數</th>
+                    <th class="px-4 py-2 text-right">支持度</th>
+                    <th class="px-4 py-2 text-right">提升度</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for(pair of analysis.topPairs; track pair.itemA + pair.itemB) {
+                    <tr class="bg-white border-b hover:bg-gray-50">
+                      <td class="px-4 py-2">{{ pair.itemA }} + {{ pair.itemB }}</td>
+                      <td class="px-4 py-2 text-right">{{ pair.coCount }}</td>
+                      <td class="px-4 py-2 text-right">{{ pair.supportPct.toFixed(1) }}%</td>
+                      <td class="px-4 py-2 text-right font-medium text-indigo-700">{{ pair.lift.toFixed(1) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="text-gray-500">目前資料量不足以找出顯著的商品組合。</p>
+          }
         </div>
-      }
-      @case ('success') {
-        @if(geminiService.basketAnalysis(); as analysis) {
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
-            <div>
-              <h4 class="font-semibold text-gray-800 mb-2">經常一起購買的商品</h4>
-               @for(combo of analysis.frequently_bought_together; track $index) {
-                <div class="bg-indigo-50 p-4 rounded-lg mb-4">
-                  <p class="font-semibold text-indigo-800">{{ combo.items.join(' + ') }}</p>
-                  <p class="text-indigo-700 mt-1"><span class="font-medium">建議：</span> {{ combo.suggestion }}</p>
-                </div>
-               } @empty {
-                <p class="text-gray-500">未找到顯著的商品組合。</p>
-               }
-            </div>
-            <div>
-              <h4 class="font-semibold text-gray-800 mb-2">顧客行為洞察</h4>
-              <ul class="list-disc list-inside space-y-2 text-gray-600 bg-gray-50 p-4 rounded-lg">
-                @for(insight of analysis.customer_behavior_insights; track $index) {
-                  <li>{{ insight }}</li>
-                }
-              </ul>
-            </div>
-          </div>
-        }
-      }
+        <div>
+          <h4 class="font-semibold text-gray-800 mb-2">熱門商品 Top 10</h4>
+          <ul class="space-y-2 text-gray-600 bg-gray-50 p-4 rounded-lg">
+            @for(item of analysis.topItems; track item.itemName) {
+              <li class="flex justify-between">
+                <span>{{ item.itemName }}</span>
+                <span class="font-medium text-gray-800">{{ item.count }} 次</span>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+    } @else {
+      <p class="text-gray-500">尚無資料。</p>
     }
   </div>
 </div>

@@ -775,6 +775,39 @@ export interface CustomerTransactionListResponse {
   totalPages: number;
 }
 
+/**
+ * 本月來店會員數
+ * 資料來源：pos.invoices，本月（台北時區）內有對應到會員的有效交易，依會員 UUID 去重
+ */
+export interface MonthlyVisitorCount {
+  count: number;
+}
+
+/**
+ * 購物籃分析 - 商品配對（關聯規則探勘，非 AI）
+ */
+export interface BasketAnalysisPair {
+  itemA: string;
+  itemB: string;
+  coCount: number; // 同時購買次數
+  supportPct: number; // 支持度（佔全部購物籃的百分比）
+  lift: number; // 提升度，>1 代表關聯性高於巧合期望值
+}
+
+/**
+ * 購物籃分析回應
+ * 資料來源：pos.customer_group_orders，以「客群/桌次」為購物籃單位
+ */
+export interface BasketAnalysisResult {
+  totalOrdersAnalyzed: number;
+  ordersWithMultipleItems: number;
+  avgItemsPerOrder: number;
+  uniqueItemCount: number;
+  topItems: { itemName: string; count: number }[];
+  topPairs: BasketAnalysisPair[];
+  minCoCount: number;
+}
+
 // --- Product Sales Models (商品銷售) ---
 
 /**

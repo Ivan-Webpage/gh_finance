@@ -3,8 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../services/api.service';
-import { GeminiService } from '../../services/gemini.service';
-import type { Customer, CustomerConsumptionSummary, CustomerTransaction } from '../../models/financial.model';
+import type { Customer, CustomerConsumptionSummary, CustomerTransaction, BasketAnalysisResult } from '../../models/financial.model';
 import { CustomerFeedback } from '../../models/financial.model';
 
 @Component({
@@ -16,7 +15,6 @@ import { CustomerFeedback } from '../../models/financial.model';
 })
 export class CustomerAnalysisComponent {
   apiService = inject(ApiService);
-  geminiService = inject(GeminiService);
   private route = inject(ActivatedRoute);
 
   // --- State Signals ---
@@ -48,7 +46,7 @@ export class CustomerAnalysisComponent {
   /**
    * 顧客列表捲動載入：目前顯示的筆數（每次捲到底 +CUSTOMER_PAGE_SIZE）
    */
-  readonly CUSTOMER_PAGE_SIZE = 15;
+  readonly CUSTOMER_PAGE_SIZE = 20;
   visibleCustomerCount = signal(this.CUSTOMER_PAGE_SIZE);
 
   /**
@@ -91,6 +89,18 @@ export class CustomerAnalysisComponent {
    */
   isConsumptionLoading = signal(false);
 
+  /**
+   * 本月來店會員數（資料來源：pos.invoices，本月內有效交易且對應到會員，依會員 UUID 去重）
+   */
+  monthlyVisitorCount = signal<number | null>(null);
+
+  /**
+   * 整體購物籃分析結果（關聯規則探勘，非 AI；資料來源：pos.customer_group_orders）
+   */
+  basketAnalysis = signal<BasketAnalysisResult | null>(null);
+  isBasketAnalysisLoading = signal(false);
+  basketAnalysisError = signal<string | null>(null);
+
   // --- Computed Properties ---
   /**
    * 根據搜尋詞和分類過濾顧客列表
@@ -108,12 +118,19 @@ export class CustomerAnalysisComponent {
     // 按搜尋詞篩選
     const term = this.searchTerm().toLowerCase();
     if (term) {
-      filtered = filtered.filter(c => 
-        c.name?.toLowerCase().includes(term) || 
+      filtered = filtered.filter(c =>
+        c.name?.toLowerCase().includes(term) ||
         c.phone?.includes(term)
       );
     }
-    
+
+    // 依最後結帳時間遞減排序（沒有結帳紀錄的排在最後）
+    filtered = [...filtered].sort((a, b) => {
+      const timeA = a.lastCheckoutAt ? new Date(a.lastCheckoutAt).getTime() : -Infinity;
+      const timeB = b.lastCheckoutAt ? new Date(b.lastCheckoutAt).getTime() : -Infinity;
+      return timeB - timeA;
+    });
+
     return filtered;
   });
 
@@ -157,6 +174,8 @@ export class CustomerAnalysisComponent {
       }
     });
     this.loadCustomers();
+    this.loadMonthlyVisitorCount();
+    this.loadBasketAnalysis();
 
     // 搜尋詞或分類篩選變動時，捲動載入進度重置回第一批
     effect(() => {
@@ -164,6 +183,41 @@ export class CustomerAnalysisComponent {
       this.categoryFilter();
       this.visibleCustomerCount.set(this.CUSTOMER_PAGE_SIZE);
     });
+  }
+
+  /**
+   * 載入本月來店會員數
+   */
+  async loadMonthlyVisitorCount(): Promise<void> {
+    try {
+      const response = await this.apiService.getMonthlyVisitorCount();
+      if (response.success && response.data) {
+        this.monthlyVisitorCount.set(response.data.count);
+      }
+    } catch (error) {
+      console.error('Error loading monthly visitor count:', error);
+    }
+  }
+
+  /**
+   * 載入整體購物籃分析（關聯規則探勘，非 AI）
+   */
+  async loadBasketAnalysis(): Promise<void> {
+    this.isBasketAnalysisLoading.set(true);
+    this.basketAnalysisError.set(null);
+    try {
+      const response = await this.apiService.getBasketAnalysis();
+      if (response.success && response.data) {
+        this.basketAnalysis.set(response.data);
+      } else {
+        this.basketAnalysisError.set(response.error || '無法取得購物籃分析');
+      }
+    } catch (error) {
+      console.error('Error loading basket analysis:', error);
+      this.basketAnalysisError.set('載入購物籃分析失敗，請稍後重試');
+    } finally {
+      this.isBasketAnalysisLoading.set(false);
+    }
   }
 
   /**
@@ -341,19 +395,6 @@ export class CustomerAnalysisComponent {
     this.loadTransactions(page);
   }
 
-  /**
-   * 執行購物籃分析
-   * 
-   * TODO: 實現購物籃分析功能，分析顧客購買商品的相關性
-   * 需要獲取所有 POS 銷售記錄並使用 Gemini 服務進行 AI 分析
-   */
-  runBasketAnalysis() {
-    // TODO: 實現購物籃分析功能
-    // const allSales = await this.apiService.getPOSSales();
-    // if (allSales.length > 0) {
-    //   this.geminiService.analyzeShoppingBaskets(allSales);
-    // }
-  }
 
   /**
    * 根據顧客名稱中的關鍵字判斷分類

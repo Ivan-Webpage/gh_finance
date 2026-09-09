@@ -220,6 +220,20 @@ export class DashboardComponent {
     return all.filter(c => this.getCustomerCategory(c) === 'cigar').length;
   });
 
+  // ===== Dashboard block: 本月來店會員 =====
+  dashboardMonthlyVisitorCount = signal<number | null>(null);
+
+  private async loadDashboardMonthlyVisitorCount(): Promise<void> {
+    try {
+      const response = await this.apiService.getMonthlyVisitorCount();
+      if (response.success && response.data) {
+        this.dashboardMonthlyVisitorCount.set(response.data.count);
+      }
+    } catch (error) {
+      console.warn('Failed to load monthly visitor count:', error);
+    }
+  }
+
   private getCustomerCategory(customer: Customer): 'exCigar' | 'cigar' | 'shareholder' | 'regular' {
     const name = customer.name || '';
     if (/ex雪茄會員/i.test(name)) return 'exCigar';
@@ -452,6 +466,7 @@ export class DashboardComponent {
     this.loadDashboardAnnouncements();
     this.loadDashboardCashState();
     this.loadDashboardCustomers();
+    this.loadDashboardMonthlyVisitorCount();
 
     effect(() => {
       const monthly = this.monthlyPerformance();

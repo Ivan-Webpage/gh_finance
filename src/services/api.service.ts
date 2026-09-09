@@ -39,7 +39,9 @@ import type {
   FuturePlan,
   CustomerConsumptionSummary,
   CustomerTransactionFilters,
-  CustomerTransactionListResponse
+  CustomerTransactionListResponse,
+  MonthlyVisitorCount,
+  BasketAnalysisResult
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -957,6 +959,22 @@ export class ApiService {
       params = params.set('product', options.product);
     }
     return firstValueFrom(this.http.get<ApiResponse<CustomerTransactionListResponse>>(`${this.baseUrl}/customers/transactions`, { params }));
+  }
+
+  /**
+   * 取得本月來店會員數
+   * 資料來源：pos.invoices，本月（台北時區）內有對應到會員的有效交易，依會員 UUID 去重
+   */
+  getMonthlyVisitorCount(): Promise<ApiResponse<MonthlyVisitorCount>> {
+    return firstValueFrom(this.http.get<ApiResponse<MonthlyVisitorCount>>(`${this.baseUrl}/customers/monthly-visitor-count`));
+  }
+
+  /**
+   * 取得整體購物籃分析（關聯規則探勘，非 AI）
+   * 資料來源：pos.customer_group_orders
+   */
+  getBasketAnalysis(): Promise<ApiResponse<BasketAnalysisResult>> {
+    return firstValueFrom(this.http.get<ApiResponse<BasketAnalysisResult>>(`${this.baseUrl}/customers/basket-analysis`));
   }
 
   // ========== PRODUCT SALES API METHODS (商品銷售) ==========
