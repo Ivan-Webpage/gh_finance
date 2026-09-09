@@ -29,7 +29,7 @@
   </div>
 
   <!-- 統計卡片 -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
     <div class="bg-white p-6 rounded-xl shadow-md">
       <h3 class="text-sm text-gray-500">總銷售額</h3>
       <p class="text-2xl font-bold text-gray-900 mt-1">{{ formatCurrency(totalSalesAmount()) }}</p>
@@ -39,6 +39,13 @@
       <h3 class="text-sm text-gray-500">總成本</h3>
       <p class="text-2xl font-bold text-gray-900 mt-1">{{ formatCurrency(totalCost()) }}</p>
       <p class="text-xs text-gray-400 mt-2">時間區間內對外庫存「銀河提貨」數量 × 1050 元。</p>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-sm text-gray-500">毛利率</h3>
+      <p class="text-2xl font-bold mt-1" [class.text-green-600]="(grossProfitMargin() ?? 0) >= 0" [class.text-red-600]="(grossProfitMargin() ?? 0) < 0">
+        {{ grossProfitMargin() !== null ? grossProfitMargin()!.toFixed(1) + '%' : '-' }}
+      </p>
+      <p class="text-xs text-gray-400 mt-2">(總銷售額－總成本) ÷ 總銷售額。</p>
     </div>
     <div class="bg-white p-6 rounded-xl shadow-md">
       <h3 class="text-sm text-gray-500">庫存數量</h3>

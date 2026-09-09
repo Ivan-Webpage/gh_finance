@@ -70,6 +70,11 @@ export class TarakouWhiskySalesComponent {
     return warehouseQty * WAREHOUSE_UNIT_COST;
   });
   currentStockQty = computed(() => Number(this.data()?.currentStockQty) || 0);
+  grossProfitMargin = computed(() => {
+    const sales = this.totalSalesAmount();
+    if (!sales) return null;
+    return ((sales - this.totalCost()) / sales) * 100;
+  });
 
   // --- 對外庫存 ---
   isExternalModalOpen = signal(false);
