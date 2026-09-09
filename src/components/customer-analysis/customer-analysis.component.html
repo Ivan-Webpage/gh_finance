@@ -82,10 +82,10 @@
           <input type="text" [(ngModel)]="searchTerm" placeholder="依姓名或電話搜尋..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 pl-10 bg-gray-50">
           <ion-icon name="search-outline" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></ion-icon>
         </div>
-        <div class="flex-1 overflow-y-auto -mx-2 px-2">
+        <div class="flex-1 overflow-y-auto -mx-2 px-2" style="max-height: 32rem;" (scroll)="onCustomerListScroll($event)">
           <div class="space-y-2">
-            @for(customer of filteredCustomers(); track customer.id) {
-              <div (click)="selectCustomer(customer)" 
+            @for(customer of visibleCustomers(); track customer.id) {
+              <div (click)="selectCustomer(customer)"
                    class="p-3 rounded-lg cursor-pointer transition-colors"
                    [class.bg-indigo-100]="selectedCustomer()?.id === customer.id"
                    [class.hover:bg-gray-100]="selectedCustomer()?.id !== customer.id">
@@ -99,6 +99,11 @@
               <p class="text-center text-gray-500 py-4">找不到顧客。</p>
             }
           </div>
+          @if(visibleCustomers().length < filteredCustomers().length) {
+            <p class="text-center text-xs text-gray-400 py-3">往下捲動載入更多（{{ visibleCustomers().length }} / {{ filteredCustomers().length }}）</p>
+          } @else if(filteredCustomers().length > 0) {
+            <p class="text-center text-xs text-gray-400 py-3">已顯示全部 {{ filteredCustomers().length }} 位顧客</p>
+          }
         </div>
       }
     </div>
@@ -188,30 +193,92 @@
           <!-- Transaction History -->
           <div class="bg-white p-6 rounded-xl shadow-md mt-8">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">交易歷史</h3>
-            <div class="overflow-x-auto max-h-60">
-              @if(customerSales().length > 0) {
+
+            <!-- Filters -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2 items-end">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">日期（起）</label>
+                <input type="date" [(ngModel)]="transactionFilterStartDate" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">日期（迄）</label>
+                <input type="date" [(ngModel)]="transactionFilterEndDate" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">發票金額（下限）</label>
+                <input type="number" [(ngModel)]="transactionFilterMinAmount" placeholder="不限" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">發票金額（上限）</label>
+                <input type="number" [(ngModel)]="transactionFilterMaxAmount" placeholder="不限" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+              </div>
+              <div class="col-span-2 md:col-span-4">
+                <label class="block text-xs text-gray-500 mb-1">商品名稱</label>
+                <input type="text" [(ngModel)]="transactionFilterProduct" placeholder="例如：雪茄、威士忌" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+              </div>
+            </div>
+            <div class="flex items-center justify-between mb-4">
+              <p class="text-xs text-gray-400">※ 同一桌分帳時，多張發票可能顯示相同品項清單（資料來源以客群/桌次記錄，非逐張發票拆分）。</p>
+              <div class="flex gap-2 shrink-0 ml-4">
+                <button (click)="clearTransactionFiltersAndReload()" class="text-sm px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">清除篩選</button>
+                <button (click)="applyTransactionFilters()" class="text-sm px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">套用篩選</button>
+              </div>
+            </div>
+
+            <!-- Error State -->
+            @if(transactionsError()) {
+              <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm">
+                {{ transactionsError() }}
+              </div>
+            }
+
+            <div class="overflow-x-auto">
+              @if(isTransactionsLoading()) {
+                <div class="flex items-center justify-center h-32">
+                  <div class="w-6 h-6 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                </div>
+              } @else if(transactions().length > 0) {
                 <table class="w-full text-sm text-left text-gray-500">
-                  <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                  <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                     <tr>
-                      <th class="px-4 py-2">日期</th>
+                      <th class="px-4 py-2">日期時間</th>
+                      <th class="px-4 py-2">發票號碼</th>
+                      <th class="px-4 py-2">桌號 / 人數</th>
                       <th class="px-4 py-2">品項</th>
+                      <th class="px-4 py-2 text-right">折扣</th>
                       <th class="px-4 py-2 text-right">總金額</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for(sale of customerSales(); track sale.transactionId) {
+                    @for(tx of transactions(); track tx.invoiceId) {
                       <tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-4 py-2">{{ sale.date }}</td>
-                        <td class="px-4 py-2">{{ formatSaleItems(sale.items) }}</td>
-                        <td class="px-4 py-2 text-right font-medium">{{ formatCurrency(sale.total) }}</td>
+                        <td class="px-4 py-2">{{ tx.date | date: 'yyyy-MM-dd HH:mm' }}</td>
+                        <td class="px-4 py-2">{{ tx.invoiceNumber || '-' }}</td>
+                        <td class="px-4 py-2">{{ tx.tableName || '-' }}{{ tx.peopleCount ? ' / ' + tx.peopleCount + ' 人' : '' }}</td>
+                        <td class="px-4 py-2 max-w-xs">{{ formatTransactionItems(tx.items) }}</td>
+                        <td class="px-4 py-2 text-right">{{ tx.discountAmount ? formatCurrency(tx.discountAmount) : '-' }}</td>
+                        <td class="px-4 py-2 text-right font-medium">{{ formatCurrency(tx.totalAmount) }}</td>
                       </tr>
                     }
                   </tbody>
                 </table>
               } @else {
-                <p class="text-center text-gray-500 py-4">無交易紀錄。</p>
+                <p class="text-center text-gray-500 py-4">無符合條件的交易紀錄。</p>
               }
             </div>
+
+            <!-- Pagination -->
+            @if(!isTransactionsLoading() && transactionsTotal() > 0) {
+              <div class="flex items-center justify-between mt-4 pt-4 border-t text-sm">
+                <p class="text-gray-500">共 {{ transactionsTotal() }} 筆，第 {{ transactionsPage() }} / {{ transactionsTotalPages() }} 頁</p>
+                <div class="flex gap-2">
+                  <button (click)="goToTransactionsPage(transactionsPage() - 1)" [disabled]="transactionsPage() <= 1"
+                          class="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">上一頁</button>
+                  <button (click)="goToTransactionsPage(transactionsPage() + 1)" [disabled]="transactionsPage() >= transactionsTotalPages()"
+                          class="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">下一頁</button>
+                </div>
+              </div>
+            }
           </div>
 
 

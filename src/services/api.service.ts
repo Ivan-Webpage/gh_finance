@@ -37,7 +37,9 @@ import type {
   TarakouWhiskySalesData,
   TarakouExternalOperation,
   FuturePlan,
-  CustomerConsumptionSummary
+  CustomerConsumptionSummary,
+  CustomerTransactionFilters,
+  CustomerTransactionListResponse
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -919,6 +921,42 @@ export class ApiService {
   getCustomerConsumptionSummary(memberUuid: string): Promise<ApiResponse<CustomerConsumptionSummary>> {
     const params = new HttpParams().set('memberUuid', memberUuid);
     return firstValueFrom(this.http.get<ApiResponse<CustomerConsumptionSummary>>(`${this.baseUrl}/customers/consumption-summary`, { params }));
+  }
+
+  /**
+   * 取得單一顧客的交易歷史（分頁 + 篩選）
+   * 資料來源：pos.invoices，依會員 UUID 對應
+   * 注意：pos.invoices 只有發票層級總金額，沒有品項明細，故不支援依商品篩選
+   * @param memberUuid 會員 UUID（對應 Customer.id）
+   * @param options 分頁與篩選條件
+   */
+  getCustomerTransactions(
+    memberUuid: string,
+    options?: CustomerTransactionFilters & { page?: number; pageSize?: number }
+  ): Promise<ApiResponse<CustomerTransactionListResponse>> {
+    let params = new HttpParams().set('memberUuid', memberUuid);
+    if (options?.page) {
+      params = params.set('page', options.page.toString());
+    }
+    if (options?.pageSize) {
+      params = params.set('pageSize', options.pageSize.toString());
+    }
+    if (options?.startDate) {
+      params = params.set('startDate', options.startDate);
+    }
+    if (options?.endDate) {
+      params = params.set('endDate', options.endDate);
+    }
+    if (options?.minAmount !== undefined && options.minAmount !== null) {
+      params = params.set('minAmount', options.minAmount.toString());
+    }
+    if (options?.maxAmount !== undefined && options.maxAmount !== null) {
+      params = params.set('maxAmount', options.maxAmount.toString());
+    }
+    if (options?.product) {
+      params = params.set('product', options.product);
+    }
+    return firstValueFrom(this.http.get<ApiResponse<CustomerTransactionListResponse>>(`${this.baseUrl}/customers/transactions`, { params }));
   }
 
   // ========== PRODUCT SALES API METHODS (商品銷售) ==========

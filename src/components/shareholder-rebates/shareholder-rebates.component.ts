@@ -424,7 +424,10 @@ export class ShareholderRebatesComponent {
       try {
         const response = await this.apiService.getEmployeeInfo();
         if (response.success && response.data) {
+          // 只保留「股東」「經營團隊」，排除一般員工、股東親屬、老闆等其他職位分類
+          const eligiblePositions = new Set(['股東', '經營團隊']);
           const employees = (response.data as any[])
+            .filter(emp => eligiblePositions.has(String(emp.position || '').trim()))
             .map(emp => ({ id: Number(emp.id), employee_name: emp.employee_name }))
             .filter(emp => Number.isFinite(emp.id) && emp.id > 0)
             .sort((a, b) => a.employee_name.localeCompare(b.employee_name, 'zh-Hant'));

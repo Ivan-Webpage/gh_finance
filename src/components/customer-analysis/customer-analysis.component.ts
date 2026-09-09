@@ -1,11 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { GeminiService } from '../../services/gemini.service';
-import type { Customer, CustomerConsumptionSummary } from '../../models/financial.model';
-import { POSSale, CustomerFeedback } from '../../models/financial.model';
+import type { Customer, CustomerConsumptionSummary, CustomerTransaction } from '../../models/financial.model';
+import { CustomerFeedback } from '../../models/financial.model';
 
 @Component({
   selector: 'app-customer-analysis',
@@ -41,14 +41,35 @@ export class CustomerAnalysisComponent {
   selectedCustomer = signal<Customer | null>(null);
   
   /**
-   * 所選顧客的銷售記錄
-   */
-  customerSales = signal<POSSale[]>([]);
-  
-  /**
    * 所選顧客的反饋記錄
    */
   customerFeedback = signal<CustomerFeedback[]>([]);
+
+  /**
+   * 顧客列表捲動載入：目前顯示的筆數（每次捲到底 +CUSTOMER_PAGE_SIZE）
+   */
+  readonly CUSTOMER_PAGE_SIZE = 15;
+  visibleCustomerCount = signal(this.CUSTOMER_PAGE_SIZE);
+
+  /**
+   * 所選顧客的交易歷史（分頁）
+   * 資料來源：pos.invoices，僅發票層級資訊，沒有品項明細
+   */
+  transactions = signal<CustomerTransaction[]>([]);
+  transactionsTotal = signal(0);
+  transactionsPage = signal(1);
+  readonly TRANSACTIONS_PAGE_SIZE = 10;
+  isTransactionsLoading = signal(false);
+  transactionsError = signal<string | null>(null);
+
+  /**
+   * 交易歷史篩選條件（表單暫存值，按「套用篩選」才會真的查詢）
+   */
+  transactionFilterStartDate = signal('');
+  transactionFilterEndDate = signal('');
+  transactionFilterMinAmount = signal<number | null>(null);
+  transactionFilterMaxAmount = signal<number | null>(null);
+  transactionFilterProduct = signal('');
   
   /**
    * 數據加載狀態
@@ -97,6 +118,20 @@ export class CustomerAnalysisComponent {
   });
 
   /**
+   * 依捲動載入進度截取要顯示的顧客（每次捲到底多顯示 CUSTOMER_PAGE_SIZE 筆）
+   */
+  visibleCustomers = computed(() => {
+    return this.filteredCustomers().slice(0, this.visibleCustomerCount());
+  });
+
+  /**
+   * 交易歷史總頁數
+   */
+  transactionsTotalPages = computed(() => {
+    return Math.max(1, Math.ceil(this.transactionsTotal() / this.TRANSACTIONS_PAGE_SIZE));
+  });
+
+  /**
    * 計算顧客統計數據
    * 根據顧客名稱中的關鍵字分類：
    *   - 前雪茄會員：名稱包含「EX雪茄會員」（英文大小寫不敏感）
@@ -122,6 +157,24 @@ export class CustomerAnalysisComponent {
       }
     });
     this.loadCustomers();
+
+    // 搜尋詞或分類篩選變動時，捲動載入進度重置回第一批
+    effect(() => {
+      this.searchTerm();
+      this.categoryFilter();
+      this.visibleCustomerCount.set(this.CUSTOMER_PAGE_SIZE);
+    });
+  }
+
+  /**
+   * 顧客列表捲動到底時，多顯示下一批顧客
+   */
+  onCustomerListScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+    if (nearBottom && this.visibleCustomerCount() < this.filteredCustomers().length) {
+      this.visibleCustomerCount.update(count => count + this.CUSTOMER_PAGE_SIZE);
+    }
   }
 
   /**
@@ -180,9 +233,8 @@ export class CustomerAnalysisComponent {
     this.selectedCustomer.set(customer);
     this.consumptionSummary.set(null);
     this.loadConsumptionSummary(customer.id);
-    // TODO: 未來可實現獲取該顧客的銷售記錄和反饋
-    // const sales = await this.apiService.getCustomerSales(customer.id);
-    // this.customerSales.set(sales);
+    this.resetTransactionFilters();
+    this.loadTransactions(1);
   }
 
   /**
@@ -190,9 +242,13 @@ export class CustomerAnalysisComponent {
    */
   clearSelection(): void {
     this.selectedCustomer.set(null);
-    this.customerSales.set([]);
     this.customerFeedback.set([]);
     this.consumptionSummary.set(null);
+    this.transactions.set([]);
+    this.transactionsTotal.set(0);
+    this.transactionsPage.set(1);
+    this.transactionsError.set(null);
+    this.resetTransactionFilters();
   }
 
   /**
@@ -213,6 +269,76 @@ export class CustomerAnalysisComponent {
     } finally {
       this.isConsumptionLoading.set(false);
     }
+  }
+
+  /**
+   * 載入所選顧客的交易歷史（分頁 + 篩選）
+   * 資料來源：pos.invoices，僅發票層級資訊
+   *
+   * @param page 要載入的頁碼（從 1 開始）
+   */
+  async loadTransactions(page: number): Promise<void> {
+    const customer = this.selectedCustomer();
+    if (!customer) return;
+
+    this.isTransactionsLoading.set(true);
+    this.transactionsError.set(null);
+    try {
+      const response = await this.apiService.getCustomerTransactions(customer.id, {
+        page,
+        pageSize: this.TRANSACTIONS_PAGE_SIZE,
+        startDate: this.transactionFilterStartDate() || undefined,
+        endDate: this.transactionFilterEndDate() || undefined,
+        minAmount: this.transactionFilterMinAmount() ?? undefined,
+        maxAmount: this.transactionFilterMaxAmount() ?? undefined,
+        product: this.transactionFilterProduct() || undefined,
+      });
+      if (response.success && response.data) {
+        this.transactions.set(response.data.transactions);
+        this.transactionsTotal.set(response.data.total);
+        this.transactionsPage.set(response.data.page);
+      } else {
+        this.transactionsError.set(response.error || '無法取得交易歷史');
+      }
+    } catch (error) {
+      console.error('Error loading customer transactions:', error);
+      this.transactionsError.set('載入交易歷史失敗，請稍後重試');
+    } finally {
+      this.isTransactionsLoading.set(false);
+    }
+  }
+
+  /**
+   * 套用交易歷史篩選條件，並回到第一頁重新查詢
+   */
+  applyTransactionFilters(): void {
+    this.loadTransactions(1);
+  }
+
+  /**
+   * 清除交易歷史篩選條件，並回到第一頁重新查詢
+   */
+  resetTransactionFilters(): void {
+    this.transactionFilterStartDate.set('');
+    this.transactionFilterEndDate.set('');
+    this.transactionFilterMinAmount.set(null);
+    this.transactionFilterMaxAmount.set(null);
+    this.transactionFilterProduct.set('');
+  }
+
+  clearTransactionFiltersAndReload(): void {
+    this.resetTransactionFilters();
+    this.loadTransactions(1);
+  }
+
+  /**
+   * 切換交易歷史頁碼
+   */
+  goToTransactionsPage(page: number): void {
+    if (page < 1 || page > this.transactionsTotalPages() || page === this.transactionsPage()) {
+      return;
+    }
+    this.loadTransactions(page);
   }
 
   /**
@@ -298,16 +424,13 @@ export class CustomerAnalysisComponent {
   }
 
   /**
-   * 格式化銷售項目為字符串
-   * 
-   * @param items 銷售項目數組
-   * @returns 用逗號分隔的項目名稱字符串
+   * 格式化交易品項清單為字串（供交易歷史表格顯示）
    */
-  formatSaleItems(items: { name: string; price: number; quantity: number }[]): string {
-    if (!items) return '';
-    return items.map(i => i.name).join(', ');
+  formatTransactionItems(items: { itemName: string }[]): string {
+    if (!items || items.length === 0) return '-';
+    return items.map((i) => i.itemName).join('、');
   }
-  
+
   /**
    * 格式化貨幣顯示
    * 將數字轉換為台幣格式，使用千分位分隔符

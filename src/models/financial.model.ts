@@ -725,6 +725,56 @@ export interface CustomerConsumptionSummary {
   totalInvoiceCount: number; // 加入至今的累積交易筆數
 }
 
+/**
+ * 交易品項明細（來源 pos.customer_group_orders，依 cg_uuid 對應）
+ */
+export interface CustomerTransactionItem {
+  itemName: string;
+  checkoutPrice: number;
+  originPrice: number;
+}
+
+/**
+ * 顧客單筆交易紀錄
+ * 資料來源：pos.invoices（發票層級）+ pos.customer_group_orders（品項明細，依 cg_uuid 對應）
+ * ⚠️ 同一桌分帳時，多張發票會共用同一個 cg_uuid、看到相同的品項清單——
+ * 這是資料來源本身的顆粒度限制。部分尚未回填品項資料的發票 items 會是空陣列。
+ */
+export interface CustomerTransaction {
+  invoiceId: string;
+  invoiceNumber: string | null;
+  date: string; // ISO 8601
+  totalAmount: number;
+  salesAmount: number;
+  discountAmount: number;
+  tableName: string | null;
+  peopleCount: number | null;
+  items: CustomerTransactionItem[];
+}
+
+/**
+ * 顧客交易歷史查詢的篩選條件
+ */
+export interface CustomerTransactionFilters {
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  minAmount?: number;
+  maxAmount?: number;
+  product?: string; // 依商品名稱模糊篩選
+}
+
+/**
+ * 顧客交易歷史回應（分頁）
+ */
+export interface CustomerTransactionListResponse {
+  memberUuid: string;
+  transactions: CustomerTransaction[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 // --- Product Sales Models (商品銷售) ---
 
 /**
