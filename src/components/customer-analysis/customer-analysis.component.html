@@ -50,7 +50,7 @@
   <!-- Main Content Area -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <!-- Left Column: Customer List -->
-    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md flex flex-col">
+    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md flex flex-col" [style.height.px]="isWideLayout() ? detailColumnHeight() : null">
       <h3 class="text-lg font-semibold text-gray-800 mb-4">顧客列表</h3>
       
       <!-- Loading State -->
@@ -89,7 +89,7 @@
           <input type="text" [(ngModel)]="searchTerm" placeholder="依姓名或電話搜尋..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 pl-10 bg-gray-50">
           <ion-icon name="search-outline" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></ion-icon>
         </div>
-        <div class="flex-1 overflow-y-auto -mx-2 px-2" style="max-height: 32rem;" (scroll)="onCustomerListScroll($event)">
+        <div class="flex-1 overflow-y-auto -mx-2 px-2 max-h-[32rem] lg:max-h-none" (scroll)="onCustomerListScroll($event)">
           <div class="space-y-2">
             @for(customer of visibleCustomers(); track customer.id) {
               <div (click)="selectCustomer(customer)"
@@ -117,7 +117,7 @@
     </div>
 
     <!-- Right Column: Customer Details -->
-    <div class="lg:col-span-2 space-y-8">
+    <div class="lg:col-span-2 space-y-8 self-start" #detailColumn>
       @if(selectedCustomer(); as customer) {
         <div>
           <!-- Basic Info Card -->
@@ -327,8 +327,8 @@
       <p class="text-xs text-gray-400 mb-4">
         依 {{ analysis.totalOrdersAnalyzed }} 筆消費紀錄（其中 {{ analysis.ordersWithMultipleItems }} 筆含多項商品）計算，
         平均每筆 {{ analysis.avgItemsPerOrder.toFixed(1) }} 項商品、共 {{ analysis.uniqueItemCount }} 種商品。
-        下表僅列出同時購買次數 ≥ {{ analysis.minCoCount }} 次的組合，依「提升度(lift)」排序——
-        lift 越高代表這兩項商品一起被購買的頻率，比兩者各自單獨的熱門程度所預期的巧合機率還要高。
+        下表僅列出同時購買次數 ≥ {{ analysis.minCoCount }} 次的組合，依「共購指數」排序——
+        共購指數越高，代表這兩項商品一起被購買的頻率，比兩者各自單獨的熱門程度所預期的巧合機率還要高。
       </p>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 text-sm">
         <div class="lg:col-span-2">
@@ -341,7 +341,7 @@
                     <th class="px-4 py-2">商品組合</th>
                     <th class="px-4 py-2 text-right">同時購買次數</th>
                     <th class="px-4 py-2 text-right">支持度</th>
-                    <th class="px-4 py-2 text-right">提升度</th>
+                    <th class="px-4 py-2 text-right">共購指數</th>
                   </tr>
                 </thead>
                 <tbody>

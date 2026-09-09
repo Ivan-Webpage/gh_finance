@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, computed, effect, inject, signal, viewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -13,9 +13,49 @@ import { CustomerFeedback } from '../../models/financial.model';
   imports: [CommonModule, FormsModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class CustomerAnalysisComponent {
+export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
   apiService = inject(ApiService);
   private route = inject(ActivatedRoute);
+  private ngZone = inject(NgZone);
+
+  /**
+   * 右側詳細資訊欄（顧客名稱／總消費統計／交易歷史）的元素參考，
+   * 用來量測其實際渲染高度，讓左側顧客列表的總長度可以對齊到同樣高度。
+   */
+  private detailColumn = viewChild<ElementRef<HTMLElement>>('detailColumn');
+  private resizeObserver?: ResizeObserver;
+
+  /**
+   * 右側詳細資訊欄目前的渲染高度（px），由 ResizeObserver 量測
+   */
+  detailColumnHeight = signal<number | null>(null);
+
+  /**
+   * 是否為桌面版並排版面（lg 斷點以上）；只有在並排時才需要讓
+   * 左側顧客列表對齊右側高度，手機版兩欄上下堆疊時不適用
+   */
+  isWideLayout = signal(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
+  private onWindowResize = () => this.isWideLayout.set(window.innerWidth >= 1024);
+
+  ngAfterViewInit(): void {
+    window.addEventListener('resize', this.onWindowResize);
+
+    const el = this.detailColumn()?.nativeElement;
+    if (el && typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver((entries) => {
+        const height = entries[0]?.contentRect.height;
+        if (height) {
+          this.ngZone.run(() => this.detailColumnHeight.set(height));
+        }
+      });
+      this.resizeObserver.observe(el);
+    }
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('resize', this.onWindowResize);
+    this.resizeObserver?.disconnect();
+  }
 
   // --- State Signals ---
   /**

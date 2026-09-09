@@ -791,7 +791,7 @@ export interface BasketAnalysisPair {
   itemB: string;
   coCount: number; // 同時購買次數
   supportPct: number; // 支持度（佔全部購物籃的百分比）
-  lift: number; // 提升度，>1 代表關聯性高於巧合期望值
+  lift: number; // 共購指數（統計學上稱為 lift/提升度），>1 代表關聯性高於巧合期望值
 }
 
 /**
