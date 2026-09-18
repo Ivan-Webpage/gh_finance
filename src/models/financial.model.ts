@@ -708,10 +708,17 @@ export interface CustomerListResponse {
 /**
  * 顧客消費統計 - 單一年度消費金額
  */
+export interface CustomerMonthlyConsumption {
+  month: number; // 月份（1-12）
+  amount: number; // 該月消費總額
+  invoiceCount: number; // 該月交易筆數
+}
+
 export interface CustomerYearlyConsumption {
   year: number; // 年份
   amount: number; // 該年度消費總額
   invoiceCount: number; // 該年度交易筆數
+  months: CustomerMonthlyConsumption[]; // 該年度依月份分組的消費明細（由 1 月到 12 月）
 }
 
 /**

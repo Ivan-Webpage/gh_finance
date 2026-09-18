@@ -130,6 +130,11 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
   isConsumptionLoading = signal(false);
 
   /**
+   * 「總消費統計」表格中目前展開顯示逐月明細的年份集合
+   */
+  expandedConsumptionYears = signal<Set<number>>(new Set());
+
+  /**
    * 本月來店會員數（資料來源：pos.invoices，本月內有效交易且對應到會員，依會員 UUID 去重）
    */
   monthlyVisitorCount = signal<number | null>(null);
@@ -326,6 +331,7 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
   selectCustomer(customer: Customer): void {
     this.selectedCustomer.set(customer);
     this.consumptionSummary.set(null);
+    this.expandedConsumptionYears.set(new Set());
     this.loadConsumptionSummary(customer.id);
     this.resetTransactionFilters();
     this.loadTransactions(1);
@@ -338,6 +344,7 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     this.selectedCustomer.set(null);
     this.customerFeedback.set([]);
     this.consumptionSummary.set(null);
+    this.expandedConsumptionYears.set(new Set());
     this.transactions.set([]);
     this.transactionsTotal.set(0);
     this.transactionsPage.set(1);
@@ -400,6 +407,26 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     } finally {
       this.isTransactionsLoading.set(false);
     }
+  }
+
+  /**
+   * 切換「總消費統計」表格中某一年份的逐月明細展開/收合狀態
+   */
+  toggleConsumptionYear(year: number): void {
+    const expanded = new Set(this.expandedConsumptionYears());
+    if (expanded.has(year)) {
+      expanded.delete(year);
+    } else {
+      expanded.add(year);
+    }
+    this.expandedConsumptionYears.set(expanded);
+  }
+
+  /**
+   * 判斷某一年份目前是否已展開顯示逐月明細
+   */
+  isConsumptionYearExpanded(year: number): boolean {
+    return this.expandedConsumptionYears().has(year);
   }
 
   /**
