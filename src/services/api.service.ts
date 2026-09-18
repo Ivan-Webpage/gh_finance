@@ -810,9 +810,21 @@ export class ApiService {
     notes?: string;
     /** 是否同步到 GalaxyHouse 官網：'moonMusic'（漫霧與音樂之約）/ 'venueClosure'（包場公告）/ 不填即不同步 */
     websiteSyncType?: 'moonMusic' | 'venueClosure' | '';
-  }): Promise<ApiResponse<{ id: number; websiteSyncStatus: 'disabled' | 'success' | 'failed'; websiteSyncError: string | null }>> {
+  }): Promise<ApiResponse<{
+    id: number;
+    websiteSyncStatus: 'disabled' | 'success' | 'failed';
+    websiteSyncError: string | null;
+    reservationSyncStatus: 'disabled' | 'success' | 'failed';
+    reservationSyncError: string | null;
+  }>> {
     return firstValueFrom(
-      this.http.post<ApiResponse<{ id: number; websiteSyncStatus: 'disabled' | 'success' | 'failed'; websiteSyncError: string | null }>>(
+      this.http.post<ApiResponse<{
+        id: number;
+        websiteSyncStatus: 'disabled' | 'success' | 'failed';
+        websiteSyncError: string | null;
+        reservationSyncStatus: 'disabled' | 'success' | 'failed';
+        reservationSyncError: string | null;
+      }>>(
         `${this.baseUrl}/events/create`,
         payload
       )
@@ -842,15 +854,29 @@ export class ApiService {
     deposit?: number | null;
     actualRevenue?: number | null;
     notes?: string;
-  }): Promise<ApiResponse<{ id: number }>> {
-    return firstValueFrom(this.http.put<ApiResponse<{ id: number }>>(`${this.baseUrl}/events/${eventId}`, payload));
+  }): Promise<ApiResponse<{
+    id: number;
+    reservationSyncStatus: 'disabled' | 'success' | 'failed';
+    reservationSyncError: string | null;
+  }>> {
+    return firstValueFrom(this.http.put<ApiResponse<{
+      id: number;
+      reservationSyncStatus: 'disabled' | 'success' | 'failed';
+      reservationSyncError: string | null;
+    }>>(`${this.baseUrl}/events/${eventId}`, payload));
   }
 
   /**
    * 刪除活動（軟刪除）
    */
-  deleteEvent(eventId: string): Promise<ApiResponse<any>> {
-    return firstValueFrom(this.http.delete<ApiResponse<any>>(`${this.baseUrl}/events/${eventId}`));
+  deleteEvent(eventId: string): Promise<ApiResponse<{
+    reservationSyncStatus: 'disabled' | 'success' | 'failed';
+    reservationSyncError: string | null;
+  }>> {
+    return firstValueFrom(this.http.delete<ApiResponse<{
+      reservationSyncStatus: 'disabled' | 'success' | 'failed';
+      reservationSyncError: string | null;
+    }>>(`${this.baseUrl}/events/${eventId}`));
   }
 
   // ========== REMINDERS API METHODS (事項提醒) ==========

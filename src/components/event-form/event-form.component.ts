@@ -143,7 +143,11 @@ export class EventFormComponent {
           return;
         }
 
-        alert('活動已成功更新！');
+        if (updateResponse.data?.reservationSyncStatus === 'failed') {
+          alert(`活動已更新，但官網預約行事曆同步失敗：${updateResponse.data?.reservationSyncError || '未知錯誤'}，請留意官網時段可能還沒更新。`);
+        } else {
+          alert('活動已成功更新！');
+        }
       } else {
         const response = await this.apiService.createEvent({
           type: formValue.type || undefined,
@@ -168,6 +172,8 @@ export class EventFormComponent {
 
         if (websiteSyncType && response.data?.websiteSyncStatus === 'failed') {
           alert(`活動已新增，但官網同步觸發失敗：${response.data?.websiteSyncError || '未知錯誤'}`);
+        } else if (response.data?.reservationSyncStatus === 'failed') {
+          alert(`活動已新增，但官網預約行事曆同步失敗：${response.data?.reservationSyncError || '未知錯誤'}，請留意官網時段可能還沒更新。`);
         } else if (websiteSyncType && response.data?.websiteSyncStatus === 'success') {
           alert('活動已成功新增！官網文章已觸發自動發佈，幾分鐘後會更新。');
         } else {
@@ -190,8 +196,9 @@ export class EventFormComponent {
 
   async onDelete(): Promise<void> {
     if (this.isEditMode() && this.eventId() && confirm('您確定要刪除此活動嗎？此操作無法復原。')) {
+      let response;
       try {
-        const response = await this.apiService.deleteEvent(this.eventId()!);
+        response = await this.apiService.deleteEvent(this.eventId()!);
         if (!response.success) {
           alert(response.error || '活動刪除失敗，請稍後再試。');
           return;
@@ -201,7 +208,11 @@ export class EventFormComponent {
         return;
       }
 
-      alert('活動已刪除。');
+      if (response.data?.reservationSyncStatus === 'failed') {
+        alert(`活動已刪除，但官網預約行事曆同步失敗：${response.data?.reservationSyncError || '未知錯誤'}，請留意官網時段可能還沒移除。`);
+      } else {
+        alert('活動已刪除。');
+      }
       this.router.navigate(['/events']);
     }
   }
