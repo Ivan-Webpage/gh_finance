@@ -517,6 +517,7 @@ export const CIGAR_ORIGIN_OPTIONS = [
   '哥倫比亞',
   '墨西哥',
   '印度',
+  '古巴',
 ] as const;
 
 export interface CigarCost {
