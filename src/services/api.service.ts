@@ -49,6 +49,12 @@ export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
 /**
  * API 響應的統一格式
  */
+export interface StoreClosureEntry {
+  id: string;
+  date: string;
+  reason: string | null;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -2884,5 +2890,23 @@ export class ApiService {
   deleteTarakouShareholderPurchase(id: number): Promise<ApiResponse<{ id: number }>> {
     const params = new HttpParams().set('table', 'shareholder').set('id', String(id));
     return firstValueFrom(this.http.delete<ApiResponse<{ id: number }>>(`${this.baseUrl}/tarakou-whisky-sales`, { params }));
+  }
+
+  // ========== 特殊公休日 (store-closures) ==========
+
+  getStoreClosures(params?: { startDate?: string; endDate?: string }): Promise<ApiResponse<StoreClosureEntry[]>> {
+    let httpParams = new HttpParams();
+    if (params?.startDate) httpParams = httpParams.set('startDate', params.startDate);
+    if (params?.endDate) httpParams = httpParams.set('endDate', params.endDate);
+    return firstValueFrom(this.http.get<ApiResponse<StoreClosureEntry[]>>(`${this.baseUrl}/store-closures`, { params: httpParams }));
+  }
+
+  createStoreClosure(payload: { date: string; reason?: string }): Promise<ApiResponse<StoreClosureEntry>> {
+    return firstValueFrom(this.http.post<ApiResponse<StoreClosureEntry>>(`${this.baseUrl}/store-closures`, payload));
+  }
+
+  deleteStoreClosure(id: string): Promise<ApiResponse<unknown>> {
+    const params = new HttpParams().set('id', id);
+    return firstValueFrom(this.http.delete<ApiResponse<unknown>>(`${this.baseUrl}/store-closures`, { params }));
   }
 }

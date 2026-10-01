@@ -22,6 +22,7 @@ export const APP_ROUTES: Routes = [
   { path: 'vendors', loadComponent: () => import('./components/vendors/vendors.component').then(m => m.VendorsComponent), title: '廠商管理', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'purchase-orders', loadComponent: () => import('./components/purchase-orders/purchase-orders.component').then(m => m.PurchaseOrdersComponent), title: '進貨單管理', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'events', loadComponent: () => import('./components/events/events.component').then(m => m.EventsComponent), title: '活動管理', canActivate: [authGuard] },
+  { path: 'store-closures', loadComponent: () => import('./components/store-closures/store-closures.component').then(m => m.StoreClosuresComponent), title: '特殊公休日', canActivate: [authGuard] },
   { path: 'reminders', loadComponent: () => import('./components/reminders/reminders.component').then(m => m.RemindersComponent), title: '事項提醒', canActivate: [authGuard] },
   { path: 'reminders/new', loadComponent: () => import('./components/reminder-form/reminder-form.component').then(m => m.ReminderFormComponent), title: '新增事項提醒', canActivate: [authGuard] },
   { path: 'events/new', loadComponent: () => import('./components/event-form/event-form.component').then(m => m.EventFormComponent), title: '新增活動', canActivate: [authGuard] },

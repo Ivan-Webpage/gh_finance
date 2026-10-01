@@ -68,6 +68,7 @@ export class SidebarComponent implements OnInit {
       children: [
         { path: '/events', icon: 'calendar-outline', name: '活動管理' },
         { path: '/reminders', icon: 'notifications-outline', name: '事項提醒' },
+        { path: '/store-closures', icon: 'moon-outline', name: '特殊公休日' },
       ]
     },
     {
