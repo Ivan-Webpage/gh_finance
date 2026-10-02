@@ -120,7 +120,15 @@
                 <td class="px-4 py-2">{{ event.type }}</td>
                 <td class="px-4 py-2">{{ formatDateForDisplay(event.date) }}</td>
                 <td class="px-4 py-2">{{ event.time }}</td>
-                <td class="px-4 py-2 font-medium">{{ event.name }}</td>
+                <td class="px-4 py-2 font-medium">
+                  {{ event.name }}
+                  @if (event.websiteUrl) {
+                    <a [href]="event.websiteUrl" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()"
+                      title="開啟官網活動頁" class="ml-1 inline-flex align-middle text-indigo-500 hover:text-indigo-700">
+                      <ion-icon name="link-outline"></ion-icon>
+                    </a>
+                  }
+                </td>
                 <td class="px-4 py-2">{{ event.organizer }}</td>
                 <td class="px-4 py-2">{{ event.attendees }}</td>
                 <td class="px-4 py-2 text-right">{{ formatCurrency(event.estimatedRevenue) }}</td>

@@ -49,7 +49,12 @@ export class EventFormComponent {
     actualRevenue: [null as number | null, [Validators.min(0)]],
     notes: [''],
     websiteSyncType: ['' as 'moonMusic' | 'venueClosure' | ''],
+    websiteUrl: ['', [Validators.pattern(/^https?:\/\/\S+$/)]],
   });
+
+  // 編輯頁載入時的官網網址。儲存時只有使用者真的改了這欄才送出，避免「編輯頁開著的期間，
+  // 官網文章剛部署好並自動回寫網址」時，被畫面上還是空白的舊值蓋掉。
+  private loadedWebsiteUrl = '';
 
   
   constructor() {
@@ -65,7 +70,8 @@ export class EventFormComponent {
         try {
           const response = await this.apiService.getEventById(id);
           if (response.success && response.data) {
-            this.eventForm.patchValue(response.data);
+            this.loadedWebsiteUrl = response.data.websiteUrl || '';
+            this.eventForm.patchValue({ ...response.data, websiteUrl: this.loadedWebsiteUrl });
           } else {
             alert('找不到活動！');
             this.router.navigate(['/events']);
@@ -90,6 +96,10 @@ export class EventFormComponent {
     }
 
     this.submitted.set(true);
+    if (this.eventForm.get('websiteUrl')?.invalid) {
+      alert('官網活動網址格式錯誤，需以 http:// 或 https:// 開頭。');
+      return;
+    }
     if (this.eventForm.invalid) {
       alert('請檢查表單，僅活動名稱與日期為必填。');
       return;
@@ -119,7 +129,9 @@ export class EventFormComponent {
       organizer: formValue.organizer || undefined,
       time: formValue.time || undefined,
       notes: formValue.notes || undefined,
+      websiteUrl: formValue.websiteUrl?.trim() || null,
     };
+    const websiteUrl = formValue.websiteUrl?.trim() || '';
 
     try {
       if (this.isEditMode() && this.eventId()) {
@@ -136,6 +148,7 @@ export class EventFormComponent {
           deposit: formValue.deposit,
           actualRevenue: formValue.actualRevenue,
           notes: formValue.notes || undefined,
+          ...(websiteUrl !== this.loadedWebsiteUrl ? { websiteUrl } : {}),
         });
 
         if (!updateResponse.success) {
@@ -163,6 +176,7 @@ export class EventFormComponent {
           actualRevenue: formValue.actualRevenue,
           notes: formValue.notes || undefined,
           websiteSyncType: websiteSyncType || undefined,
+          websiteUrl: websiteUrl || undefined,
         });
 
         if (!response.success) {
@@ -175,7 +189,7 @@ export class EventFormComponent {
         } else if (response.data?.reservationSyncStatus === 'failed') {
           alert(`活動已新增，但官網預約行事曆同步失敗：${response.data?.reservationSyncError || '未知錯誤'}，請留意官網時段可能還沒更新。`);
         } else if (websiteSyncType && response.data?.websiteSyncStatus === 'success') {
-          alert('活動已成功新增！官網文章已觸發自動發佈，幾分鐘後會更新。');
+          alert('活動已成功新增！官網文章已觸發自動發佈，幾分鐘後會更新，文章網址也會自動填回這筆活動。');
         } else {
           alert('活動已成功新增！');
         }

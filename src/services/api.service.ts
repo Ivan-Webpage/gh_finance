@@ -816,6 +816,8 @@ export class ApiService {
     notes?: string;
     /** 是否同步到 GalaxyHouse 官網：'moonMusic'（漫霧與音樂之約）/ 'venueClosure'（包場公告）/ 不填即不同步 */
     websiteSyncType?: 'moonMusic' | 'venueClosure' | '';
+    /** 官網活動文章網址 */
+    websiteUrl?: string | null;
   }): Promise<ApiResponse<{
     id: number;
     websiteSyncStatus: 'disabled' | 'success' | 'failed';
@@ -860,6 +862,8 @@ export class ApiService {
     deposit?: number | null;
     actualRevenue?: number | null;
     notes?: string;
+    /** 官網活動文章網址：不帶代表不變更，空字串代表清除 */
+    websiteUrl?: string | null;
   }): Promise<ApiResponse<{
     id: number;
     reservationSyncStatus: 'disabled' | 'success' | 'failed';

@@ -309,6 +309,10 @@ export interface EventEntry {
   deposit?: number;
   actualRevenue: number;
   notes?: string;
+  /** 官網活動文章網址（手動填寫，或勾選官網同步後由官網部署完成時自動回寫） */
+  websiteUrl?: string | null;
+  /** 官網文章編號（thegalaxyhouse.com/article/{id}） */
+  websiteArticleId?: number | null;
 }
 
 // --- New Model for Holidays ---

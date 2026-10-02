@@ -92,6 +92,24 @@
           <textarea id="notes" formControlName="notes" rows="4" class="mt-1 block w-full border bg-gray-50 rounded-md shadow-sm p-2"></textarea>
         </div>
 
+        <!-- 官網活動網址 -->
+        <div class="md:col-span-2">
+          <label for="websiteUrl" class="block text-sm font-medium text-gray-700">官網活動網址</label>
+          <div class="mt-1 flex items-center gap-2">
+            <input id="websiteUrl" type="url" formControlName="websiteUrl" placeholder="例如 https://thegalaxyhouse.com/article/35"
+              class="block w-full border bg-gray-50 rounded-md shadow-sm p-2"
+              [class.border-red-500]="isInvalid('websiteUrl')">
+            @if (eventForm.get('websiteUrl')?.value && !eventForm.get('websiteUrl')?.invalid) {
+              <a [href]="eventForm.get('websiteUrl')?.value" target="_blank" rel="noopener noreferrer"
+                class="shrink-0 text-sm text-indigo-600 hover:text-indigo-800">開啟</a>
+            }
+          </div>
+          @if (isInvalid('websiteUrl')) {
+            <p class="mt-1 text-xs text-red-600">網址需以 http:// 或 https:// 開頭。</p>
+          }
+          <p class="mt-1 text-xs text-gray-500">店內活動填了網址，LINE@ 訂位日曆會顯示連結讓客人點進去看。下方選了「同步發布到官網」的話，文章發佈後會自動填入，不用手動填。</p>
+        </div>
+
         <!-- 同步發布到官網（僅新增活動時可選） -->
         @if (!isEditMode()) {
           <div class="md:col-span-2">
