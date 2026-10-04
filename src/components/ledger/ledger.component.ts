@@ -256,11 +256,6 @@ export class LedgerComponent {
 
   totalRecords = computed(() => this.pagination().total);
 
-  areAllApproved = computed(() => {
-    const transactions = this.displayedTransactions();
-    return transactions.length > 0 && transactions.every(t => t.is_sigh_off);
-  });
-
   constructor() {
     this.loadInitialData();
 
@@ -497,6 +492,10 @@ export class LedgerComponent {
       invoice_no: transaction.invoice_no,
       vendor_tax_id: this.sanitizeVendorTaxId(transaction.vendor_tax_id), // 修復：帶入賣方統編
       vendor_name: transaction.vendor_name, // 修復：帶入賣方名稱
+      // 帶入原本的 vendor_id / gl_account_id，否則表單 reset 後是 null，
+      // 存檔時 PUT 會把原本連好的廠商、科目清成 NULL
+      vendor_id: transaction.vendor_id ?? null,
+      gl_account_id: transaction.gl_account_id ?? null,
       description: transaction.description,
       is_sigh_off: transaction.is_sigh_off
     });
@@ -772,35 +771,39 @@ export class LedgerComponent {
     const state = this.confirmationState();
     if (!state) return;
 
-    const { isChecked } = state;
+    const { isChecked, target } = state;
     const transactionsToUpdate = this.displayedTransactions().filter(tx => tx.is_sigh_off !== isChecked);
 
-    // 批次更新所有需要更新的交易
-    const updatePromises = transactionsToUpdate.map(tx => 
-      this.apiService.updateLedgerEntry({ 
-        entry_id: tx.entry_id,
-        is_sigh_off: isChecked 
-      })
+    // 批次更新；用 allSettled 逐筆判斷成敗，部分失敗時已成功的那幾筆畫面仍會正確反映
+    const results = await Promise.allSettled(
+      transactionsToUpdate.map(tx =>
+        this.apiService.updateLedgerEntry({ entry_id: tx.entry_id, is_sigh_off: isChecked })
+      )
+    );
+    const succeededIds = new Set(
+      transactionsToUpdate
+        .filter((_, i) => {
+          const r = results[i];
+          return r.status === 'fulfilled' && r.value.success;
+        })
+        .map(tx => tx.entry_id)
     );
 
-    try {
-      await Promise.all(updatePromises);
-      
-      // 成功後，直接在前端更新簽核狀態，避免重新載入所有資料
-      const updatedTransactions = this.allTransactions().map(tx => {
-        const shouldUpdate = transactionsToUpdate.some(t => t.entry_id === tx.entry_id);
-        if (shouldUpdate) {
-          return { ...tx, is_sigh_off: isChecked };
-        }
-        return tx;
-      });
-      this.allTransactions.set(updatedTransactions);
-      
-    } catch (error) {
-      console.error('更新簽核狀態失敗:', error);
-      this.errorMessage.set('更新簽核狀態失敗');
+    // 直接在前端更新簽核狀態，不重新載入、不跳頁
+    const patch = (list: LedgerEntry[]) =>
+      list.map(tx => succeededIds.has(tx.entry_id) ? { ...tx, is_sigh_off: isChecked } : tx);
+    this.displayedTransactions.set(patch(this.displayedTransactions()));
+    this.allTransactions.set(patch(this.allTransactions()));
+
+    const failedCount = transactionsToUpdate.length - succeededIds.size;
+    if (failedCount > 0) {
+      console.error('更新簽核狀態失敗:', results.filter(r => r.status === 'rejected'));
+      this.errorMessage.set(`有 ${failedCount} 筆簽核狀態更新失敗，請重試`);
     }
-    
+
+    // 表頭勾選框是「一鍵簽核本頁」的動作按鈕，不是狀態指示；送出後一律取消勾選，
+    // 切到下一頁才能直接再按一次
+    target.checked = false;
     this.confirmationState.set(null);
   }
 
@@ -808,7 +811,7 @@ export class LedgerComponent {
     const state = this.confirmationState();
     if (!state) return;
 
-    state.target.checked = !state.isChecked;
+    state.target.checked = false;
     this.confirmationState.set(null);
   }
 
@@ -869,7 +872,9 @@ export class LedgerComponent {
             vendor_name: vendorResponse.data.vendor_name
           }, { emitEvent: false });
         } else {
-          // 統編不存在不一定是錯誤，可能是市場買的貨，允許保存
+          // 統編不存在不一定是錯誤，可能是市場買的貨，允許保存。
+          // 但要清掉 vendor_id，避免統編改了卻仍連著舊廠商
+          this.ledgerForm.patchValue({ vendor_id: null }, { emitEvent: false });
           console.warn('賣方統編不存在於系統中，但允許繼續保存（可能是市場買的貨）');
         }
       } catch (error) {
@@ -946,15 +951,17 @@ export class LedgerComponent {
         ...entryData
       } as any);
       if (response.success) {
-        // 直接在前端更新該筆資料，避免重新載入所有資料
-        const updatedTransactions = this.allTransactions().map(tx => {
-          if (tx.entry_id === editingTx.entry_id) {
-            return { ...tx, ...entryData };
-          }
-          return tx;
-        });
-        this.allTransactions.set(updatedTransactions);
+        // 直接在前端更新該筆資料，避免重新載入、也不會跳回第 1 頁。
+        // 表格綁定的是 displayedTransactions（當前頁），allTransactions 是篩選下拉選單的
+        // 資料來源，兩邊都要同步。用表單值（entryData）而非後端 RETURNING * 合併，
+        // 因為後端回傳的 amount 是 NUMERIC 字串、也不含 vendor_name 等 join 欄位。
+        const patch = (list: LedgerEntry[]) =>
+          list.map(tx => tx.entry_id === editingTx.entry_id ? { ...tx, ...entryData } as LedgerEntry : tx);
+        this.displayedTransactions.set(patch(this.displayedTransactions()));
+        this.allTransactions.set(patch(this.allTransactions()));
         this.closeModal();
+      } else {
+        this.errorMessage.set(response.error || '保存失敗');
       }
     } catch (error) {
       console.error('保存失敗:', error);
