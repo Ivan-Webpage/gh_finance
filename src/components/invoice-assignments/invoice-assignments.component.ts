@@ -4,16 +4,20 @@ import { FormsModule } from '@angular/forms';
 import { ApiService, InvoiceAssignmentEntry } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
-interface CigarMemberOption {
+type MemberCategory = 'cigar' | 'exCigar' | 'shareholder' | 'regular';
+
+interface MemberOption {
   id: string;
   name: string;
   displayName: string;
-  category: 'cigar' | 'exCigar';
+  memberNo: number | null;
+  category: MemberCategory;
 }
 
-// 未標註發票指派：把 iChef 結帳時沒掛會員的發票，人工補登給雪茄會員／前雪茄會員，
+// 未標註發票指派：把 iChef 結帳時沒掛會員的發票，人工補登給會員（含股東），
 // 讓「顧客管理」的累積消費統計反映真實消費。後端直接改寫 pos.invoices.raw_member_info
 // （帶 manual_assigned 標記，可撤銷），見 /api/customers/invoice-assignments。
+// 已列入股東回饋紀錄的發票後端一律排除，不會影響股東回饋金。
 @Component({
   selector: 'app-invoice-assignments',
   templateUrl: './invoice-assignments.component.html',
@@ -46,12 +50,26 @@ export class InvoiceAssignmentsComponent {
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
 
-  members = signal<CigarMemberOption[]>([]);
+  members = signal<MemberOption[]>([]);
   selectedMemberUuid = signal('');
   selectedInvoiceUuids = signal<Set<string>>(new Set());
 
-  cigarMembers = computed(() => this.members().filter(m => m.category === 'cigar'));
-  exCigarMembers = computed(() => this.members().filter(m => m.category === 'exCigar'));
+  readonly memberGroups: { category: MemberCategory; label: string }[] = [
+    { category: 'cigar', label: '雪茄會員' },
+    { category: 'exCigar', label: '前雪茄會員' },
+    { category: 'shareholder', label: '股東' },
+    { category: 'regular', label: '一般顧客' },
+  ];
+
+  membersByCategory = computed(() => {
+    const groups = new Map<MemberCategory, MemberOption[]>();
+    for (const member of this.members()) {
+      const list = groups.get(member.category) ?? [];
+      list.push(member);
+      groups.set(member.category, list);
+    }
+    return groups;
+  });
 
   selectedCount = computed(() => this.selectedInvoiceUuids().size);
   selectedAmount = computed(() => {
@@ -73,21 +91,40 @@ export class InvoiceAssignmentsComponent {
 
   async loadMembers(): Promise<void> {
     try {
-      const response = await this.apiService.getCustomers({ search: '雪茄', limit: 500 });
+      const response = await this.apiService.getCustomers({ limit: 1000 });
       if (!response?.success || !Array.isArray(response.data)) return;
-      const options: CigarMemberOption[] = response.data
-        .filter((c: { name?: string }) => (c.name || '').includes('雪茄'))
-        .map((c: { id: string; name: string }) => ({
-          id: c.id,
-          name: c.name,
-          displayName: c.name.replace(/ex雪茄會員\s*/gi, '').replace(/雪茄會員\s*/g, '').replace(/雪茄\s*/g, '').replace(/^[\s\-－_]+/, '').trim() || c.name,
-          category: /ex雪茄會員/i.test(c.name) ? 'exCigar' : 'cigar',
-        }));
-      options.sort((a, b) => a.displayName.localeCompare(b.displayName, 'zh-Hant'));
+      const options: MemberOption[] = response.data.map(
+        (c: { id: string; name: string; memberNo?: number | null }) => {
+          const name = c.name || '';
+          // 分類規則與顧客管理（customer-analysis）一致
+          const category: MemberCategory = /ex雪茄會員/i.test(name)
+            ? 'exCigar'
+            : name.includes('雪茄')
+              ? 'cigar'
+              : name.includes('股東')
+                ? 'shareholder'
+                : 'regular';
+          const displayName = name
+            .replace(/ex雪茄會員\s*/gi, '')
+            .replace(/雪茄會員\s*/g, '')
+            .replace(/雪茄\s*/g, '')
+            .replace(/股東\s*/g, '')
+            .replace(/^[\s\-－_]+/, '')
+            .trim() || name;
+          return { id: c.id, name, displayName, memberNo: c.memberNo ?? null, category };
+        }
+      );
+      // 有編號的依編號排，其餘依名稱排
+      options.sort((a, b) => {
+        if (a.memberNo != null && b.memberNo != null) return a.memberNo - b.memberNo;
+        if (a.memberNo != null) return -1;
+        if (b.memberNo != null) return 1;
+        return a.displayName.localeCompare(b.displayName, 'zh-Hant');
+      });
       this.members.set(options);
     } catch (error) {
-      console.error('Failed to load cigar members:', error);
-      this.errorMessage.set('載入雪茄會員清單失敗');
+      console.error('Failed to load members:', error);
+      this.errorMessage.set('載入會員清單失敗');
     }
   }
 

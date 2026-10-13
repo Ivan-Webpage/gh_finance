@@ -2,8 +2,8 @@
   <div>
     <h1 class="text-3xl font-bold text-gray-900">未標註發票指派</h1>
     <p class="text-sm text-gray-500 mt-1">
-      把結帳時沒掛會員的發票補登給雪茄會員／前雪茄會員，「顧客管理」的累積消費會跟著更新。
-      只會改到原本沒掛會員的發票，補登錯了可以到「已人工補登」撤銷。
+      把結帳時沒掛會員的發票補登給會員，「顧客管理」的累積消費會跟著更新。
+      只會改到原本沒掛會員的發票，已列入股東回饋的發票不會出現在這裡，不影響股東回饋金。補登錯了可以到「已人工補登」撤銷。
     </p>
   </div>
 
@@ -85,16 +85,15 @@
         <select [ngModel]="selectedMemberUuid()" (ngModelChange)="selectedMemberUuid.set($event)"
           class="border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-white min-w-[14rem]">
           <option value="">選擇會員…</option>
-          <optgroup label="雪茄會員">
-            @for (m of cigarMembers(); track m.id) {
-              <option [value]="m.id">{{ m.displayName }}</option>
+          @for (group of memberGroups; track group.category) {
+            @if (membersByCategory().get(group.category); as list) {
+              <optgroup [label]="group.label">
+                @for (m of list; track m.id) {
+                  <option [value]="m.id">{{ m.memberNo != null ? '#' + m.memberNo + ' ' : '' }}{{ m.displayName }}</option>
+                }
+              </optgroup>
             }
-          </optgroup>
-          <optgroup label="前雪茄會員">
-            @for (m of exCigarMembers(); track m.id) {
-              <option [value]="m.id">{{ m.displayName }}</option>
-            }
-          </optgroup>
+          }
         </select>
         <button (click)="assignSelected()" [disabled]="isSaving() || selectedCount() === 0 || !selectedMemberUuid()"
           class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 text-sm disabled:opacity-50">
