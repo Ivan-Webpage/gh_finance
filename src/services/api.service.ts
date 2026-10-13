@@ -55,6 +55,43 @@ export interface StoreClosureEntry {
   reason: string | null;
 }
 
+/** 未標註發票指派（/api/customers/invoice-assignments） */
+export interface InvoiceAssignmentEntry {
+  invoiceUuid: string;
+  invoiceNumber: string | null;
+  cgUuid: string | null;
+  localTime: string; // 台北當地時間 YYYY-MM-DDTHH:mm:ss（無時區）
+  totalAmount: number;
+  tableName: string | null;
+  peopleCount: number | null;
+  sameGroupCount: number;
+  assignedMemberUuid: string | null;
+  assignedMemberName: string | null;
+  assignedAt: string | null;
+  assignedBy: string | null;
+  items: { itemName: string; checkoutPrice: number }[];
+}
+
+export interface InvoiceAssignmentListResponse {
+  invoices: InvoiceAssignmentEntry[];
+  total: number;
+  totalAmount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface InvoiceAssignmentFilters {
+  status?: 'unassigned' | 'manual';
+  startDate?: string;
+  endDate?: string;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  product?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -2912,5 +2949,25 @@ export class ApiService {
   deleteStoreClosure(id: string): Promise<ApiResponse<unknown>> {
     const params = new HttpParams().set('id', id);
     return firstValueFrom(this.http.delete<ApiResponse<unknown>>(`${this.baseUrl}/store-closures`, { params }));
+  }
+
+  // ========== 未標註發票指派 (customers/invoice-assignments) ==========
+
+  getInvoiceAssignments(filters: InvoiceAssignmentFilters): Promise<ApiResponse<InvoiceAssignmentListResponse>> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params = params.set(key, String(value));
+      }
+    }
+    return firstValueFrom(this.http.get<ApiResponse<InvoiceAssignmentListResponse>>(`${this.baseUrl}/customers/invoice-assignments`, { params }));
+  }
+
+  assignInvoicesToMember(invoiceUuids: string[], memberUuid: string): Promise<ApiResponse<{ updatedInvoiceUuids: string[]; skippedCount: number; memberUuid: string; memberName: string }>> {
+    return firstValueFrom(this.http.post<ApiResponse<{ updatedInvoiceUuids: string[]; skippedCount: number; memberUuid: string; memberName: string }>>(`${this.baseUrl}/customers/invoice-assignments`, { invoiceUuids, memberUuid }));
+  }
+
+  revertInvoiceAssignments(invoiceUuids: string[]): Promise<ApiResponse<{ revertedInvoiceUuids: string[] }>> {
+    return firstValueFrom(this.http.delete<ApiResponse<{ revertedInvoiceUuids: string[] }>>(`${this.baseUrl}/customers/invoice-assignments`, { body: { invoiceUuids } }));
   }
 }

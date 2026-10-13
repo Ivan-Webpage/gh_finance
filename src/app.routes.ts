@@ -12,6 +12,7 @@ export const APP_ROUTES: Routes = [
   { path: 'dashboard', loadComponent: () => import('./components/dashboard/dashboard.component').then(m => m.DashboardComponent), title: '儀表板', canActivate: [authGuard] },
   { path: 'financial-statements', loadComponent: () => import('./components/financial-statements/financial-statements.component').then(m => m.FinancialStatementsComponent), title: '財務報表', canActivate: [authGuard] },
   { path: 'customer-analysis', loadComponent: () => import('./components/customer-analysis/customer-analysis.component').then(m => m.CustomerAnalysisComponent), title: '顧客管理', canActivate: [authGuard, viewerRestrictedPagesGuard] },
+  { path: 'invoice-assignments', loadComponent: () => import('./components/invoice-assignments/invoice-assignments.component').then(m => m.InvoiceAssignmentsComponent), title: '未標註發票指派', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'product-analysis', loadComponent: () => import('./components/product-analysis/product-analysis.component').then(m => m.ProductAnalysisComponent), title: '商品分析', canActivate: [authGuard] },
   { path: 'product-cost', loadComponent: () => import('./components/product-cost/product-cost.component').then(m => m.ProductCostComponent), title: '商品成本', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'tarakou-whisky-sales', loadComponent: () => import('./components/tarakou-whisky-sales/tarakou-whisky-sales.component').then(m => m.TarakouWhiskySalesComponent), title: '太魯閣威士忌銷售', canActivate: [authGuard, viewerRestrictedPagesGuard] },
