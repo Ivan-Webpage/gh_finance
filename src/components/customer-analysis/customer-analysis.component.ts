@@ -163,9 +163,12 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     // 按搜尋詞篩選
     const term = this.searchTerm().toLowerCase();
     if (term) {
+      // 也可以輸入雪茄會員編號（12 或 #12）
+      const memberNoTerm = term.replace(/^#/, '');
       filtered = filtered.filter(c =>
         c.name?.toLowerCase().includes(term) ||
-        c.phone?.includes(term)
+        c.phone?.includes(term) ||
+        (c.memberNo != null && String(c.memberNo) === memberNoTerm)
       );
     }
 

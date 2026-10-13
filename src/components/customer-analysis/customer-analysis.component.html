@@ -86,7 +86,7 @@
         
         <!-- 搜尋框 -->
         <div class="relative mb-4">
-          <input type="text" [(ngModel)]="searchTerm" placeholder="依姓名或電話搜尋..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 pl-10 bg-gray-50">
+          <input type="text" [(ngModel)]="searchTerm" placeholder="依姓名、電話或會員編號搜尋..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 pl-10 bg-gray-50">
           <ion-icon name="search-outline" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></ion-icon>
         </div>
         <div class="flex-1 overflow-y-auto -mx-2 px-2 max-h-[32rem] lg:max-h-none" (scroll)="onCustomerListScroll($event)">
@@ -97,7 +97,7 @@
                    [class.bg-indigo-100]="selectedCustomer()?.id === customer.id"
                    [class.hover:bg-gray-100]="selectedCustomer()?.id !== customer.id">
                 <div class="flex justify-between items-center">
-                  <p class="font-medium text-gray-800">{{ getCleanCustomerName(customer) }}</p>
+                  <p class="font-medium text-gray-800">@if (customer.memberNo != null) {<span class="text-gray-400 font-normal mr-1">#{{ customer.memberNo }}</span>}{{ getCleanCustomerName(customer) }}</p>
                   <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
                 </div>
                 <p class="text-sm text-gray-500">{{ customer.phone }}</p>
@@ -124,7 +124,7 @@
           <div class="bg-white p-6 rounded-xl shadow-md">
             <div class="flex justify-between items-start">
               <div>
-                <h2 class="text-2xl font-bold text-gray-900">{{ getCleanCustomerName(customer) }}</h2>
+                <h2 class="text-2xl font-bold text-gray-900">@if (customer.memberNo != null) {<span class="text-gray-400 font-semibold mr-2">#{{ customer.memberNo }}</span>}{{ getCleanCustomerName(customer) }}</h2>
                 <span class="text-sm font-semibold px-2 py-1 rounded-full mt-1 inline-block" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
               </div>
               <button (click)="clearSelection()" class="text-gray-500 hover:text-gray-700">

@@ -696,6 +696,7 @@ export interface Customer {
   originStore: string | null; // 原始門店
   lastCheckoutAt: string | null; // 最後結帳時間 (ISO 8601格式)
   isDeleted: boolean; // 是否已刪除
+  memberNo: number | null; // 雪茄會員編號（只有雪茄會員／前雪茄會員有值，pos.members.member_no）
 }
 
 /**
