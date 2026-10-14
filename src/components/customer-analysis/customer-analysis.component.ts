@@ -72,6 +72,11 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     * 顧客分類篩選 (all, regular, cigar, exCigar, shareholder)
    */
   categoryFilter = signal<string>('all');
+
+  /**
+   * 顧客列表排序方式（lastCheckout：最後結帳時間新→舊；spentDesc／spentAsc：總消費金額高→低／低→高）
+   */
+  customerSort = signal<'lastCheckout' | 'spentDesc' | 'spentAsc'>('lastCheckout');
   
   /**
    * 當前選中的顧客
@@ -172,11 +177,19 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
       );
     }
 
-    // 依最後結帳時間遞減排序（沒有結帳紀錄的排在最後）
-    filtered = [...filtered].sort((a, b) => {
+    // 依選擇的排序方式排序（同金額時再依最後結帳時間；沒有結帳紀錄的排在最後）
+    const sort = this.customerSort();
+    const byLastCheckout = (a: Customer, b: Customer) => {
       const timeA = a.lastCheckoutAt ? new Date(a.lastCheckoutAt).getTime() : -Infinity;
       const timeB = b.lastCheckoutAt ? new Date(b.lastCheckoutAt).getTime() : -Infinity;
       return timeB - timeA;
+    };
+    filtered = [...filtered].sort((a, b) => {
+      if (sort === 'spentDesc' || sort === 'spentAsc') {
+        const diff = (a.totalSpent ?? 0) - (b.totalSpent ?? 0);
+        if (diff !== 0) return sort === 'spentDesc' ? -diff : diff;
+      }
+      return byLastCheckout(a, b);
     });
 
     return filtered;
@@ -225,10 +238,11 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     this.loadMonthlyVisitorCount();
     this.loadBasketAnalysis();
 
-    // 搜尋詞或分類篩選變動時，捲動載入進度重置回第一批
+    // 搜尋詞、分類篩選或排序方式變動時，捲動載入進度重置回第一批
     effect(() => {
       this.searchTerm();
       this.categoryFilter();
+      this.customerSort();
       this.visibleCustomerCount.set(this.CUSTOMER_PAGE_SIZE);
     });
   }

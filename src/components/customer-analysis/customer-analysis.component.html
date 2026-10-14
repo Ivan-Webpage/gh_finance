@@ -83,6 +83,15 @@
             <option value="shareholder">股東</option>
           </select>
         </div>
+
+        <!-- 排序方式 -->
+        <div class="mb-3">
+          <select [(ngModel)]="customerSort" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+            <option value="lastCheckout">排序：最後結帳時間（新→舊）</option>
+            <option value="spentDesc">排序：總消費金額（高→低）</option>
+            <option value="spentAsc">排序：總消費金額（低→高）</option>
+          </select>
+        </div>
         
         <!-- 搜尋框 -->
         <div class="relative mb-4">
@@ -101,6 +110,7 @@
                   <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
                 </div>
                 <p class="text-sm text-gray-500">{{ customer.phone }}</p>
+                <p class="text-xs text-gray-500">總消費：{{ formatCurrency(customer.totalSpent) }}（{{ customer.invoiceCount }} 筆）</p>
                 <p class="text-xs text-gray-400">最後結帳：{{ customer.lastCheckoutAt ? (customer.lastCheckoutAt | date: 'yyyy-MM-dd HH:mm') : '無紀錄' }}</p>
               </div>
             } @empty {
