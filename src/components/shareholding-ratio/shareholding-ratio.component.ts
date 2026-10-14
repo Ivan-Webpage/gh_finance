@@ -16,6 +16,13 @@ interface ShareholderRow {
   share_percentage: number;
   invested_amount: number;
   joined_at: string;
+  member_uuid: string | null;
+  member_name: string | null;
+}
+
+interface MemberOption {
+  uuid: string;
+  name: string;
 }
 
 @Component({
@@ -30,11 +37,24 @@ export class ShareholdingRatioComponent {
   private fb = inject(FormBuilder);
 
   shareholders = signal<ShareholderRow[]>([]);
+  /** iChef 會員（下拉選單用），「股東」開頭的排前面 */
+  shareholderMembers = signal<MemberOption[]>([]);
+  otherMembers = signal<MemberOption[]>([]);
   isLoading = signal<boolean>(false);
   errorMessage = signal<string>('');
 
   isModalOpen = signal<boolean>(false);
   editingShareholderId = signal<number | null>(null);
+
+  /** 已對應給其他股東的會員（編輯中的這位股東自己的不算），下拉選單停用 */
+  linkedMemberUuids = computed(() => {
+    const editingId = this.editingShareholderId();
+    return new Set(
+      this.shareholders()
+        .filter(row => row.member_uuid && row.shareholder_id !== editingId)
+        .map(row => row.member_uuid as string)
+    );
+  });
 
   modalTitle = computed(() => (this.editingShareholderId() ? '編輯股東' : '新增股東'));
 
@@ -51,11 +71,28 @@ export class ShareholdingRatioComponent {
     share_percentage: ['', [Validators.required]],
     invested_amount: ['', [Validators.required]],
     joined_at: ['', [Validators.required]],
+    member_uuid: [''],
   });
 
   constructor() {
     // 初次進入頁面載入資料
     void this.loadShareholders();
+    void this.loadMembers();
+  }
+
+  async loadMembers(): Promise<void> {
+    try {
+      const response = await this.apiService.getCustomers({ limit: 1000 });
+      if (!response?.success || !Array.isArray(response.data)) return;
+      const members: MemberOption[] = response.data
+        .filter((c: any) => c?.id && !c.isDeleted)
+        .map((c: any) => ({ uuid: String(c.id).toLowerCase(), name: String(c.name || '') }))
+        .sort((a: MemberOption, b: MemberOption) => a.name.localeCompare(b.name, 'zh-Hant'));
+      this.shareholderMembers.set(members.filter(m => m.name.startsWith('股東')));
+      this.otherMembers.set(members.filter(m => !m.name.startsWith('股東')));
+    } catch (error) {
+      console.error('Error loading members:', error);
+    }
   }
 
   async loadShareholders(): Promise<void> {
@@ -93,6 +130,7 @@ export class ShareholdingRatioComponent {
       share_percentage: String(row.share_percentage),
       invested_amount: String(row.invested_amount),
       joined_at: this.formatDate(row.joined_at),
+      member_uuid: row.member_uuid ?? '',
     });
 
     this.isModalOpen.set(true);
@@ -117,6 +155,7 @@ export class ShareholdingRatioComponent {
         share_percentage: Number(this.shareholderForm.value.share_percentage),
         invested_amount: Number(this.shareholderForm.value.invested_amount),
         joined_at: String(this.shareholderForm.value.joined_at || ''),
+        member_uuid: String(this.shareholderForm.value.member_uuid || '') || null,
       };
 
       const editingId = this.editingShareholderId();
@@ -131,7 +170,7 @@ export class ShareholdingRatioComponent {
         this.errorMessage.set(response.error || '新增股東失敗');
       }
     } catch (error: any) {
-      this.errorMessage.set(error?.message || '儲存股東失敗');
+      this.errorMessage.set(error?.error?.error || error?.message || '儲存股東失敗');
       console.error('Error creating shareholder:', error);
     } finally {
       this.isLoading.set(false);

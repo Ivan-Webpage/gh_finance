@@ -38,6 +38,7 @@
               <th class="py-2 pr-4 font-medium">入股日</th>
               <th class="py-2 pr-4 font-medium">重置日</th>
               <th class="py-2 pr-4 font-medium">狀態</th>
+              <th class="py-2 pr-4 font-medium text-right" title="iChef 會員點數餘額，每天早上同步">目前點數</th>
               <th class="py-2 pr-4 font-medium text-right">本期點數</th>
               <th class="py-2"></th>
             </tr>
@@ -55,6 +56,13 @@
                     <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">今天重置</span>
                   } @else {
                     <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">還有 {{ item.days_until }} 天</span>
+                  }
+                </td>
+                <td class="py-2 pr-4 text-right text-gray-900">
+                  @if (item.current_points === null) {
+                    <span class="text-gray-400" title="請到「股權比例」頁面設定對應的 iChef 會員">未對應</span>
+                  } @else {
+                    {{ item.current_points | number:'1.0-0' }}
                   }
                 </td>
                 <td class="py-2 pr-4 text-right text-gray-900">{{ item.points | number:'1.0-0' }}</td>

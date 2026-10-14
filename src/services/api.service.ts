@@ -2389,6 +2389,7 @@ export class ApiService {
     share_percentage: number;
     invested_amount: number;
     joined_at: string;
+    member_uuid?: string | null;
   }): Promise<ApiResponse<any>> {
     return firstValueFrom(
       this.http.post<ApiResponse<any>>(`${this.baseUrl}/shareholders`, payload)
@@ -2404,6 +2405,7 @@ export class ApiService {
     share_percentage: number;
     invested_amount: number;
     joined_at: string;
+    member_uuid?: string | null;
   }): Promise<ApiResponse<any>> {
     return firstValueFrom(
       this.http.put<ApiResponse<any>>(`${this.baseUrl}/shareholders`, payload)

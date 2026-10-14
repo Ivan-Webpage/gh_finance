@@ -35,6 +35,7 @@
             <th class="px-4 py-3 text-right">股份占比</th>
             <th class="px-4 py-3 text-right">投入金額</th>
             <th class="px-4 py-3">入股時間</th>
+            <th class="px-4 py-3">iChef 會員</th>
             <th class="px-4 py-3 text-center">操作</th>
           </tr>
         </thead>
@@ -45,6 +46,13 @@
               <td class="px-4 py-3 text-right text-gray-700">{{ formatPercentage(row.share_percentage) }}</td>
               <td class="px-4 py-3 text-right text-gray-700">{{ formatCurrency(row.invested_amount) }}</td>
               <td class="px-4 py-3 text-gray-700">{{ formatDate(row.joined_at) }}</td>
+              <td class="px-4 py-3 text-gray-700">
+                @if (row.member_name) {
+                  {{ row.member_name }}
+                } @else {
+                  <span class="text-amber-600">未對應</span>
+                }
+              </td>
               <td class="px-4 py-3 text-center">
                 <div class="inline-flex items-center gap-2">
                   <button
@@ -70,7 +78,7 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="5" class="text-center py-10 text-gray-500">目前尚無股東資料。</td>
+              <td colspan="6" class="text-center py-10 text-gray-500">目前尚無股東資料。</td>
             </tr>
           }
         </tbody>
@@ -80,6 +88,7 @@
               <td class="px-4 py-3 font-semibold text-gray-900">總計</td>
               <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatPercentage(totalSharePercentage()) }}</td>
               <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatCurrency(totalInvestedAmount()) }}</td>
+              <td class="px-4 py-3 text-gray-700">-</td>
               <td class="px-4 py-3 text-gray-700">-</td>
               <td class="px-4 py-3 text-center text-gray-700">-</td>
             </tr>
@@ -135,6 +144,28 @@
           <label class="block">
             <span class="text-gray-700">入股時間*</span>
             <input formControlName="joined_at" type="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2" />
+          </label>
+
+          <label class="block">
+            <span class="text-gray-700">對應 iChef 會員</span>
+            <select formControlName="member_uuid" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
+              <option value="">（未對應）</option>
+              <optgroup label="股東會員">
+                @for (m of shareholderMembers(); track m.uuid) {
+                  <option [value]="m.uuid" [disabled]="linkedMemberUuids().has(m.uuid)">
+                    {{ m.name }}{{ linkedMemberUuids().has(m.uuid) ? '（已對應其他股東）' : '' }}
+                  </option>
+                }
+              </optgroup>
+              <optgroup label="其他會員">
+                @for (m of otherMembers(); track m.uuid) {
+                  <option [value]="m.uuid" [disabled]="linkedMemberUuids().has(m.uuid)">
+                    {{ m.name }}{{ linkedMemberUuids().has(m.uuid) ? '（已對應其他股東）' : '' }}
+                  </option>
+                }
+              </optgroup>
+            </select>
+            <span class="mt-1 block text-xs text-gray-500">用來在儀表板顯示這位股東在 iChef 的目前點數。</span>
           </label>
 
           @if (errorMessage()) {

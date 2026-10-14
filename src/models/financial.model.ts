@@ -811,6 +811,8 @@ export interface PendingPointReset {
   /** 距離重置日的天數，負數代表已逾期 */
   days_until: number;
   points: number;
+  /** iChef 目前點數餘額（每天早上同步）；股東沒對應 iChef 會員時為 null */
+  current_points: number | null;
 }
 
 /**
