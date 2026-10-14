@@ -84,6 +84,15 @@
           </select>
         </div>
 
+        <!-- LINE 連結狀態 -->
+        <div class="mb-3">
+          <select [(ngModel)]="lineFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
+            <option value="all">LINE：全部</option>
+            <option value="linked">LINE：已連結</option>
+            <option value="unlinked">LINE：尚未連結</option>
+          </select>
+        </div>
+
         <!-- 排序方式 -->
         <div class="mb-3">
           <select [(ngModel)]="customerSort" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
@@ -109,7 +118,16 @@
                   <p class="font-medium text-gray-800">@if (customer.memberNo != null) {<span class="text-gray-400 font-normal mr-1">#{{ customer.memberNo }}</span>}{{ getCleanCustomerName(customer) }}</p>
                   <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
                 </div>
-                <p class="text-sm text-gray-500">{{ customer.phone }}</p>
+                <div class="flex justify-between items-center gap-2">
+                  <p class="text-sm text-gray-500">{{ customer.phone }}</p>
+                  @if (customer.lineLinked) {
+                    <span class="text-xs px-1.5 py-0.5 rounded"
+                          [class]="customer.lineIsFollowing === false ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-800'"
+                          [title]="customer.lineIsFollowing === false ? '已封鎖官方帳號' : 'LINE：' + (customer.lineDisplayName || '')">
+                      {{ customer.lineIsFollowing === false ? 'LINE 已封鎖' : 'LINE' }}
+                    </span>
+                  }
+                </div>
                 <p class="text-xs text-gray-500">總消費：{{ formatCurrency(customer.totalSpent) }}（{{ customer.invoiceCount }} 筆）</p>
                 <p class="text-xs text-gray-400">最後結帳：{{ customer.lastCheckoutAt ? (customer.lastCheckoutAt | date: 'yyyy-MM-dd HH:mm') : '無紀錄' }}</p>
               </div>
@@ -148,6 +166,18 @@
               <div><strong class="block text-gray-500">出生年份</strong><span class="text-gray-800">{{ customer.birthYear || '-' }}</span></div>
               <div><strong class="block text-gray-500">積分點數</strong><span class="text-gray-800 font-bold">{{ customer.loyaltyPoints || 0 }} 點</span></div>
               <div><strong class="block text-gray-500">原始門店</strong><span class="text-gray-800">{{ customer.originStore || '-' }}</span></div>
+              <div>
+                <strong class="block text-gray-500">LINE</strong>
+                @if (customer.lineLinked) {
+                  @if (customer.lineIsFollowing === false) {
+                    <span class="text-red-700">已封鎖：{{ customer.lineDisplayName || 'LINE' }}</span>
+                  } @else {
+                    <span class="text-green-700">已連結：{{ customer.lineDisplayName || 'LINE' }}</span>
+                  }
+                } @else {
+                  <a href="#/line-users" class="text-amber-700 hover:underline" title="請顧客傳訊息給官方帳號，再到「LINE 用戶」頁面連結">尚未連結</a>
+                }
+              </div>
             </div>
             @if(customer.lastCheckoutAt) {
               <div class="mt-4 pt-4 border-t text-sm">

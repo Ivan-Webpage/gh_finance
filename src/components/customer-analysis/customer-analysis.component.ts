@@ -72,6 +72,8 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     * 顧客分類篩選 (all, regular, cigar, exCigar, shareholder)
    */
   categoryFilter = signal<string>('all');
+  /** LINE 連結狀態篩選：all／linked（已連結）／unlinked（尚未連結） */
+  lineFilter = signal<string>('all');
 
   /**
    * 顧客列表排序方式（lastCheckout：最後結帳時間新→舊；spentDesc／spentAsc：總消費金額高→低／低→高）
@@ -164,6 +166,13 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     if (category !== 'all') {
       filtered = filtered.filter(c => this.getCustomerCategory(c) === category);
     }
+
+    const line = this.lineFilter();
+    if (line === 'linked') {
+      filtered = filtered.filter(c => c.lineLinked);
+    } else if (line === 'unlinked') {
+      filtered = filtered.filter(c => !c.lineLinked);
+    }
     
     // 按搜尋詞篩選
     const term = this.searchTerm().toLowerCase();
@@ -242,6 +251,7 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       this.searchTerm();
       this.categoryFilter();
+      this.lineFilter();
       this.customerSort();
       this.visibleCustomerCount.set(this.CUSTOMER_PAGE_SIZE);
     });

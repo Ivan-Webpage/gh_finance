@@ -18,6 +18,10 @@ interface ShareholderRow {
   joined_at: string;
   member_uuid: string | null;
   member_name: string | null;
+  /** 對應的 iChef 會員已在「LINE 用戶」頁面連結到 LINE 帳號 */
+  line_linked: boolean;
+  line_display_name: string | null;
+  line_is_following: boolean | null;
 }
 
 interface MemberOption {

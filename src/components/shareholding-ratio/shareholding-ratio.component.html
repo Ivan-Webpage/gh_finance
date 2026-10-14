@@ -36,6 +36,7 @@
             <th class="px-4 py-3 text-right">投入金額</th>
             <th class="px-4 py-3">入股時間</th>
             <th class="px-4 py-3">iChef 會員</th>
+            <th class="px-4 py-3">LINE</th>
             <th class="px-4 py-3 text-center">操作</th>
           </tr>
         </thead>
@@ -51,6 +52,20 @@
                   {{ row.member_name }}
                 } @else {
                   <span class="text-amber-600">未對應</span>
+                }
+              </td>
+              <td class="px-4 py-3">
+                @if (row.line_linked) {
+                  @if (row.line_is_following === false) {
+                    <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs" title="已封鎖官方帳號，收不到 LINE 提醒">已封鎖：{{ row.line_display_name || 'LINE' }}</span>
+                  } @else {
+                    <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs">已連結：{{ row.line_display_name || 'LINE' }}</span>
+                  }
+                } @else if (!row.member_uuid) {
+                  <span class="text-gray-400 text-xs">需先對應 iChef 會員</span>
+                } @else {
+                  <a href="#/line-users" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs hover:underline"
+                     title="還沒取得或還沒連結這位股東的 LINE。請他傳訊息給官方帳號，再到「LINE 用戶」頁面連結">尚未連結</a>
                 }
               </td>
               <td class="px-4 py-3 text-center">
@@ -78,7 +93,7 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="6" class="text-center py-10 text-gray-500">目前尚無股東資料。</td>
+              <td colspan="7" class="text-center py-10 text-gray-500">目前尚無股東資料。</td>
             </tr>
           }
         </tbody>
@@ -88,6 +103,7 @@
               <td class="px-4 py-3 font-semibold text-gray-900">總計</td>
               <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatPercentage(totalSharePercentage()) }}</td>
               <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ formatCurrency(totalInvestedAmount()) }}</td>
+              <td class="px-4 py-3 text-gray-700">-</td>
               <td class="px-4 py-3 text-gray-700">-</td>
               <td class="px-4 py-3 text-gray-700">-</td>
               <td class="px-4 py-3 text-center text-gray-700">-</td>

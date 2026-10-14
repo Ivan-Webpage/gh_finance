@@ -699,6 +699,9 @@ export interface Customer {
   memberNo: number | null; // 雪茄會員編號（只有雪茄會員／前雪茄會員有值，pos.members.member_no）
   totalSpent: number; // 累積總消費金額（pos.invoices 有效交易加總）
   invoiceCount: number; // 累積消費筆數
+  lineLinked: boolean; // 已在「LINE 用戶」頁面連結 LINE 帳號（mkt.line_users.member_uuid）
+  lineDisplayName: string | null; // LINE 顯示名稱
+  lineIsFollowing: boolean | null; // false＝已封鎖官方帳號
 }
 
 /**
