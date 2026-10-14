@@ -114,19 +114,21 @@
                    class="p-3 rounded-lg cursor-pointer transition-colors"
                    [class.bg-indigo-100]="selectedCustomer()?.id === customer.id"
                    [class.hover:bg-gray-100]="selectedCustomer()?.id !== customer.id">
-                <div class="flex justify-between items-center">
-                  <p class="font-medium text-gray-800">@if (customer.memberNo != null) {<span class="text-gray-400 font-normal mr-1">#{{ customer.memberNo }}</span>}{{ getCleanCustomerName(customer) }}</p>
-                  <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
-                </div>
-                <div class="flex justify-between items-center gap-2">
-                  <p class="text-sm text-gray-500">{{ customer.phone }}</p>
-                  @if (customer.lineLinked) {
-                    <span class="text-xs px-1.5 py-0.5 rounded"
-                          [class]="customer.lineIsFollowing === false ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-800'"
-                          [title]="customer.lineIsFollowing === false ? '已封鎖官方帳號' : 'LINE：' + (customer.lineDisplayName || '')">
-                      {{ customer.lineIsFollowing === false ? 'LINE 已封鎖' : 'LINE' }}
-                    </span>
-                  }
+                <div class="flex justify-between items-start gap-2">
+                  <div class="min-w-0">
+                    <p class="font-medium text-gray-800">@if (customer.memberNo != null) {<span class="text-gray-400 font-normal mr-1">#{{ customer.memberNo }}</span>}{{ getCleanCustomerName(customer) }}</p>
+                    <p class="text-sm text-gray-500">{{ customer.phone }}</p>
+                  </div>
+                  <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
+                    @if (customer.lineLinked && customer.lineIsFollowing === false) {
+                      <span class="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700" title="已封鎖官方帳號">LINE 已封鎖</span>
+                    } @else if (customer.lineLinked) {
+                      <span class="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-800" [title]="'LINE：' + (customer.lineDisplayName || '')">LINE 已連結</span>
+                    } @else {
+                      <span class="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-500" title="請顧客傳訊息給官方帳號，再到「LINE 用戶」頁面連結">LINE 未連結</span>
+                    }
+                  </div>
                 </div>
                 <p class="text-xs text-gray-500">總消費：{{ formatCurrency(customer.totalSpent) }}（{{ customer.invoiceCount }} 筆）</p>
                 <p class="text-xs text-gray-400">最後結帳：{{ customer.lastCheckoutAt ? (customer.lastCheckoutAt | date: 'yyyy-MM-dd HH:mm') : '無紀錄' }}</p>
