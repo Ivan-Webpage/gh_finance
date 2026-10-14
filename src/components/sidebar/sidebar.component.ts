@@ -40,6 +40,7 @@ export class SidebarComponent implements OnInit {
         { path: '/off-book-finance', icon: 'file-tray-full-outline', name: '外帳財務' },
         { path: '/customer-analysis', icon: 'people-outline', name: '顧客管理' },
         { path: '/invoice-assignments', icon: 'person-add-outline', name: '未標註發票指派' },
+        { path: '/line-users', icon: 'chatbubbles-outline', name: 'LINE 用戶' },
         { path: '/product-analysis', icon: 'cube-outline', name: '商品分析' },
         { path: '/tarakou-whisky-sales', icon: 'wine-outline', name: '太魯閣威士忌銷售' },
         { path: '/monthly-targets', icon: 'trending-up-outline', name: '營收目標' },
@@ -112,6 +113,7 @@ export class SidebarComponent implements OnInit {
     const hiddenForViewer = new Set([
       '/customer-analysis',
       '/invoice-assignments',
+      '/line-users',
       '/monthly-targets',
       '/accounts-payable',
       '/off-book-finance',

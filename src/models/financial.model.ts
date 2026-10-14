@@ -799,6 +799,29 @@ export interface MonthlyVisitorCount {
 }
 
 /**
+ * LINE 官方帳號互動過的使用者（mkt.line_users），人工對應到 iChef 會員
+ */
+export interface LineUser {
+  line_user_id: string;
+  display_name: string | null;
+  picture_url: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  last_event_type: string | null;
+  /** 最新一則訊息（截 100 字），只用來辨認身分 */
+  last_message: string | null;
+  event_count: number;
+  /** 封鎖官方帳號後為 false */
+  is_following: boolean;
+  member_uuid: string | null;
+  member_name: string | null;
+  is_ignored: boolean;
+  note: string | null;
+  linked_at: string | null;
+  linked_by: string | null;
+}
+
+/**
  * 待重置點數的股東（儀表板提醒）
  * 規則見 backend/src/lib/shareholder-points.ts：重置日在 30 天內，或已過但還沒標記「已重置」
  */

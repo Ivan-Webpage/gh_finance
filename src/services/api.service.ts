@@ -42,7 +42,8 @@ import type {
   CustomerTransactionListResponse,
   MonthlyVisitorCount,
   BasketAnalysisResult,
-  PendingPointReset
+  PendingPointReset,
+  LineUser
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -2419,6 +2420,30 @@ export class ApiService {
     const params = new HttpParams().set('id', shareholderId.toString());
     return firstValueFrom(
       this.http.delete<ApiResponse<any>>(`${this.baseUrl}/shareholders`, { params })
+    );
+  }
+
+  /**
+   * LINE 官方帳號互動過的使用者（GAS 轉送 webhook 寫入），供人工對應 iChef 會員
+   */
+  getLineUsers(status: 'pending' | 'linked' | 'ignored' | 'all' = 'all'): Promise<ApiResponse<LineUser[]> & { counts?: Record<string, number> }> {
+    const params = new HttpParams().set('status', status);
+    return firstValueFrom(
+      this.http.get<ApiResponse<LineUser[]> & { counts?: Record<string, number> }>(`${this.baseUrl}/line-users`, { params })
+    );
+  }
+
+  /**
+   * 更新 LINE 用戶：對應 iChef 會員（null＝解除）、忽略、備註；只送有變更的欄位
+   */
+  updateLineUser(payload: {
+    line_user_id: string;
+    member_uuid?: string | null;
+    is_ignored?: boolean;
+    note?: string | null;
+  }): Promise<ApiResponse<LineUser>> {
+    return firstValueFrom(
+      this.http.put<ApiResponse<LineUser>>(`${this.baseUrl}/line-users`, payload)
     );
   }
 

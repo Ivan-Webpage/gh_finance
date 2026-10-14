@@ -1,0 +1,142 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">LINE 用戶</h1>
+      <p class="text-sm text-gray-500 mt-1">傳過訊息或加好友的 LINE 帳號，依最後互動時間排序。請客人傳一張貼圖，最上面那一位就是他。</p>
+    </div>
+    <button
+      type="button"
+      (click)="loadUsers()"
+      [disabled]="isLoading()"
+      class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2 text-sm disabled:opacity-50"
+    >
+      <ion-icon name="refresh-outline"></ion-icon>
+      <span>重新整理</span>
+    </button>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2">
+    @for (tab of tabs; track tab.key) {
+      <button
+        type="button"
+        (click)="activeTab.set(tab.key)"
+        [class]="activeTab() === tab.key
+          ? 'px-3 py-1.5 rounded-full text-sm font-medium bg-indigo-600 text-white'
+          : 'px-3 py-1.5 rounded-full text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
+      >
+        {{ tab.label }}（{{ counts()[tab.key] }}）
+      </button>
+    }
+    <input
+      type="search"
+      [ngModel]="searchText()"
+      (ngModelChange)="searchText.set($event)"
+      placeholder="搜尋名稱、訊息、會員、備註"
+      class="w-full sm:w-64 sm:ml-auto rounded-lg border-gray-300 shadow-sm text-sm p-2 bg-white"
+    />
+  </div>
+
+  @if (errorMessage()) {
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <ion-icon name="alert-circle-outline" class="text-red-600 text-xl"></ion-icon>
+      <span class="text-red-700">{{ errorMessage() }}</span>
+    </div>
+  }
+
+  @if (isLoading()) {
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-700">正在載入資料...</div>
+  }
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    @for (user of visibleUsers(); track user.line_user_id) {
+      <div class="bg-white rounded-xl shadow-md p-4 space-y-3" [class.opacity-60]="user.is_ignored">
+        <div class="flex items-start gap-3">
+          @if (user.picture_url) {
+            <img [src]="user.picture_url" alt="" class="w-14 h-14 rounded-full object-cover flex-shrink-0 bg-gray-100" referrerpolicy="no-referrer" />
+          } @else {
+            <div class="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+              <ion-icon name="person-outline" class="text-2xl text-gray-500"></ion-icon>
+            </div>
+          }
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold text-gray-900 truncate">{{ user.display_name || '（未取得名稱）' }}</span>
+              @if (!user.is_following) {
+                <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs">已封鎖</span>
+              }
+              @if (user.member_name) {
+                <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs">{{ user.member_name }}</span>
+              }
+            </div>
+            <p class="text-xs text-gray-500 mt-1">最後互動 {{ user.last_seen_at }}・共 {{ user.event_count }} 次・首次 {{ user.first_seen_at }}</p>
+            @if (user.last_message) {
+              <p class="text-sm text-gray-700 mt-1 break-words">「{{ user.last_message }}」</p>
+            }
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <select
+            [ngModel]="draftOf(user).member_uuid"
+            (ngModelChange)="setDraft(user, { member_uuid: $event })"
+            class="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm"
+          >
+            <option value="">（未對應 iChef 會員）</option>
+            <optgroup label="股東">
+              @for (m of shareholderMembers(); track m.uuid) {
+                <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
+              }
+            </optgroup>
+            <optgroup label="雪茄會員">
+              @for (m of cigarMembers(); track m.uuid) {
+                <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
+              }
+            </optgroup>
+            <optgroup label="其他會員">
+              @for (m of otherMembers(); track m.uuid) {
+                <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
+              }
+            </optgroup>
+          </select>
+          <input
+            type="text"
+            maxlength="200"
+            [ngModel]="draftOf(user).note"
+            (ngModelChange)="setDraft(user, { note: $event })"
+            placeholder="備註（例如 VIP、本名）"
+            class="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm"
+          />
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            (click)="toggleIgnored(user)"
+            [disabled]="savingId() === user.line_user_id || !!user.member_uuid"
+            class="px-3 py-1.5 border rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+          >
+            {{ user.is_ignored ? '取消忽略' : '忽略' }}
+          </button>
+          <button
+            type="button"
+            (click)="save(user)"
+            [disabled]="savingId() === user.line_user_id || !isDirty(user)"
+            class="px-3 py-1.5 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
+          >
+            儲存
+          </button>
+        </div>
+      </div>
+    } @empty {
+      @if (!isLoading()) {
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-md p-10 text-center text-gray-500">
+          @if (counts().all === 0) {
+            還沒有任何紀錄。GAS 設定完成後，有人傳訊息或加好友就會出現在這裡。
+          } @else {
+            這個分類目前沒有資料。
+          }
+        </div>
+      }
+    }
+  </div>
+</div>
