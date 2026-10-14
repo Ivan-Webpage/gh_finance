@@ -13,6 +13,8 @@ import { LineUser } from '../../models/financial.model';
 
 type StatusTab = 'pending' | 'linked' | 'ignored' | 'all';
 
+const PAGE_SIZE = 20;
+
 interface MemberOption {
   uuid: string;
   name: string;
@@ -26,6 +28,7 @@ interface DraftState {
 /**
  * LINE 用戶：GAS 轉送的 webhook 事件寫進 mkt.line_users，這裡依最後互動時間列出，
  * 人工對應到 iChef 會員。店內實際用法：請客人傳一張貼圖，最上面那一位就是他。
+ * 資料量小（好友約 500 人），一次載入後在前端篩選、每頁 20 筆分頁。
  */
 @Component({
   selector: 'app-line-users',
@@ -43,7 +46,16 @@ export class LineUsersComponent {
   savingId = signal<string | null>(null);
 
   activeTab = signal<StatusTab>('pending');
-  searchText = signal('');
+
+  // 篩選器（日期為 YYYY-MM-DD，含頭含尾）
+  nameFilter = signal('');
+  lastSeenFrom = signal('');
+  lastSeenTo = signal('');
+  firstSeenFrom = signal('');
+  firstSeenTo = signal('');
+
+  page = signal(1);
+  readonly pageSize = PAGE_SIZE;
 
   /** 每位 LINE 用戶在畫面上尚未儲存的下拉選單／備註 */
   drafts = signal<Record<string, DraftState>>({});
@@ -78,17 +90,46 @@ export class LineUsersComponent {
     return map;
   });
 
-  visibleUsers = computed(() => {
+  hasFilters = computed(() =>
+    !!(this.nameFilter().trim() || this.lastSeenFrom() || this.lastSeenTo() || this.firstSeenFrom() || this.firstSeenTo())
+  );
+
+  filteredUsers = computed(() => {
     const tab = this.activeTab();
-    const keyword = this.searchText().trim().toLowerCase();
+    const keyword = this.nameFilter().trim().toLowerCase();
+    const inRange = (value: string, from: string, to: string) => {
+      const day = (value || '').slice(0, 10);
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      return true;
+    };
     return this.users().filter(u => {
       if (tab === 'pending' && (u.member_uuid || u.is_ignored)) return false;
       if (tab === 'linked' && !u.member_uuid) return false;
       if (tab === 'ignored' && !u.is_ignored) return false;
-      if (!keyword) return true;
-      return [u.display_name, u.last_message, u.member_name, u.note]
-        .some(v => (v || '').toLowerCase().includes(keyword));
+      // 名稱：LINE 顯示名稱或對應的 iChef 會員名稱
+      if (keyword && ![u.display_name, u.member_name].some(v => (v || '').toLowerCase().includes(keyword))) return false;
+      if (!inRange(u.last_seen_at, this.lastSeenFrom(), this.lastSeenTo())) return false;
+      if (!inRange(u.first_seen_at, this.firstSeenFrom(), this.firstSeenTo())) return false;
+      return true;
     });
+  });
+
+  totalPages = computed(() => Math.max(1, Math.ceil(this.filteredUsers().length / PAGE_SIZE)));
+
+  pagedUsers = computed(() => {
+    const page = Math.min(this.page(), this.totalPages());
+    const start = (page - 1) * PAGE_SIZE;
+    return this.filteredUsers().slice(start, start + PAGE_SIZE);
+  });
+
+  /** 頁碼按鈕：最多顯示目前頁前後各 2 頁 */
+  pageNumbers = computed(() => {
+    const total = this.totalPages();
+    const current = Math.min(this.page(), total);
+    const start = Math.max(1, current - 2);
+    const end = Math.min(total, current + 2);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   });
 
   constructor() {
@@ -128,6 +169,30 @@ export class LineUsersComponent {
     } catch (error) {
       console.error('Error loading members:', error);
     }
+  }
+
+  setTab(tab: StatusTab): void {
+    this.activeTab.set(tab);
+    this.page.set(1);
+  }
+
+  /** 篩選條件改變時回到第 1 頁 */
+  setFilter(target: { set(value: string): void }, value: string): void {
+    target.set(value ?? '');
+    this.page.set(1);
+  }
+
+  clearFilters(): void {
+    this.nameFilter.set('');
+    this.lastSeenFrom.set('');
+    this.lastSeenTo.set('');
+    this.firstSeenFrom.set('');
+    this.firstSeenTo.set('');
+    this.page.set(1);
+  }
+
+  goToPage(page: number): void {
+    this.page.set(Math.min(Math.max(1, page), this.totalPages()));
   }
 
   draftOf(user: LineUser): DraftState {

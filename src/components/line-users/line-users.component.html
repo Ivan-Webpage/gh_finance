@@ -19,7 +19,7 @@
     @for (tab of tabs; track tab.key) {
       <button
         type="button"
-        (click)="activeTab.set(tab.key)"
+        (click)="setTab(tab.key)"
         [class]="activeTab() === tab.key
           ? 'px-3 py-1.5 rounded-full text-sm font-medium bg-indigo-600 text-white'
           : 'px-3 py-1.5 rounded-full text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
@@ -27,13 +27,42 @@
         {{ tab.label }}（{{ counts()[tab.key] }}）
       </button>
     }
-    <input
-      type="search"
-      [ngModel]="searchText()"
-      (ngModelChange)="searchText.set($event)"
-      placeholder="搜尋名稱、訊息、會員、備註"
-      class="w-full sm:w-64 sm:ml-auto rounded-lg border-gray-300 shadow-sm text-sm p-2 bg-white"
-    />
+  </div>
+
+  <div class="bg-white rounded-xl shadow-md p-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <label class="block">
+        <span class="text-sm text-gray-600">名稱</span>
+        <input
+          type="search"
+          [ngModel]="nameFilter()"
+          (ngModelChange)="setFilter(nameFilter, $event)"
+          placeholder="LINE 名稱或 iChef 會員名稱"
+          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm"
+        />
+      </label>
+      <div>
+        <span class="text-sm text-gray-600">最後互動時間</span>
+        <div class="mt-1 flex items-center gap-2">
+          <input type="date" [ngModel]="lastSeenFrom()" (ngModelChange)="setFilter(lastSeenFrom, $event)" class="min-w-0 flex-1 rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm" />
+          <span class="text-gray-400">～</span>
+          <input type="date" [ngModel]="lastSeenTo()" (ngModelChange)="setFilter(lastSeenTo, $event)" class="min-w-0 flex-1 rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <span class="text-sm text-gray-600">首次互動時間</span>
+        <div class="mt-1 flex items-center gap-2">
+          <input type="date" [ngModel]="firstSeenFrom()" (ngModelChange)="setFilter(firstSeenFrom, $event)" class="min-w-0 flex-1 rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm" />
+          <span class="text-gray-400">～</span>
+          <input type="date" [ngModel]="firstSeenTo()" (ngModelChange)="setFilter(firstSeenTo, $event)" class="min-w-0 flex-1 rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm" />
+        </div>
+      </div>
+    </div>
+    @if (hasFilters()) {
+      <div class="mt-3 text-right">
+        <button type="button" (click)="clearFilters()" class="text-sm text-indigo-600 hover:underline">清除篩選</button>
+      </div>
+    }
   </div>
 
   @if (errorMessage()) {
@@ -47,96 +76,137 @@
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-700">正在載入資料...</div>
   }
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-    @for (user of visibleUsers(); track user.line_user_id) {
-      <div class="bg-white rounded-xl shadow-md p-4 space-y-3" [class.opacity-60]="user.is_ignored">
-        <div class="flex items-start gap-3">
-          @if (user.picture_url) {
-            <img [src]="user.picture_url" alt="" class="w-14 h-14 rounded-full object-cover flex-shrink-0 bg-gray-100" referrerpolicy="no-referrer" />
-          } @else {
-            <div class="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-              <ion-icon name="person-outline" class="text-2xl text-gray-500"></ion-icon>
-            </div>
-          }
-          <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-semibold text-gray-900 truncate">{{ user.display_name || '（未取得名稱）' }}</span>
-              @if (!user.is_following) {
-                <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs">已封鎖</span>
-              }
-              @if (user.member_name) {
-                <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs">{{ user.member_name }}</span>
-              }
-            </div>
-            <p class="text-xs text-gray-500 mt-1">最後互動 {{ user.last_seen_at }}・共 {{ user.event_count }} 次・首次 {{ user.first_seen_at }}</p>
-            @if (user.last_message) {
-              <p class="text-sm text-gray-700 mt-1 break-words">「{{ user.last_message }}」</p>
+  <div class="bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead class="text-xs text-gray-700 bg-gray-100 border-b border-gray-200 whitespace-nowrap">
+          <tr>
+            <th class="px-3 py-3">LINE 名稱</th>
+            <th class="px-3 py-3">最新訊息</th>
+            <th class="px-3 py-3">最後互動</th>
+            <th class="px-3 py-3">首次互動</th>
+            <th class="px-3 py-3 text-right">次數</th>
+            <th class="px-3 py-3">對應 iChef 會員</th>
+            <th class="px-3 py-3">備註</th>
+            <th class="px-3 py-3 text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of pagedUsers(); track user.line_user_id) {
+            <tr class="border-b border-gray-200 hover:bg-gray-50 align-middle" [class.opacity-60]="user.is_ignored">
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2 min-w-[10rem]">
+                  @if (user.picture_url) {
+                    <img [src]="user.picture_url" alt="" class="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-gray-100" referrerpolicy="no-referrer" />
+                  } @else {
+                    <div class="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <ion-icon name="person-outline" class="text-lg text-gray-500"></ion-icon>
+                    </div>
+                  }
+                  <div class="min-w-0">
+                    <div class="font-medium text-gray-900 break-words">{{ user.display_name || '（未取得名稱）' }}</div>
+                    @if (!user.is_following) {
+                      <span class="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-xs">已封鎖</span>
+                    }
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-gray-700 max-w-[14rem]">
+                <div class="truncate" [title]="user.last_message || ''">{{ user.last_message || '-' }}</div>
+              </td>
+              <td class="px-3 py-2 text-gray-700 whitespace-nowrap">{{ user.last_seen_at }}</td>
+              <td class="px-3 py-2 text-gray-700 whitespace-nowrap">{{ user.first_seen_at }}</td>
+              <td class="px-3 py-2 text-right text-gray-700">{{ user.event_count }}</td>
+              <td class="px-3 py-2">
+                <select
+                  [ngModel]="draftOf(user).member_uuid"
+                  (ngModelChange)="setDraft(user, { member_uuid: $event })"
+                  class="w-48 rounded-md border-gray-300 shadow-sm bg-gray-50 p-1.5 text-sm"
+                >
+                  <option value="">（未對應）</option>
+                  <optgroup label="股東">
+                    @for (m of shareholderMembers(); track m.uuid) {
+                      <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
+                    }
+                  </optgroup>
+                  <optgroup label="雪茄會員">
+                    @for (m of cigarMembers(); track m.uuid) {
+                      <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
+                    }
+                  </optgroup>
+                  <optgroup label="其他會員">
+                    @for (m of otherMembers(); track m.uuid) {
+                      <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
+                    }
+                  </optgroup>
+                </select>
+              </td>
+              <td class="px-3 py-2">
+                <input
+                  type="text"
+                  maxlength="200"
+                  [ngModel]="draftOf(user).note"
+                  (ngModelChange)="setDraft(user, { note: $event })"
+                  placeholder="例如 VIP、本名"
+                  class="w-40 rounded-md border-gray-300 shadow-sm bg-gray-50 p-1.5 text-sm"
+                />
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                  <button
+                    type="button"
+                    (click)="save(user)"
+                    [disabled]="savingId() === user.line_user_id || !isDirty(user)"
+                    class="px-3 py-1 rounded-md text-xs bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
+                  >
+                    儲存
+                  </button>
+                  <button
+                    type="button"
+                    (click)="toggleIgnored(user)"
+                    [disabled]="savingId() === user.line_user_id || !!user.member_uuid"
+                    class="px-3 py-1 border rounded-md text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    {{ user.is_ignored ? '取消忽略' : '忽略' }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            @if (!isLoading()) {
+              <tr>
+                <td colspan="8" class="text-center py-10 text-gray-500">
+                  @if (counts().all === 0) {
+                    還沒有任何紀錄。有人傳訊息或加好友就會出現在這裡。
+                  } @else {
+                    沒有符合條件的資料。
+                  }
+                </td>
+              </tr>
             }
-          </div>
-        </div>
+          }
+        </tbody>
+      </table>
+    </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <select
-            [ngModel]="draftOf(user).member_uuid"
-            (ngModelChange)="setDraft(user, { member_uuid: $event })"
-            class="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm"
-          >
-            <option value="">（未對應 iChef 會員）</option>
-            <optgroup label="股東">
-              @for (m of shareholderMembers(); track m.uuid) {
-                <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
-              }
-            </optgroup>
-            <optgroup label="雪茄會員">
-              @for (m of cigarMembers(); track m.uuid) {
-                <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
-              }
-            </optgroup>
-            <optgroup label="其他會員">
-              @for (m of otherMembers(); track m.uuid) {
-                <option [value]="m.uuid" [disabled]="isTakenByOther(m.uuid, user)">{{ m.name }}{{ isTakenByOther(m.uuid, user) ? '（已對應其他 LINE）' : '' }}</option>
-              }
-            </optgroup>
-          </select>
-          <input
-            type="text"
-            maxlength="200"
-            [ngModel]="draftOf(user).note"
-            (ngModelChange)="setDraft(user, { note: $event })"
-            placeholder="備註（例如 VIP、本名）"
-            class="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2 text-sm"
-          />
-        </div>
-
-        <div class="flex justify-end gap-2">
-          <button
-            type="button"
-            (click)="toggleIgnored(user)"
-            [disabled]="savingId() === user.line_user_id || !!user.member_uuid"
-            class="px-3 py-1.5 border rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-          >
-            {{ user.is_ignored ? '取消忽略' : '忽略' }}
-          </button>
-          <button
-            type="button"
-            (click)="save(user)"
-            [disabled]="savingId() === user.line_user_id || !isDirty(user)"
-            class="px-3 py-1.5 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
-          >
-            儲存
-          </button>
+    @if (filteredUsers().length > 0) {
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 text-sm">
+        <span class="text-gray-600">
+          共 {{ filteredUsers().length }} 筆，第 {{ (page() > totalPages() ? totalPages() : page()) }} / {{ totalPages() }} 頁（每頁 {{ pageSize }} 筆）
+        </span>
+        <div class="flex items-center gap-1">
+          <button type="button" (click)="goToPage(page() - 1)" [disabled]="page() <= 1"
+            class="px-3 py-1 border rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-40">上一頁</button>
+          @for (n of pageNumbers(); track n) {
+            <button type="button" (click)="goToPage(n)"
+              [class]="n === page()
+                ? 'px-3 py-1 rounded-md bg-indigo-600 text-white'
+                : 'px-3 py-1 border rounded-md text-gray-700 hover:bg-gray-50'">{{ n }}</button>
+          }
+          <button type="button" (click)="goToPage(page() + 1)" [disabled]="page() >= totalPages()"
+            class="px-3 py-1 border rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-40">下一頁</button>
         </div>
       </div>
-    } @empty {
-      @if (!isLoading()) {
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-md p-10 text-center text-gray-500">
-          @if (counts().all === 0) {
-            還沒有任何紀錄。GAS 設定完成後，有人傳訊息或加好友就會出現在這裡。
-          } @else {
-            這個分類目前沒有資料。
-          }
-        </div>
-      }
     }
   </div>
 </div>
