@@ -56,6 +56,7 @@ export interface StoreClosureEntry {
 }
 
 /** 未標註發票指派（/api/customers/invoice-assignments） */
+export type InvoiceAssignmentStatus = 'unassigned' | 'manual' | 'tagged';
 export interface InvoiceAssignmentEntry {
   invoiceUuid: string;
   invoiceNumber: string | null;
@@ -69,6 +70,9 @@ export interface InvoiceAssignmentEntry {
   assignedMemberName: string | null;
   assignedAt: string | null;
   assignedBy: string | null;
+  originalMemberName: string | null; // iChef 原本綁定的會員（更正過的發票才有）
+  rebateAmount: number | null; // 這張發票已產生的股東回饋金
+  rebateLocked: boolean; // 有股東回饋且該月尚未核銷，暫時不能改
   items: { itemName: string; checkoutPrice: number }[];
 }
 
@@ -82,7 +86,8 @@ export interface InvoiceAssignmentListResponse {
 }
 
 export interface InvoiceAssignmentFilters {
-  status?: 'unassigned' | 'manual';
+  status?: InvoiceAssignmentStatus;
+  currentMember?: string;
   startDate?: string;
   endDate?: string;
   minAmount?: number | null;

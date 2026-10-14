@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService, InvoiceAssignmentEntry } from '../../services/api.service';
+import { ApiService, InvoiceAssignmentEntry, InvoiceAssignmentStatus } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 type MemberCategory = 'cigar' | 'exCigar' | 'shareholder' | 'regular';
@@ -17,7 +17,8 @@ interface MemberOption {
 // 未標註發票指派：把 iChef 結帳時沒掛會員的發票，人工補登給會員（含股東），
 // 讓「顧客管理」的累積消費統計反映真實消費。後端直接改寫 pos.invoices.raw_member_info
 // （帶 manual_assigned 標記，可撤銷），見 /api/customers/invoice-assignments。
-// 已列入股東回饋紀錄的發票後端一律排除，不會影響股東回饋金。
+// 也能更正 iChef 綁錯會員的發票（「iChef 綁錯更正」頁籤），後端會保存原本的會員資料，撤銷時還原。
+// 有股東回饋且該月尚未核銷的發票後端一律擋下；已核銷的只改消費歸屬，不影響股東回饋金。
 @Component({
   selector: 'app-invoice-assignments',
   templateUrl: './invoice-assignments.component.html',
@@ -33,7 +34,8 @@ export class InvoiceAssignmentsComponent {
 
   isViewer = computed(() => this.authService.hasRole('viewer'));
 
-  status = signal<'unassigned' | 'manual'>('unassigned');
+  status = signal<InvoiceAssignmentStatus>('unassigned');
+  currentMemberUuid = signal('');
   startDate = signal('');
   endDate = signal('');
   minAmount = signal<number | null>(null);
@@ -81,7 +83,8 @@ export class InvoiceAssignmentsComponent {
   allOnPageSelected = computed(() => {
     const list = this.invoices();
     const selected = this.selectedInvoiceUuids();
-    return list.length > 0 && list.every(inv => selected.has(inv.invoiceUuid));
+    const selectable = list.filter(inv => !inv.rebateLocked);
+    return selectable.length > 0 && selectable.every(inv => selected.has(inv.invoiceUuid));
   });
 
   constructor() {
@@ -139,6 +142,7 @@ export class InvoiceAssignmentsComponent {
         minAmount: this.minAmount(),
         maxAmount: this.maxAmount(),
         product: this.product().trim() || undefined,
+        currentMember: this.status() !== 'unassigned' ? this.currentMemberUuid() || undefined : undefined,
         page,
         pageSize: this.pageSize,
       });
@@ -162,7 +166,7 @@ export class InvoiceAssignmentsComponent {
     }
   }
 
-  switchStatus(status: 'unassigned' | 'manual'): void {
+  switchStatus(status: InvoiceAssignmentStatus): void {
     if (this.status() === status) return;
     this.status.set(status);
     this.successMessage.set(null);
@@ -179,6 +183,7 @@ export class InvoiceAssignmentsComponent {
     this.minAmount.set(null);
     this.maxAmount.set(null);
     this.product.set('');
+    this.currentMemberUuid.set('');
     this.loadInvoices(1);
   }
 
@@ -192,6 +197,7 @@ export class InvoiceAssignmentsComponent {
   }
 
   toggleSelect(invoice: InvoiceAssignmentEntry): void {
+    if (invoice.rebateLocked) return;
     const next = new Set(this.selectedInvoiceUuids());
     if (next.has(invoice.invoiceUuid)) {
       next.delete(invoice.invoiceUuid);
@@ -205,7 +211,9 @@ export class InvoiceAssignmentsComponent {
     if (this.allOnPageSelected()) {
       this.selectedInvoiceUuids.set(new Set());
     } else {
-      this.selectedInvoiceUuids.set(new Set(this.invoices().map(inv => inv.invoiceUuid)));
+      this.selectedInvoiceUuids.set(
+        new Set(this.invoices().filter(inv => !inv.rebateLocked).map(inv => inv.invoiceUuid))
+      );
     }
   }
 
@@ -214,7 +222,7 @@ export class InvoiceAssignmentsComponent {
     if (!invoice.cgUuid) return;
     const next = new Set(this.selectedInvoiceUuids());
     for (const inv of this.invoices()) {
-      if (inv.cgUuid === invoice.cgUuid) next.add(inv.invoiceUuid);
+      if (inv.cgUuid === invoice.cgUuid && !inv.rebateLocked) next.add(inv.invoiceUuid);
     }
     this.selectedInvoiceUuids.set(next);
   }
@@ -231,7 +239,12 @@ export class InvoiceAssignmentsComponent {
       this.errorMessage.set('請先勾選發票');
       return;
     }
-    if (!confirm(`確定要把 ${invoiceUuids.length} 張發票（合計 $${this.formatAmount(this.selectedAmount())}）指派給「${member.name}」嗎？`)) {
+    const selected = this.invoices().filter(inv => this.selectedInvoiceUuids().has(inv.invoiceUuid));
+    const fromNames = Array.from(new Set(selected.map(inv => inv.assignedMemberName).filter(Boolean)));
+    const correctionNote = this.status() === 'tagged' && fromNames.length > 0
+      ? `\n原本綁定：${fromNames.join('、')}（只改消費歸屬，股東回饋金不變）`
+      : '';
+    if (!confirm(`確定要把 ${invoiceUuids.length} 張發票（合計 $${this.formatAmount(this.selectedAmount())}）指派給「${member.name}」嗎？${correctionNote}`)) {
       return;
     }
 
@@ -252,7 +265,7 @@ export class InvoiceAssignmentsComponent {
         const skipped = response.data.skippedCount;
         this.successMessage.set(
           `已指派 ${updated.size} 張發票給「${response.data.memberName}」` +
-          (skipped > 0 ? `，${skipped} 張因為已經有會員而略過` : '')
+          (skipped > 0 ? `，${skipped} 張略過（已經是這位會員，或股東回饋該月尚未核銷）` : '')
         );
         if (this.invoices().length === 0 && this.total() > 0) {
           this.loadInvoices(Math.min(this.page(), Math.max(1, Math.ceil(this.total() / this.pageSize))));
@@ -274,7 +287,7 @@ export class InvoiceAssignmentsComponent {
       this.errorMessage.set('請先勾選要撤銷的發票');
       return;
     }
-    if (!confirm(`確定要撤銷 ${invoiceUuids.length} 張發票的人工指派嗎？撤銷後會回到「未指派」。`)) {
+    if (!confirm(`確定要撤銷 ${invoiceUuids.length} 張發票的人工指派嗎？原本沒掛會員的會回到「未指派」，iChef 綁定過的會還原成原本的會員。`)) {
       return;
     }
 
