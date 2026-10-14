@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth.service';
 import {
   Customer,
   EventEntry,
+  PendingPointReset,
   ReminderEntry,
   ReminderStatus,
   ShiftScheduleEntry,
@@ -231,6 +232,49 @@ export class DashboardComponent {
       }
     } catch (error) {
       console.warn('Failed to load monthly visitor count:', error);
+    }
+  }
+
+  // ===== Dashboard block: 股東點數重置提醒 =====
+  pendingPointResets = signal<PendingPointReset[]>([]);
+  confirmingPointResetId = signal<number | null>(null);
+
+  private async loadPendingPointResets(): Promise<void> {
+    try {
+      const response = await this.apiService.getPendingPointResets();
+      if (response.success && Array.isArray(response.data)) {
+        this.pendingPointResets.set(response.data);
+      }
+    } catch (error) {
+      console.warn('Failed to load pending point resets:', error);
+    }
+  }
+
+  async confirmPointReset(item: PendingPointReset): Promise<void> {
+    const ok = confirm(
+      `確認「${item.shareholder_name}」${item.cycle_date} 這一期的點數已重置為 ${item.points.toLocaleString()} 點？`
+    );
+    if (!ok) return;
+
+    this.confirmingPointResetId.set(item.shareholder_id);
+    try {
+      const response = await this.apiService.confirmPointReset({
+        shareholder_id: item.shareholder_id,
+        cycle_date: item.cycle_date,
+      });
+      if (!response.success) {
+        alert(response.error || '標記失敗');
+        return;
+      }
+      this.pendingPointResets.update(list =>
+        list.filter(row => !(row.shareholder_id === item.shareholder_id && row.cycle_date === item.cycle_date))
+      );
+    } catch (error: any) {
+      alert(error?.error?.error || '標記失敗，請稍後再試');
+      // 可能是別人已經標記過（409），重新整理清單
+      await this.loadPendingPointResets();
+    } finally {
+      this.confirmingPointResetId.set(null);
     }
   }
 
@@ -467,6 +511,9 @@ export class DashboardComponent {
     this.loadDashboardCashState();
     this.loadDashboardCustomers();
     this.loadDashboardMonthlyVisitorCount();
+    if (!this.isViewer()) {
+      this.loadPendingPointResets();
+    }
 
     effect(() => {
       const monthly = this.monthlyPerformance();

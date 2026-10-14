@@ -41,7 +41,8 @@ import type {
   CustomerTransactionFilters,
   CustomerTransactionListResponse,
   MonthlyVisitorCount,
-  BasketAnalysisResult
+  BasketAnalysisResult,
+  PendingPointReset
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -2416,6 +2417,24 @@ export class ApiService {
     const params = new HttpParams().set('id', shareholderId.toString());
     return firstValueFrom(
       this.http.delete<ApiResponse<any>>(`${this.baseUrl}/shareholders`, { params })
+    );
+  }
+
+  /**
+   * 待重置點數的股東（儀表板提醒）
+   */
+  getPendingPointResets(): Promise<ApiResponse<PendingPointReset[]>> {
+    return firstValueFrom(
+      this.http.get<ApiResponse<PendingPointReset[]>>(`${this.baseUrl}/shareholders/point-resets`)
+    );
+  }
+
+  /**
+   * 標記某位股東這一期的點數已重置
+   */
+  confirmPointReset(payload: { shareholder_id: number; cycle_date: string }): Promise<ApiResponse<any>> {
+    return firstValueFrom(
+      this.http.post<ApiResponse<any>>(`${this.baseUrl}/shareholders/point-resets`, payload)
     );
   }
 

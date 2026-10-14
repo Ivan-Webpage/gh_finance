@@ -799,6 +799,21 @@ export interface MonthlyVisitorCount {
 }
 
 /**
+ * 待重置點數的股東（儀表板提醒）
+ * 規則見 backend/src/lib/shareholder-points.ts：重置日在 30 天內，或已過但還沒標記「已重置」
+ */
+export interface PendingPointReset {
+  shareholder_id: number;
+  shareholder_name: string;
+  share_percentage: number;
+  joined_at: string;
+  cycle_date: string;
+  /** 距離重置日的天數，負數代表已逾期 */
+  days_until: number;
+  points: number;
+}
+
+/**
  * 購物籃分析 - 商品配對（關聯規則探勘，非 AI）
  */
 export interface BasketAnalysisPair {

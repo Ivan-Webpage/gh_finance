@@ -23,6 +23,57 @@
     </div>
   </div>
 
+  @if (pendingPointResets().length > 0) {
+    <div class="bg-amber-50 border border-amber-300 rounded-xl p-5 space-y-3">
+      <div class="flex items-center gap-2">
+        <ion-icon name="alarm-outline" class="text-2xl text-amber-600"></ion-icon>
+        <h3 class="text-lg font-semibold text-amber-900">股東點數重置提醒</h3>
+      </div>
+      <p class="text-sm text-amber-800">以下股東的點數將在 30 天內重置或已經到期。重置完成後請按「已重置」，按了之後提醒才會消失。</p>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-amber-900 border-b border-amber-200">
+              <th class="py-2 pr-4 font-medium">股東</th>
+              <th class="py-2 pr-4 font-medium">入股日</th>
+              <th class="py-2 pr-4 font-medium">重置日</th>
+              <th class="py-2 pr-4 font-medium">狀態</th>
+              <th class="py-2 pr-4 font-medium text-right">本期點數</th>
+              <th class="py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of pendingPointResets(); track item.shareholder_id + item.cycle_date) {
+              <tr class="border-b border-amber-100 last:border-0">
+                <td class="py-2 pr-4 font-medium text-gray-900">{{ item.shareholder_name }}</td>
+                <td class="py-2 pr-4 text-gray-700">{{ item.joined_at }}</td>
+                <td class="py-2 pr-4 text-gray-700">{{ item.cycle_date }}</td>
+                <td class="py-2 pr-4">
+                  @if (item.days_until < 0) {
+                    <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">已逾期 {{ -item.days_until }} 天</span>
+                  } @else if (item.days_until === 0) {
+                    <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">今天重置</span>
+                  } @else {
+                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">還有 {{ item.days_until }} 天</span>
+                  }
+                </td>
+                <td class="py-2 pr-4 text-right text-gray-900">{{ item.points | number:'1.0-0' }}</td>
+                <td class="py-2 text-right">
+                  <button
+                    (click)="confirmPointReset(item)"
+                    [disabled]="confirmingPointResetId() === item.shareholder_id"
+                    class="px-3 py-1 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 whitespace-nowrap">
+                    已重置
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
   <div class="grid grid-cols-1 gap-6">
     <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
       <h3 class="text-lg font-semibold text-gray-800">活動</h3>
