@@ -27,6 +27,11 @@
                 "output": "."
               },
               {
+                "glob": "line-avatar.jpg",
+                "input": ".",
+                "output": "."
+              },
+              {
                 "glob": "**/*",
                 "input": "./node_modules/ionicons/dist/ionicons",
                 "output": "./ionicons"

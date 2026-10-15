@@ -39,7 +39,13 @@
       <!-- 1. 訊息內容 -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h3 class="text-lg font-semibold text-gray-800">1. 訊息內容 <span class="text-sm font-normal text-gray-500">（{{ drafts().length }}／{{ MAX_MESSAGES }} 則，每位客人只算 1 則額度）</span></h3>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800">1. 訊息內容 <span class="text-sm font-normal text-gray-500">（{{ drafts().length }}／{{ MAX_MESSAGES }} 則，每位客人只算 1 則額度）</span></h3>
+            <a href="https://developers.line.biz/flex-simulator/" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-1 mt-1 text-sm text-green-700 hover:underline">
+              <ion-icon name="open-outline"></ion-icon>LINE 官方 Flex Message Simulator（製作 Flex 訊息）
+            </a>
+          </div>
           @if (drafts().length < MAX_MESSAGES) {
             <div class="flex flex-wrap gap-2 text-sm">
               <span class="text-gray-500 self-center">新增：</span>
@@ -237,7 +243,7 @@
         <div class="bg-[#8cabd9] p-3 space-y-3 min-h-[28rem] max-h-[40rem] overflow-y-auto">
           @for (d of drafts(); track d.id; let i = $index) {
             <div class="flex items-start gap-2">
-              <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-[10px] flex items-center justify-center flex-shrink-0">GH</div>
+              <img src="line-avatar.jpg" alt="Galaxy House" class="w-8 h-8 rounded-full object-cover flex-shrink-0">
               <div class="min-w-0 flex-1">
                 @switch (d.type) {
                   @case ('text') {
