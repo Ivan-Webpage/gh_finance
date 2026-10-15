@@ -1,8 +1,24 @@
 <div class="space-y-8">
   <h1 class="text-3xl font-bold text-gray-900">顧客管理</h1>
 
-  <!-- Customer Segmentation Stats -->
-  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+  <!-- 頁籤：會員分類標籤只有超級管理員、經營管理者看得到 -->
+  @if (canManageTags()) {
+    <div class="border-b border-gray-200 flex gap-6">
+      <button type="button" (click)="activeTab.set('customers')" data-viewer-allow="true"
+              class="pb-3 text-sm font-medium border-b-2 -mb-px"
+              [class.border-indigo-600]="activeTab() === 'customers'" [class.text-indigo-600]="activeTab() === 'customers'"
+              [class.border-transparent]="activeTab() !== 'customers'" [class.text-gray-500]="activeTab() !== 'customers'">顧客列表</button>
+      <button type="button" (click)="activeTab.set('tags')" data-viewer-allow="true"
+              class="pb-3 text-sm font-medium border-b-2 -mb-px"
+              [class.border-indigo-600]="activeTab() === 'tags'" [class.text-indigo-600]="activeTab() === 'tags'"
+              [class.border-transparent]="activeTab() !== 'tags'" [class.text-gray-500]="activeTab() !== 'tags'">會員分類標籤</button>
+    </div>
+  }
+
+  <!-- 用 hidden 切換而不是 @if，右側 #detailColumn 的 ResizeObserver 才不會因為元素重建而失效 -->
+  <div class="space-y-8" [class.hidden]="canManageTags() && activeTab() !== 'customers'">
+  <!-- Customer Segmentation Stats（依會員分類標籤統計，一位會員有多個標籤會分別計入） -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
     <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
       <div class="bg-blue-100 p-3 rounded-full"><ion-icon name="people-outline" class="text-2xl text-blue-600"></ion-icon></div>
       <div>
@@ -17,34 +33,17 @@
         <p class="text-2xl font-semibold text-gray-900">{{ monthlyVisitorCount() ?? '-' }}</p>
       </div>
     </div>
-    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-      <div class="bg-green-100 p-3 rounded-full"><ion-icon name="person-outline" class="text-2xl text-green-600"></ion-icon></div>
-      <div>
-        <p class="text-sm text-gray-500">一般顧客</p>
-        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().regularCount }}</p>
-      </div>
-    </div>
-    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-      <div class="bg-purple-100 p-3 rounded-full"><ion-icon name="ribbon-outline" class="text-2xl text-purple-600"></ion-icon></div>
-      <div>
-        <p class="text-sm text-gray-500">雪茄會員</p>
-        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().cigarCount }}</p>
-      </div>
-    </div>
-    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-      <div class="bg-gray-100 p-3 rounded-full"><ion-icon name="time-outline" class="text-2xl text-gray-600"></ion-icon></div>
-      <div>
-        <p class="text-sm text-gray-500">前雪茄會員</p>
-        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().exCigarCount }}</p>
-      </div>
-    </div>
-    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-      <div class="bg-yellow-100 p-3 rounded-full"><ion-icon name="briefcase-outline" class="text-2xl text-yellow-600"></ion-icon></div>
-      <div>
-        <p class="text-sm text-gray-500">股東</p>
-        <p class="text-2xl font-semibold text-gray-900">{{ customerStats().shareholderCount }}</p>
-      </div>
-    </div>
+    @for (item of customerStats().tags; track item.tag.id) {
+      <button type="button" (click)="filterByTag('' + item.tag.id)" data-viewer-allow="true"
+              class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4 text-left hover:ring-2 hover:ring-indigo-200"
+              [class.ring-2]="categoryFilter() === '' + item.tag.id" [class.ring-indigo-400]="categoryFilter() === '' + item.tag.id">
+        <div class="p-3 rounded-full" [class]="tagClass(item.tag.color)"><ion-icon name="pricetag-outline" class="text-2xl"></ion-icon></div>
+        <div class="min-w-0">
+          <p class="text-sm text-gray-500 truncate">#{{ item.tag.name }}</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ item.count }}</p>
+        </div>
+      </button>
+    }
   </div>
 
   <!-- Main Content Area -->
@@ -73,14 +72,14 @@
       
       <!-- Normal State -->
       @if(!isLoading()) {
-        <!-- 分類篩選下拉選單 -->
+        <!-- 標籤篩選下拉選單 -->
         <div class="mb-3">
           <select [(ngModel)]="categoryFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-2 bg-gray-50">
             <option value="all">全部顧客</option>
-            <option value="regular">一般顧客</option>
-            <option value="cigar">雪茄會員</option>
-            <option value="exCigar">前雪茄會員</option>
-            <option value="shareholder">股東</option>
+            @for (tag of memberTags(); track tag.id) {
+              <option [value]="'' + tag.id">#{{ tag.name }}</option>
+            }
+            <option value="untagged">未貼標籤</option>
           </select>
         </div>
 
@@ -120,7 +119,13 @@
                     <p class="text-sm text-gray-500">{{ customer.phone }}</p>
                   </div>
                   <div class="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
+                    <div class="flex flex-wrap justify-end gap-1 max-w-[10rem]">
+                      @for (tag of customer.tags; track tag.id) {
+                        <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="tagClass(tag.color)">#{{ tag.name }}</span>
+                      } @empty {
+                        <span class="text-xs font-semibold px-2 py-1 rounded-full bg-white text-gray-400 border border-dashed border-gray-300">未貼標籤</span>
+                      }
+                    </div>
                     @if (customer.lineLinked && customer.lineIsFollowing === false) {
                       <span class="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700" title="已封鎖官方帳號">LINE 已封鎖</span>
                     } @else if (customer.lineLinked) {
@@ -155,7 +160,39 @@
             <div class="flex justify-between items-start">
               <div>
                 <h2 class="text-2xl font-bold text-gray-900">@if (customer.memberNo != null) {<span class="text-gray-400 font-semibold mr-2">#{{ customer.memberNo }}</span>}{{ getCleanCustomerName(customer) }}</h2>
-                <span class="text-sm font-semibold px-2 py-1 rounded-full mt-1 inline-block" [class]="getCustomerTypeClass(customer)">{{ getCustomerType(customer) }}</span>
+                @if (editingTagIds(); as selectedIds) {
+                  <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <p class="text-xs text-gray-500 mb-2">點選要貼的標籤（可多選）</p>
+                    <div class="flex flex-wrap gap-2">
+                      @for (tag of memberTags(); track tag.id) {
+                        <button type="button" (click)="toggleEditingTag(tag.id)"
+                                class="text-sm font-semibold px-2 py-1 rounded-full border-2"
+                                [class]="selectedIds.has(tag.id) ? tagClass(tag.color) : 'bg-white text-gray-400'"
+                                [class.border-gray-700]="selectedIds.has(tag.id)"
+                                [class.border-gray-200]="!selectedIds.has(tag.id)">#{{ tag.name }}</button>
+                      } @empty {
+                        <span class="text-sm text-gray-500">還沒有任何標籤，請先到「會員分類標籤」分頁新增。</span>
+                      }
+                    </div>
+                    <div class="mt-3 flex gap-3 text-sm">
+                      <button type="button" (click)="saveCustomerTags(customer)" [disabled]="isSavingTags()" class="bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 disabled:opacity-50">儲存</button>
+                      <button type="button" (click)="cancelEditCustomerTags()" class="text-gray-600 hover:underline">取消</button>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="mt-1 flex flex-wrap items-center gap-1">
+                    @for (tag of customer.tags; track tag.id) {
+                      <span class="text-sm font-semibold px-2 py-1 rounded-full" [class]="tagClass(tag.color)">#{{ tag.name }}</span>
+                    } @empty {
+                      <span class="text-sm text-gray-400">未貼標籤</span>
+                    }
+                    @if (canManageTags()) {
+                      <button type="button" (click)="startEditCustomerTags(customer)" class="text-sm text-indigo-600 hover:underline ml-2 inline-flex items-center gap-1">
+                        <ion-icon name="pricetags-outline"></ion-icon>編輯標籤
+                      </button>
+                    }
+                  </div>
+                }
               </div>
               <button (click)="clearSelection()" class="text-gray-500 hover:text-gray-700">
                 <ion-icon name="close-circle-outline" class="text-2xl"></ion-icon>
@@ -432,4 +469,9 @@
       <p class="text-gray-500">尚無資料。</p>
     }
   </div>
+  </div>
+
+  @if (canManageTags() && activeTab() === 'tags') {
+    <app-member-tag-manager (changed)="onTagsChanged()"></app-member-tag-manager>
+  }
 </div>

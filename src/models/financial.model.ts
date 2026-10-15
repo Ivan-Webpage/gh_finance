@@ -702,6 +702,26 @@ export interface Customer {
   lineLinked: boolean; // 已在「LINE 用戶」頁面連結 LINE 帳號（mkt.line_users.member_uuid）
   lineDisplayName: string | null; // LINE 顯示名稱
   lineIsFollowing: boolean | null; // false＝已封鎖官方帳號
+  tags: CustomerTagRef[]; // 會員分類標籤（可多個），依標籤排序
+}
+
+/** 顧客身上的標籤（/api/customers 回傳） */
+export interface CustomerTagRef {
+  id: number;
+  name: string; // 不含 #
+  color: MemberTagColor;
+}
+
+/** 標籤顏色代碼（後端 MEMBER_TAG_COLORS 同一份清單） */
+export type MemberTagColor = 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'indigo' | 'purple' | 'pink';
+
+/** 會員分類標籤主檔（/api/member-tags） */
+export interface MemberTag extends CustomerTagRef {
+  description: string | null;
+  sortOrder: number;
+  memberCount: number; // 目前貼了這個標籤的會員數
+  updatedAt: string | null;
+  updatedBy: string | null;
 }
 
 /**

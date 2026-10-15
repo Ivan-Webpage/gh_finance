@@ -43,7 +43,10 @@ import type {
   MonthlyVisitorCount,
   BasketAnalysisResult,
   PendingPointReset,
-  LineUser
+  LineUser,
+  MemberTag,
+  MemberTagColor,
+  CustomerTagRef
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -993,6 +996,34 @@ export class ApiService {
       params = params.set('offset', options.offset.toString());
     }
     return firstValueFrom(this.http.get<any>(`${this.baseUrl}/customers`, { params }));
+  }
+
+  /** 會員分類標籤清單（含每個標籤的會員數） */
+  getMemberTags(): Promise<ApiResponse<MemberTag[]>> {
+    return firstValueFrom(this.http.get<ApiResponse<MemberTag[]>>(`${this.baseUrl}/member-tags`));
+  }
+
+  createMemberTag(tag: { name: string; color: MemberTagColor; description?: string | null }): Promise<ApiResponse<MemberTag>> {
+    return firstValueFrom(this.http.post<ApiResponse<MemberTag>>(`${this.baseUrl}/member-tags`, tag));
+  }
+
+  updateMemberTag(
+    id: number,
+    changes: Partial<{ name: string; color: MemberTagColor; description: string | null; sortOrder: number }>
+  ): Promise<ApiResponse<MemberTag>> {
+    return firstValueFrom(this.http.put<ApiResponse<MemberTag>>(`${this.baseUrl}/member-tags/${id}`, changes));
+  }
+
+  /** 刪除標籤，所有會員身上的這個標籤一起移除 */
+  deleteMemberTag(id: number): Promise<ApiResponse<{ name: string; removedAssignments: number }>> {
+    return firstValueFrom(this.http.delete<ApiResponse<{ name: string; removedAssignments: number }>>(`${this.baseUrl}/member-tags/${id}`));
+  }
+
+  /** 把會員的標籤整組換成 tagIds */
+  setMemberTags(memberUuid: string, tagIds: number[]): Promise<ApiResponse<{ memberUuid: string; tags: CustomerTagRef[] }>> {
+    return firstValueFrom(
+      this.http.put<ApiResponse<{ memberUuid: string; tags: CustomerTagRef[] }>>(`${this.baseUrl}/member-tags/assignments`, { memberUuid, tagIds })
+    );
   }
 
   /**

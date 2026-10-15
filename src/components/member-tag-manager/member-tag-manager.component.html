@@ -1,0 +1,103 @@
+<div class="space-y-6">
+  <!-- 新增標籤 -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <h3 class="text-lg font-semibold text-gray-800 mb-1">新增標籤</h3>
+    <p class="text-sm text-gray-500 mb-4">一位會員可以貼多個標籤，之後 LINE 推播可以依標籤圈選對象（例如 #音樂會、#品酒）。</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">標籤名稱</label>
+        <input type="text" [(ngModel)]="newName" maxlength="20" placeholder="例如：音樂會" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50" (keydown.enter)="createTag()">
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-sm text-gray-600 mb-1">說明（選填）</label>
+        <input type="text" [(ngModel)]="newDescription" placeholder="例如：參加過音樂會、對音樂活動有興趣的客人" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+      </div>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <span class="text-sm text-gray-600 mr-1">顏色</span>
+      @for (option of colorOptions; track option.value) {
+        <button type="button" (click)="newColor.set(option.value)"
+                class="text-xs font-semibold px-2 py-1 rounded-full border-2"
+                [class]="tagClass(option.value)"
+                [class.border-gray-700]="newColor() === option.value"
+                [class.border-transparent]="newColor() !== option.value">{{ option.label }}</button>
+      }
+    </div>
+    <div class="mt-4 flex items-center gap-3">
+      <span class="text-sm text-gray-500">預覽：</span>
+      <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="tagClass(newColor())">#{{ newName().trim().replace('#', '') || '標籤名稱' }}</span>
+      <button type="button" (click)="createTag()" [disabled]="isSaving()" class="ml-auto bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50">新增標籤</button>
+    </div>
+  </div>
+
+  <!-- 標籤清單 -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">會員分類標籤</h3>
+
+    @if (errorMessage()) {
+      <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm">{{ errorMessage() }}</div>
+    }
+
+    @if (isLoading()) {
+      <p class="text-sm text-gray-500">載入中...</p>
+    } @else if (tags().length === 0) {
+      <p class="text-sm text-gray-500">還沒有任何標籤。</p>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-gray-500 border-b">
+              <th class="py-2 pr-2 w-20">順序</th>
+              <th class="py-2 pr-4">標籤</th>
+              <th class="py-2 pr-4">說明</th>
+              <th class="py-2 pr-4 text-right">會員數</th>
+              <th class="py-2 pr-4">最後修改</th>
+              <th class="py-2 text-right w-32">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tag of tags(); track tag.id; let i = $index, first = $first, last = $last) {
+              <tr class="border-b last:border-0 align-top">
+                <td class="py-3 pr-2 whitespace-nowrap">
+                  <button type="button" (click)="move(i, -1)" [disabled]="first || isSaving()" class="text-gray-500 hover:text-gray-800 disabled:opacity-30" title="往上"><ion-icon name="chevron-up-outline"></ion-icon></button>
+                  <button type="button" (click)="move(i, 1)" [disabled]="last || isSaving()" class="text-gray-500 hover:text-gray-800 disabled:opacity-30 ml-1" title="往下"><ion-icon name="chevron-down-outline"></ion-icon></button>
+                </td>
+                @if (editingId() === tag.id) {
+                  <td class="py-3 pr-4" colspan="2">
+                    <div class="space-y-2">
+                      <input type="text" [(ngModel)]="editName" maxlength="20" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+                      <input type="text" [(ngModel)]="editDescription" placeholder="說明（選填）" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+                      <div class="flex flex-wrap gap-2">
+                        @for (option of colorOptions; track option.value) {
+                          <button type="button" (click)="editColor.set(option.value)"
+                                  class="text-xs font-semibold px-2 py-1 rounded-full border-2"
+                                  [class]="tagClass(option.value)"
+                                  [class.border-gray-700]="editColor() === option.value"
+                                  [class.border-transparent]="editColor() !== option.value">{{ option.label }}</button>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                } @else {
+                  <td class="py-3 pr-4 whitespace-nowrap"><span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="tagClass(tag.color)">#{{ tag.name }}</span></td>
+                  <td class="py-3 pr-4 text-gray-600">{{ tag.description || '-' }}</td>
+                }
+                <td class="py-3 pr-4 text-right">{{ tag.memberCount }}</td>
+                <td class="py-3 pr-4 text-gray-500 whitespace-nowrap">{{ tag.updatedAt || '-' }}<br><span class="text-xs">{{ tag.updatedBy || '' }}</span></td>
+                <td class="py-3 text-right whitespace-nowrap">
+                  @if (editingId() === tag.id) {
+                    <button type="button" (click)="saveEdit(tag)" [disabled]="isSaving()" class="text-indigo-600 hover:underline disabled:opacity-50">儲存</button>
+                    <button type="button" (click)="cancelEdit()" class="text-gray-500 hover:underline ml-3">取消</button>
+                  } @else {
+                    <button type="button" (click)="startEdit(tag)" [disabled]="isSaving()" class="text-indigo-600 hover:underline disabled:opacity-50">編輯</button>
+                    <button type="button" (click)="deleteTag(tag)" [disabled]="isSaving()" class="text-red-600 hover:underline ml-3 disabled:opacity-50">刪除</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

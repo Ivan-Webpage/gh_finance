@@ -3,18 +3,32 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../services/api.service';
-import type { Customer, CustomerConsumptionSummary, CustomerTransaction, BasketAnalysisResult } from '../../models/financial.model';
+import { AuthService } from '../../services/auth.service';
+import type { Customer, CustomerConsumptionSummary, CustomerTransaction, BasketAnalysisResult, MemberTag } from '../../models/financial.model';
 import { CustomerFeedback } from '../../models/financial.model';
+import { MemberTagManagerComponent } from '../member-tag-manager/member-tag-manager.component';
+import { MEMBER_TAG_EDITOR_ROLES, memberTagClass } from '../../utils/member-tags';
+
+/**
+ * 舊連結（例如儀表板「雪茄會員」卡片）的 ?category= 值 → 標籤名稱；
+ * 分類改成標籤後，regular（一般顧客）對應到「未貼標籤」。
+ */
+const LEGACY_CATEGORY_TAG_NAMES: Record<string, string> = {
+  cigar: '雪茄會員',
+  exCigar: '前雪茄會員',
+  shareholder: '股東',
+};
 
 @Component({
   selector: 'app-customer-analysis',
   templateUrl: './customer-analysis.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MemberTagManagerComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
   apiService = inject(ApiService);
+  private authService = inject(AuthService);
   private route = inject(ActivatedRoute);
   private ngZone = inject(NgZone);
 
@@ -69,9 +83,32 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
   searchTerm = signal('');
   
   /**
-    * 顧客分類篩選 (all, regular, cigar, exCigar, shareholder)
+   * 頁籤：顧客列表／會員分類標籤（後者只有超級管理員、經營管理者看得到）
+   */
+  activeTab = signal<'customers' | 'tags'>('customers');
+
+  /** 可以維護標籤、幫會員貼標籤（超級管理員、經營管理者） */
+  canManageTags = computed(() => {
+    this.authService.currentAdmin();
+    return this.authService.hasAnyRole(MEMBER_TAG_EDITOR_ROLES);
+  });
+
+  /** 會員分類標籤主檔（/api/member-tags） */
+  memberTags = signal<MemberTag[]>([]);
+
+  /** 從網址帶進來、等標籤載入後才能換成 tag id 的標籤名稱 */
+  private pendingTagFilterName: string | null = null;
+
+  readonly tagClass = memberTagClass;
+
+  /**
+   * 標籤篩選：all（全部）／untagged（未貼標籤）／標籤 id（字串）
    */
   categoryFilter = signal<string>('all');
+
+  /** 詳細資料裡正在編輯標籤時勾選的標籤 id；null＝沒有在編輯 */
+  editingTagIds = signal<Set<number> | null>(null);
+  isSavingTags = signal(false);
   /** LINE 連結狀態篩選：all／linked（已連結）／unlinked（尚未連結） */
   lineFilter = signal<string>('all');
 
@@ -163,8 +200,11 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     
     // 按分類篩選
     const category = this.categoryFilter();
-    if (category !== 'all') {
-      filtered = filtered.filter(c => this.getCustomerCategory(c) === category);
+    if (category === 'untagged') {
+      filtered = filtered.filter(c => !c.tags?.length);
+    } else if (category !== 'all') {
+      const tagId = Number(category);
+      filtered = filtered.filter(c => c.tags?.some(t => t.id === tagId));
     }
 
     const line = this.lineFilter();
@@ -219,30 +259,41 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
   });
 
   /**
-   * 計算顧客統計數據
-   * 根據顧客名稱中的關鍵字分類：
-   *   - 前雪茄會員：名稱包含「EX雪茄會員」（英文大小寫不敏感）
-   *   - 雪茄會員：名稱包含「雪茄」
-   *   - 股東：名稱包含「股東」
-   *   - 一般顧客：其他
+   * 統計卡片要顯示的標籤（使用者 2026-10-15 指定只列這兩個；依標籤名稱比對，改名後卡片會消失）
+   */
+  private readonly STAT_CARD_TAG_NAMES = ['雪茄會員', '前雪茄會員'];
+
+  /**
+   * 顧客統計：總數、統計卡片標籤的會員數
    */
   customerStats = computed(() => {
     const all = this.customers();
-    const total = all.length;
-    const exCigarCount = all.filter(c => this.getCustomerCategory(c) === 'exCigar').length;
-    const cigarCount = all.filter(c => this.getCustomerCategory(c) === 'cigar').length;
-    const shareholderCount = all.filter(c => this.getCustomerCategory(c) === 'shareholder').length;
-    const regularCount = all.filter(c => this.getCustomerCategory(c) === 'regular').length;
-    return { total, exCigarCount, cigarCount, regularCount, shareholderCount };
+    const tagCounts = new Map<number, number>();
+    for (const customer of all) {
+      for (const tag of customer.tags ?? []) {
+        tagCounts.set(tag.id, (tagCounts.get(tag.id) ?? 0) + 1);
+      }
+    }
+    return {
+      total: all.length,
+      tags: this.memberTags()
+        .filter(tag => this.STAT_CARD_TAG_NAMES.includes(tag.name))
+        .map(tag => ({ tag, count: tagCounts.get(tag.id) ?? 0 })),
+    };
   });
 
   constructor() {
     this.route.queryParamMap.subscribe(params => {
       const category = String(params.get('category') || '').trim();
-      if (category && ['all', 'regular', 'cigar', 'exCigar', 'shareholder'].includes(category)) {
-        this.categoryFilter.set(category);
+      const tagName = String(params.get('tag') || '').trim() || LEGACY_CATEGORY_TAG_NAMES[category] || null;
+      if (category === 'regular' || category === 'untagged') {
+        this.categoryFilter.set('untagged');
+      } else if (tagName) {
+        this.pendingTagFilterName = tagName;
+        this.applyPendingTagFilter();
       }
     });
+    this.loadMemberTags();
     this.loadCustomers();
     this.loadMonthlyVisitorCount();
     this.loadBasketAnalysis();
@@ -255,6 +306,83 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
       this.customerSort();
       this.visibleCustomerCount.set(this.CUSTOMER_PAGE_SIZE);
     });
+  }
+
+  /**
+   * 載入會員分類標籤（篩選下拉、統計卡片、貼標籤用）
+   */
+  async loadMemberTags(): Promise<void> {
+    try {
+      const response = await this.apiService.getMemberTags();
+      if (response.success && response.data) {
+        this.memberTags.set(response.data);
+        const current = this.categoryFilter();
+        if (current !== 'all' && current !== 'untagged' && !response.data.some(t => String(t.id) === current)) {
+          this.categoryFilter.set('all'); // 篩選中的標籤被刪掉了
+        }
+        this.applyPendingTagFilter();
+      }
+    } catch (error) {
+      console.error('Error loading member tags:', error);
+    }
+  }
+
+  /** 網址帶的標籤名稱（?tag= 或舊的 ?category=）換成標籤篩選 */
+  private applyPendingTagFilter(): void {
+    const name = this.pendingTagFilterName;
+    if (!name) return;
+    const tag = this.memberTags().find(t => t.name === name);
+    if (tag) {
+      this.categoryFilter.set(String(tag.id));
+      this.pendingTagFilterName = null;
+    }
+  }
+
+  /** 點統計卡片直接篩選該標籤 */
+  filterByTag(value: string): void {
+    this.categoryFilter.set(value);
+  }
+
+  /** 標籤管理分頁有異動：重新載入標籤與顧客（改名／改色／刪除要反映到顧客身上） */
+  async onTagsChanged(): Promise<void> {
+    await Promise.all([this.loadMemberTags(), this.loadCustomers({ silent: true })]);
+  }
+
+  startEditCustomerTags(customer: Customer): void {
+    this.editingTagIds.set(new Set((customer.tags ?? []).map(t => t.id)));
+  }
+
+  cancelEditCustomerTags(): void {
+    this.editingTagIds.set(null);
+  }
+
+  toggleEditingTag(tagId: number): void {
+    this.editingTagIds.update(current => {
+      const next = new Set(current ?? []);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
+      return next;
+    });
+  }
+
+  async saveCustomerTags(customer: Customer): Promise<void> {
+    const ids = this.editingTagIds();
+    if (!ids) return;
+    this.isSavingTags.set(true);
+    try {
+      const response = await this.apiService.setMemberTags(customer.id, Array.from(ids));
+      if (response.success && response.data) {
+        const tags = response.data.tags;
+        this.customers.update(list => list.map(c => (c.id === customer.id ? { ...c, tags } : c)));
+        this.selectedCustomer.update(c => (c && c.id === customer.id ? { ...c, tags } : c));
+        this.editingTagIds.set(null);
+      }
+    } catch (error: any) {
+      alert(error?.error?.error || '儲存標籤失敗，請稍後再試');
+      await this.loadMemberTags();
+    } finally {
+      this.isSavingTags.set(false);
+    }
   }
 
   /**
@@ -328,8 +456,8 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
    * @async
    * @returns {Promise<void>}
    */
-  async loadCustomers(): Promise<void> {
-    this.isLoading.set(true);
+  async loadCustomers(options?: { silent?: boolean }): Promise<void> {
+    if (!options?.silent) this.isLoading.set(true);
     this.errorMessage.set(null);
 
     try {
@@ -338,7 +466,14 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
       
       if (response.success && response.data && Array.isArray(response.data)) {
         // 直接使用後端返回的 Customer 對象（已正確映射）
-        this.customers.set(response.data as Customer[]);
+        const customers = response.data as Customer[];
+        this.customers.set(customers);
+        // 重新載入時，右側詳細資料也換成最新內容（例如標籤改名）
+        const selectedId = this.selectedCustomer()?.id;
+        if (selectedId) {
+          const latest = customers.find(c => c.id === selectedId);
+          if (latest) this.selectedCustomer.set(latest);
+        }
       } else {
         this.errorMessage.set(response.error || '無法取得顧客資料');
       }
@@ -357,6 +492,7 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
    */
   selectCustomer(customer: Customer): void {
     this.selectedCustomer.set(customer);
+    this.editingTagIds.set(null);
     this.consumptionSummary.set(null);
     this.expandedConsumptionYears.set(new Set());
     this.loadConsumptionSummary(customer.id);
@@ -369,6 +505,7 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
    */
   clearSelection(): void {
     this.selectedCustomer.set(null);
+    this.editingTagIds.set(null);
     this.customerFeedback.set([]);
     this.consumptionSummary.set(null);
     this.expandedConsumptionYears.set(new Set());
@@ -491,20 +628,6 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
 
 
   /**
-   * 根據顧客名稱中的關鍵字判斷分類
-   * 
-   * @param customer 顧客對象
-   * @returns 顧客分類 ('exCigar' | 'cigar' | 'shareholder' | 'regular')
-   */
-  getCustomerCategory(customer: Customer): string {
-    const name = customer.name || '';
-    if (/ex雪茄會員/i.test(name)) return 'exCigar';
-    if (name.includes('雪茄')) return 'cigar';
-    if (name.includes('股東')) return 'shareholder';
-    return 'regular';
-  }
-
-  /**
    * 移除顧客名稱中的分類關鍵字
    * 
    * @param customer 顧客對象
@@ -516,46 +639,6 @@ export class CustomerAnalysisComponent implements AfterViewInit, OnDestroy {
     // 移除「雪茄」和「股東」關鍵字及其後的空格
     name = name.replace(/雪茄\s*/g, '').replace(/股東\s*/g, '');
     return name.trim();
-  }
-
-  /**
-   * 根據顧客分類返回相應的 CSS 樣式類
-   * 
-   * @param customer 顧客對象
-   * @returns CSS 樣式類字符串
-   */
-  getCustomerTypeClass(customer: Customer): string {
-    const category = this.getCustomerCategory(customer);
-    switch (category) {
-      case 'exCigar':
-        return 'bg-gray-100 text-gray-800';
-      case 'cigar':
-        return 'bg-purple-100 text-purple-800';
-      case 'shareholder':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-blue-100 text-blue-800';
-    }
-  }
-
-  /**
-   * 根據分類返回顯示文字
-   * 
-   * @param customer 顧客對象
-   * @returns 顧客類型字符串
-   */
-  getCustomerType(customer: Customer): string {
-    const category = this.getCustomerCategory(customer);
-    switch (category) {
-      case 'exCigar':
-        return '前雪茄會員';
-      case 'cigar':
-        return '雪茄會員';
-      case 'shareholder':
-        return '股東';
-      default:
-        return '一般顧客';
-    }
   }
 
   /**
