@@ -1,0 +1,363 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">LINE 推播</h1>
+      <p class="text-sm text-gray-500 mt-1">依會員分類標籤發送 LINE 訊息。正式發送前一定要先測試發送給管理員。</p>
+    </div>
+    <!-- 本月用量 -->
+    <div class="bg-white rounded-xl shadow-md px-5 py-3 min-w-[16rem]">
+      <div class="flex items-center justify-between gap-4">
+        <p class="text-sm text-gray-500">本月 LINE 推播用量</p>
+        <button type="button" (click)="loadQuota()" class="text-gray-400 hover:text-gray-700" title="重新整理"><ion-icon name="refresh-outline"></ion-icon></button>
+      </div>
+      @if (quota(); as q) {
+        <p class="text-2xl font-semibold text-gray-900">
+          {{ q.used | number }}
+          <span class="text-base font-normal text-gray-500">／ {{ q.limit === null ? '無上限' : (q.limit | number) }} 則</span>
+        </p>
+        @if (q.limit !== null) {
+          <div class="mt-2 h-2 rounded-full bg-gray-100 overflow-hidden">
+            <div class="h-full" [class.bg-green-500]="q.used / q.limit < 0.8" [class.bg-red-500]="q.used / q.limit >= 0.8"
+                 [style.width.%]="q.limit ? Math.min(100, (q.used / q.limit) * 100) : 0"></div>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">剩餘 {{ (q.limit - q.used) | number }} 則（測試發送也會計入）</p>
+        }
+      } @else if (quotaError()) {
+        <p class="text-sm text-red-600 mt-1">{{ quotaError() }}</p>
+      } @else {
+        <p class="text-sm text-gray-400 mt-1">查詢中...</p>
+      }
+    </div>
+  </div>
+
+  @if (overviewError()) {
+    <div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">{{ overviewError() }}</div>
+  }
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <div class="lg:col-span-2 space-y-6">
+      <!-- 1. 訊息內容 -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">1. 訊息內容 <span class="text-sm font-normal text-gray-500">（{{ drafts().length }}／{{ MAX_MESSAGES }} 則，每位客人只算 1 則額度）</span></h3>
+          @if (drafts().length < MAX_MESSAGES) {
+            <div class="flex flex-wrap gap-2 text-sm">
+              <span class="text-gray-500 self-center">新增：</span>
+              <button type="button" (click)="addDraft('text')" class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50">文字</button>
+              <button type="button" (click)="addDraft('image')" class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50">圖片</button>
+              <button type="button" (click)="addDraft('video')" class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50">影片</button>
+              <button type="button" (click)="addDraft('flex')" class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50">Flex</button>
+            </div>
+          }
+        </div>
+
+        <div class="space-y-4">
+          @for (d of drafts(); track d.id; let i = $index, first = $first, last = $last) {
+            <div class="border border-gray-200 rounded-lg p-4">
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-gray-700">第 {{ i + 1 }} 則</span>
+                  <select [ngModel]="d.type" (ngModelChange)="updateDraft(d.id, { type: $event })" class="border-gray-300 rounded-lg text-sm p-1 bg-gray-50">
+                    <option value="text">文字</option>
+                    <option value="image">圖片</option>
+                    <option value="video">影片</option>
+                    <option value="flex">Flex Message</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-2 text-gray-500">
+                  <button type="button" (click)="moveDraft(i, -1)" [disabled]="first" class="disabled:opacity-30" title="往上"><ion-icon name="chevron-up-outline"></ion-icon></button>
+                  <button type="button" (click)="moveDraft(i, 1)" [disabled]="last" class="disabled:opacity-30" title="往下"><ion-icon name="chevron-down-outline"></ion-icon></button>
+                  <button type="button" (click)="removeDraft(d.id)" [disabled]="drafts().length === 1" class="text-red-500 disabled:opacity-30" title="刪除"><ion-icon name="trash-outline"></ion-icon></button>
+                </div>
+              </div>
+
+              @switch (d.type) {
+                @case ('text') {
+                  <textarea [ngModel]="d.text" (ngModelChange)="updateDraft(d.id, { text: $event })" rows="5" maxlength="5000"
+                            placeholder="輸入要發送的文字（可換行）" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50"></textarea>
+                  <p class="text-xs text-gray-400 text-right">{{ d.text.length }}／5000</p>
+                }
+                @case ('image') {
+                  <div class="space-y-2">
+                    <label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100">
+                      <ion-icon name="cloud-upload-outline"></ion-icon>上傳圖片（JPEG／PNG，自動壓縮）
+                      <input type="file" accept="image/jpeg,image/png" class="hidden" (change)="onImageSelected(d.id, $event)">
+                    </label>
+                    <input type="text" [ngModel]="d.originalUrl" (ngModelChange)="updateDraft(d.id, { originalUrl: $event })" placeholder="或貼圖片網址（https）" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+                    <input type="text" [ngModel]="d.previewUrl" (ngModelChange)="updateDraft(d.id, { previewUrl: $event })" placeholder="預覽圖網址（https，1MB 以內；可以跟上面同一張）" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+                  </div>
+                }
+                @case ('video') {
+                  <div class="space-y-2">
+                    <label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm cursor-pointer hover:bg-indigo-100">
+                      <ion-icon name="cloud-upload-outline"></ion-icon>上傳影片（mp4，20MB 以內，自動擷取預覽圖）
+                      <input type="file" accept="video/mp4" class="hidden" (change)="onVideoSelected(d.id, $event)">
+                    </label>
+                    <input type="text" [ngModel]="d.originalUrl" (ngModelChange)="updateDraft(d.id, { originalUrl: $event })" placeholder="或貼影片網址（https，mp4）" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+                    <input type="text" [ngModel]="d.previewUrl" (ngModelChange)="updateDraft(d.id, { previewUrl: $event })" placeholder="預覽圖網址（https，JPEG／PNG）" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+                  </div>
+                }
+                @case ('flex') {
+                  <div class="space-y-2">
+                    <input type="text" [ngModel]="d.altText" (ngModelChange)="updateDraft(d.id, { altText: $event })" maxlength="400"
+                           placeholder="通知文字（顯示在聊天列表與手機通知，必填）" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+                    <div class="flex flex-wrap gap-3 text-xs">
+                      <a href="https://developers.line.biz/flex-simulator/" target="_blank" rel="noopener" class="text-indigo-600 hover:underline">開啟 LINE Flex Message Simulator 設計 ↗</a>
+                      <button type="button" (click)="insertFlexSample(d.id)" class="text-indigo-600 hover:underline">插入範例</button>
+                      <button type="button" (click)="formatFlexJson(d.id)" class="text-indigo-600 hover:underline">整理格式</button>
+                    </div>
+                    <textarea [ngModel]="d.flexJson" (ngModelChange)="updateDraft(d.id, { flexJson: $event })" rows="12" spellcheck="false"
+                              placeholder="貼上 Flex Message Simulator 的 JSON（bubble 或 carousel）" class="w-full border-gray-300 rounded-lg text-xs p-2 bg-gray-50 font-mono"></textarea>
+                  </div>
+                }
+              }
+              @if (d.uploading) {
+                <p class="text-sm text-indigo-600 mt-2">上傳中...</p>
+              }
+              @if (d.uploadError) {
+                <p class="text-sm text-red-600 mt-2">{{ d.uploadError }}</p>
+              }
+            </div>
+          }
+        </div>
+
+        @if (built().errors.length) {
+          <ul class="mt-4 text-sm text-amber-700 bg-amber-50 rounded-lg p-3 list-disc list-inside">
+            @for (e of built().errors; track $index) { <li>{{ e }}</li> }
+          </ul>
+        }
+      </div>
+
+      <!-- 2. 發送對象 -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-800 mb-1">2. 發送對象</h3>
+        <p class="text-sm text-gray-500 mb-4">只會發給已在「LINE 用戶」頁連結 LINE、且沒有封鎖官方帳號的會員。同一位會員有多個勾選的標籤只會收到一次。</p>
+        @if (overview(); as ov) {
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            @for (tag of ov.tags; track tag.id) {
+              <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50"
+                     [class.border-indigo-400]="selectedTagIds().has(tag.id)" [class.bg-indigo-50]="selectedTagIds().has(tag.id)">
+                <input type="checkbox" [checked]="selectedTagIds().has(tag.id)" (change)="toggleTag(tag.id)" class="rounded">
+                <span class="text-xs font-semibold px-2 py-1 rounded-full" [class]="tagClass(tag.color)">#{{ tag.name }}</span>
+                <span class="text-sm text-gray-700">{{ tag.memberCount }} 人</span>
+                <span class="text-xs text-gray-500 ml-auto">LINE 可收 {{ tag.reachableMembers.length }} 人</span>
+              </label>
+            } @empty {
+              <p class="text-sm text-gray-500">還沒有會員分類標籤，請先到「顧客管理 > 會員分類標籤」建立。</p>
+            }
+          </div>
+          <div class="mt-4 p-3 rounded-lg bg-gray-50 text-sm">
+            共 <span class="text-xl font-semibold text-gray-900">{{ audience().count }}</span> 位客人會收到
+            @if (audience().duplicates > 0) {
+              <span class="text-gray-500">（已去除重複 {{ audience().duplicates }} 位）</span>
+            }
+            @if (audience().count > 0) {
+              <button type="button" (click)="showRecipientNames.set(!showRecipientNames())" class="ml-2 text-indigo-600 hover:underline">{{ showRecipientNames() ? '收合名單' : '查看名單' }}</button>
+              @if (showRecipientNames()) {
+                <p class="mt-2 text-gray-600 leading-relaxed">{{ audience().names.join('、') }}</p>
+              }
+            }
+          </div>
+        } @else {
+          <p class="text-sm text-gray-400">載入中...</p>
+        }
+      </div>
+
+      <!-- 3. 測試發送 -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-800 mb-1">3. 測試發送給管理員</h3>
+        <p class="text-sm text-gray-500 mb-4">至少勾選一位。管理員的 LINE 是透過對應的 iChef 會員找到的（會員要先在「LINE 用戶」頁連結 LINE）。</p>
+        @if (overview(); as ov) {
+          <div class="space-y-2">
+            @for (admin of ov.admins; track admin.adminId) {
+              <div class="flex flex-wrap items-center gap-3 p-3 rounded-lg border">
+                <label class="flex items-center gap-2 cursor-pointer min-w-[10rem]">
+                  <input type="checkbox" [checked]="selectedAdminIds().has(admin.adminId)" (change)="toggleAdmin(admin.adminId)" class="rounded">
+                  <span class="font-medium text-gray-800">{{ admin.name }}</span>
+                  @if (admin.adminId === ov.currentAdminId) { <span class="text-xs text-indigo-600">（我）</span> }
+                </label>
+                <span class="text-xs text-gray-500">{{ admin.roleNames.join('、') }}</span>
+                <div class="flex items-center gap-2 ml-auto text-sm">
+                  @if (admin.lineLinked && admin.lineIsFollowing !== false) {
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-800">LINE：{{ admin.lineDisplayName || '已連結' }}</span>
+                  } @else if (admin.lineLinked) {
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700">已封鎖官方帳號</span>
+                  } @else {
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800">沒有可用的 LINE</span>
+                  }
+                  <select [ngModel]="admin.memberUuid || ''" (ngModelChange)="setAdminMember(admin.adminId, $event)" class="border-gray-300 rounded-lg text-xs p-1 bg-gray-50 max-w-[12rem]" title="對應的 iChef 會員">
+                    <option value="">未對應會員</option>
+                    @for (m of ov.lineMembers; track m.memberUuid) {
+                      <option [value]="m.memberUuid">{{ m.name }}{{ m.lineDisplayName ? '（' + m.lineDisplayName + '）' : '' }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            }
+          </div>
+        }
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" (click)="sendTest()" [disabled]="isTesting() || !built().messages || selectedAdminIds().size === 0"
+                  class="bg-white border border-indigo-600 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-50 disabled:opacity-50">
+            {{ isTesting() ? '測試發送中...' : '測試發送' }}
+          </button>
+          @if (isCheckingTest()) {
+            <span class="text-sm text-gray-400">檢查測試狀態...</span>
+          } @else if (testStatus(); as t) {
+            <span class="text-sm text-green-700"><ion-icon name="checkmark-circle-outline"></ion-icon> 這份內容已於 {{ t.sentAt }} 測試發送（{{ t.sentBy }}），{{ t.expiresAt }} 前可正式發送</span>
+          } @else if (built().messages) {
+            <span class="text-sm text-amber-700">這份內容尚未測試發送（內容有修改就要重新測試）</span>
+          }
+        </div>
+        @if (testMessage()) {
+          <p class="text-sm text-gray-600 mt-2">{{ testMessage() }}</p>
+        }
+      </div>
+
+      <!-- 4. 正式發送 -->
+      <div class="bg-white p-6 rounded-xl shadow-md flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800">4. 正式發送</h3>
+          <p class="text-sm text-gray-500">發送給 {{ audience().count }} 位客人{{ audience().tagNames.length ? '（#' + audience().tagNames.join(' #') + '）' : '' }}</p>
+        </div>
+        <button type="button" (click)="openConfirm()" [disabled]="isSending()"
+                class="bg-green-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                [class.opacity-50]="!canSend()">
+          正式發送
+        </button>
+      </div>
+    </div>
+
+    <!-- LINE 畫面預覽 -->
+    <div class="lg:sticky lg:top-4">
+      <div class="mx-auto w-full max-w-[22rem] rounded-[2rem] border-8 border-gray-800 bg-gray-800 shadow-xl overflow-hidden">
+        <div class="bg-[#2b3a55] text-white text-sm px-4 py-2 flex items-center gap-2">
+          <ion-icon name="chevron-back-outline"></ion-icon><span class="font-semibold">Galaxy House</span>
+        </div>
+        <div class="bg-[#8cabd9] p-3 space-y-3 min-h-[28rem] max-h-[40rem] overflow-y-auto">
+          @for (d of drafts(); track d.id; let i = $index) {
+            <div class="flex items-start gap-2">
+              <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-[10px] flex items-center justify-center flex-shrink-0">GH</div>
+              <div class="min-w-0 flex-1">
+                @switch (d.type) {
+                  @case ('text') {
+                    <div class="inline-block max-w-[85%] bg-white rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-900 whitespace-pre-wrap break-words">{{ d.text || '（文字）' }}</div>
+                  }
+                  @case ('image') {
+                    @if (d.previewUrl || d.originalUrl) {
+                      <img [src]="d.previewUrl || d.originalUrl" alt="" class="max-w-[85%] max-h-64 rounded-xl bg-white">
+                    } @else {
+                      <div class="w-40 h-28 rounded-xl bg-white/70 flex items-center justify-center text-xs text-gray-500">（圖片）</div>
+                    }
+                  }
+                  @case ('video') {
+                    <div class="relative inline-block max-w-[85%]">
+                      @if (d.previewUrl) {
+                        <img [src]="d.previewUrl" alt="" class="max-h-64 rounded-xl bg-black">
+                      } @else {
+                        <div class="w-48 h-28 rounded-xl bg-black/70"></div>
+                      }
+                      <div class="absolute inset-0 flex items-center justify-center"><span class="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center">▶</span></div>
+                    </div>
+                  }
+                  @case ('flex') {
+                    @if (built().flexContents[i]; as fc) {
+                      <app-line-flex-preview [contents]="fc"></app-line-flex-preview>
+                    } @else {
+                      <div class="inline-block bg-white/80 rounded-xl px-3 py-2 text-xs text-gray-500">（Flex Message：JSON 正確後顯示預覽）</div>
+                    }
+                  }
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 text-center mt-2">預覽為近似畫面，實際效果以測試發送到手機為準</p>
+    </div>
+  </div>
+
+  <!-- 發送紀錄 -->
+  <div class="bg-white p-6 rounded-xl shadow-md">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">發送紀錄</h3>
+    @if (history()?.pushes?.length) {
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-gray-500 border-b">
+              <th class="py-2 pr-4">#</th>
+              <th class="py-2 pr-4">時間</th>
+              <th class="py-2 pr-4">標籤</th>
+              <th class="py-2 pr-4">內容</th>
+              <th class="py-2 pr-4 text-right">人數</th>
+              <th class="py-2 pr-4">狀態</th>
+              <th class="py-2">發送者</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of history()!.pushes; track p.pushId) {
+              <tr class="border-b last:border-0 align-top">
+                <td class="py-2 pr-4 text-gray-500">{{ p.pushId }}</td>
+                <td class="py-2 pr-4 whitespace-nowrap">{{ p.createdAt }}</td>
+                <td class="py-2 pr-4">#{{ p.tagNames.join(' #') }}</td>
+                <td class="py-2 pr-4 text-gray-600">{{ summarizeMessages(p.messages) }}</td>
+                <td class="py-2 pr-4 text-right whitespace-nowrap">{{ p.successCount }}／{{ p.recipientCount }}</td>
+                <td class="py-2 pr-4 whitespace-nowrap" [class.text-red-600]="p.status === 'failed' || p.status === 'partial'" [title]="p.error || ''">{{ statusLabel(p.status) }}</td>
+                <td class="py-2 text-gray-500">{{ p.sentBy }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-sm text-gray-500">還沒有正式發送過。</p>
+    }
+    @if (history()?.tests?.length) {
+      <details class="mt-4 text-sm">
+        <summary class="cursor-pointer text-gray-600">最近的測試發送（{{ history()!.tests.length }}）</summary>
+        <ul class="mt-2 space-y-1 text-gray-600">
+          @for (t of history()!.tests; track t.testId) {
+            <li>{{ t.sentAt }}　{{ t.adminNames.join('、') }}　{{ t.successCount > 0 ? '成功' : '失敗' }}　<span class="text-gray-400">{{ t.sentBy }}</span>
+              @if (t.error) { <span class="text-red-600">（{{ t.error }}）</span> }
+            </li>
+          }
+        </ul>
+      </details>
+    }
+  </div>
+</div>
+
+<!-- 正式發送確認 -->
+@if (showConfirm()) {
+  <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+      <h3 class="text-xl font-bold text-gray-900">確認正式發送</h3>
+      <div class="text-sm text-gray-700 space-y-2">
+        <p>共會發送給 <span class="text-2xl font-bold text-gray-900">{{ audience().count }}</span> 位客人</p>
+        <p>標籤：#{{ audience().tagNames.join(' #') }}</p>
+        @if (audience().duplicates > 0) {
+          <p class="text-gray-500">有 {{ audience().duplicates }} 位同時符合多個標籤，已去除重複，每人只會收到一次。</p>
+        }
+        <p>訊息：{{ drafts().length }} 則（每位客人算 1 則額度）</p>
+        @if (testStatus(); as t) {
+          <p class="text-green-700">已於 {{ t.sentAt }} 測試發送給管理員</p>
+        }
+        @if (quota(); as q) {
+          @if (q.limit !== null) {
+            <p [class.text-red-600]="overQuota()">發送後本月用量：{{ (q.used + audience().count) | number }}／{{ q.limit | number }} 則</p>
+            @if (overQuota()) {
+              <p class="text-red-600 font-semibold">會超過本月額度，LINE 會拒絕發送。請減少發送對象或升級方案。</p>
+            }
+          }
+        }
+        <p class="text-red-600">送出後無法收回。</p>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button type="button" (click)="showConfirm.set(false)" [disabled]="isSending()" class="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100">取消</button>
+        <button type="button" (click)="confirmSend()" [disabled]="isSending() || overQuota()" class="px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50">
+          {{ isSending() ? '發送中...' : '確定發送給 ' + audience().count + ' 位' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

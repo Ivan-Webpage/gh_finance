@@ -46,7 +46,14 @@ import type {
   LineUser,
   MemberTag,
   MemberTagColor,
-  CustomerTagRef
+  CustomerTagRef,
+  LinePushMessage,
+  LinePushOverview,
+  LinePushQuota,
+  LinePushTestStatus,
+  LinePushTestResult,
+  LinePushSendResult,
+  LinePushHistory
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -996,6 +1003,46 @@ export class ApiService {
       params = params.set('offset', options.offset.toString());
     }
     return firstValueFrom(this.http.get<any>(`${this.baseUrl}/customers`, { params }));
+  }
+
+  // --- LINE 推播 ---
+  getLinePushOverview(): Promise<ApiResponse<LinePushOverview>> {
+    return firstValueFrom(this.http.get<ApiResponse<LinePushOverview>>(`${this.baseUrl}/line-push/overview`));
+  }
+
+  getLinePushQuota(): Promise<ApiResponse<LinePushQuota>> {
+    return firstValueFrom(this.http.get<ApiResponse<LinePushQuota>>(`${this.baseUrl}/line-push/quota`));
+  }
+
+  getLinePushHistory(): Promise<ApiResponse<LinePushHistory>> {
+    return firstValueFrom(this.http.get<ApiResponse<LinePushHistory>>(`${this.baseUrl}/line-push/history`));
+  }
+
+  /** 設定管理員對應的 iChef 會員（測試發送用） */
+  setLinePushAdminMember(adminId: number, memberUuid: string | null): Promise<ApiResponse<unknown>> {
+    return firstValueFrom(this.http.put<ApiResponse<unknown>>(`${this.baseUrl}/line-push/admins`, { adminId, memberUuid }));
+  }
+
+  /** 上傳推播用的圖片／預覽圖／影片，回傳公開網址 */
+  uploadLinePushMedia(file: Blob, kind: 'image' | 'preview' | 'video', fileName: string): Promise<ApiResponse<{ id: string; url: string; byteSize: number }>> {
+    const form = new FormData();
+    form.append('file', file, fileName);
+    form.append('kind', kind);
+    return firstValueFrom(this.http.post<ApiResponse<{ id: string; url: string; byteSize: number }>>(`${this.baseUrl}/line-push/media`, form));
+  }
+
+  getLinePushTestStatus(messages: LinePushMessage[]): Promise<ApiResponse<LinePushTestStatus | null>> {
+    return firstValueFrom(this.http.post<ApiResponse<LinePushTestStatus | null>>(`${this.baseUrl}/line-push/test-status`, { messages }));
+  }
+
+  sendLinePushTest(messages: LinePushMessage[], adminIds: number[]): Promise<ApiResponse<LinePushTestResult>> {
+    return firstValueFrom(this.http.post<ApiResponse<LinePushTestResult>>(`${this.baseUrl}/line-push/test`, { messages, adminIds }));
+  }
+
+  sendLinePush(messages: LinePushMessage[], tagIds: number[], expectedRecipientCount: number): Promise<ApiResponse<LinePushSendResult>> {
+    return firstValueFrom(
+      this.http.post<ApiResponse<LinePushSendResult>>(`${this.baseUrl}/line-push/send`, { messages, tagIds, expectedRecipientCount })
+    );
   }
 
   /** 會員分類標籤清單（含每個標籤的會員數） */

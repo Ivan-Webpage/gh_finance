@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, CUSTOM_ELEMENTS_SCHEMA, E
 import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
+import { MEMBER_TAG_EDITOR_ROLES } from '../../utils/member-tags';
 
 interface NavLink {
   path?: string;
@@ -50,6 +51,7 @@ export class SidebarComponent implements OnInit {
         { path: '/customer-analysis', icon: 'people-outline', name: '顧客管理' },
         { path: '/invoice-assignments', icon: 'person-add-outline', name: '未標註發票指派' },
         { path: '/line-users', icon: 'chatbubbles-outline', name: 'LINE 用戶' },
+        { path: '/line-push', icon: 'paper-plane-outline', name: 'LINE 推播' },
       ]
     },
     {
@@ -116,6 +118,7 @@ export class SidebarComponent implements OnInit {
     }
 
     const isViewer = this.authService.hasRole('viewer');
+    const canPush = this.authService.hasAnyRole(MEMBER_TAG_EDITOR_ROLES);
     const hiddenForViewer = new Set([
       '/customer-analysis',
       '/invoice-assignments',
@@ -144,6 +147,11 @@ export class SidebarComponent implements OnInit {
           }
 
           if (isViewer && child.path && hiddenForViewer.has(child.path)) {
+            return false;
+          }
+
+          // LINE 推播只有超級管理員、經營管理者
+          if (child.path === '/line-push' && !canPush) {
             return false;
           }
 

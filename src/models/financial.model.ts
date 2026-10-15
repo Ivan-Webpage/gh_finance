@@ -1237,3 +1237,92 @@ export interface FinancialPlanTask {
   remark: string | null;
   sort_order: number;
 }
+
+// --- LINE 推播（/line-push） ---
+
+/** 送給 LINE 的訊息物件（後端 normalizeMessages 同一份格式） */
+export type LinePushMessage =
+  | { type: 'text'; text: string }
+  | { type: 'image'; originalContentUrl: string; previewImageUrl: string }
+  | { type: 'video'; originalContentUrl: string; previewImageUrl: string }
+  | { type: 'flex'; altText: string; contents: Record<string, any> };
+
+export interface LinePushTagAudience {
+  id: number;
+  name: string;
+  color: MemberTagColor;
+  memberCount: number; // 貼了這個標籤的會員數
+  reachableMembers: { memberUuid: string; name: string }[]; // 其中已連結 LINE、仍是好友的會員
+}
+
+export interface LinePushAdmin {
+  adminId: number;
+  name: string;
+  email: string;
+  roleNames: string[];
+  memberUuid: string | null;
+  memberName: string | null;
+  lineLinked: boolean;
+  lineDisplayName: string | null;
+  lineIsFollowing: boolean | null;
+}
+
+export interface LinePushOverview {
+  currentAdminId: number | null;
+  tags: LinePushTagAudience[];
+  admins: LinePushAdmin[];
+  lineMembers: { memberUuid: string; name: string; lineDisplayName: string | null }[];
+}
+
+export interface LinePushQuota {
+  type: string; // none：沒有上限；limited：有上限
+  limit: number | null;
+  used: number;
+}
+
+export interface LinePushTestStatus {
+  testId: number;
+  sentBy: string | null;
+  sentAt: string;
+  expiresAt: string;
+}
+
+export interface LinePushTestResult {
+  testId: number;
+  sentAt: string;
+  contentHash: string;
+  successCount: number;
+  results: { adminId: number; name: string; ok: boolean; error: string | null }[];
+}
+
+export interface LinePushSendResult {
+  pushId: number;
+  status: 'sent' | 'partial' | 'failed';
+  recipientCount: number;
+  successCount: number;
+  failedCount: number;
+}
+
+export interface LinePushHistory {
+  pushes: {
+    pushId: number;
+    messages: LinePushMessage[];
+    tagNames: string[];
+    recipientCount: number;
+    successCount: number;
+    failedCount: number;
+    status: 'sending' | 'sent' | 'partial' | 'failed';
+    error: string | null;
+    sentBy: string | null;
+    createdAt: string;
+  }[];
+  tests: {
+    testId: number;
+    contentHash: string;
+    successCount: number;
+    error: string | null;
+    sentBy: string | null;
+    sentAt: string;
+    adminNames: string[];
+  }[];
+}

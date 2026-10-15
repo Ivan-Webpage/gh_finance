@@ -1,0 +1,80 @@
+<div class="flex gap-2" [class.overflow-x-auto]="isCarousel()" [class.pb-1]="isCarousel()">
+  @for (bubble of bubbles(); track $index) {
+    <div class="rounded-2xl overflow-hidden bg-white shadow-sm border border-gray-200 flex flex-col" [ngStyle]="bubbleStyle(bubble)">
+      @for (section of ['header', 'hero', 'body', 'footer']; track section) {
+        @if (bubble[section]; as part) {
+          <div [ngStyle]="sectionStyle(bubble, section)">
+            @if (part.type === 'box') {
+              <div [ngStyle]="sectionPadding(section)">
+                <ng-container *ngTemplateOutlet="node; context: { $implicit: part }"></ng-container>
+              </div>
+            } @else {
+              <ng-container *ngTemplateOutlet="node; context: { $implicit: part }"></ng-container>
+            }
+          </div>
+        }
+      }
+    </div>
+  } @empty {
+    <div class="text-xs text-red-600 bg-white rounded-lg p-2">Flex 內容需要是 bubble 或 carousel</div>
+  }
+</div>
+
+<!-- 遞迴繪製元件 -->
+<ng-template #node let-n>
+  @switch (n.type) {
+    @case ('box') {
+      <div [ngStyle]="boxStyle(n)">
+        @for (child of n.contents || []; track $index; let first = $first) {
+          <div [ngStyle]="childStyle(child, n.layout || 'vertical', first, n.spacing || null)">
+            <ng-container *ngTemplateOutlet="node; context: { $implicit: child }"></ng-container>
+          </div>
+        }
+      </div>
+    }
+    @case ('text') {
+      <div [ngStyle]="textStyle(n)">
+        @if (n.contents?.length) {
+          @for (span of n.contents; track $index) {
+            <span [ngStyle]="spanStyle(span)">{{ span.text }}</span>
+          }
+        } @else {
+          {{ n.text }}
+        }
+      </div>
+    }
+    @case ('image') {
+      <div [ngStyle]="imageWrapStyle(n)">
+        <img [src]="n.url" alt="" class="w-full h-full" [style.object-fit]="imageFit(n)" [style.border-radius]="n.cornerRadius || null">
+      </div>
+    }
+    @case ('video') {
+      <div class="relative bg-black" [ngStyle]="imageWrapStyle({ size: 'full', aspectRatio: n.aspectRatio })">
+        @if (n.previewUrl) {
+          <img [src]="n.previewUrl" alt="" class="w-full h-full object-cover opacity-80">
+        }
+        <div class="absolute inset-0 flex items-center justify-center text-white text-3xl">▶</div>
+      </div>
+    }
+    @case ('button') {
+      <div class="w-full rounded-md flex items-center justify-center text-sm font-semibold px-2 truncate" [ngStyle]="buttonStyle(n)">
+        {{ n.action?.label || '按鈕' }}
+      </div>
+    }
+    @case ('separator') {
+      <div [ngStyle]="separatorStyle(n)"></div>
+    }
+    @case ('spacer') {
+      <div [ngStyle]="spacerStyle(n)"></div>
+    }
+    @case ('filler') {
+      <div></div>
+    }
+    @case ('icon') {
+      <img [src]="n.url" alt="" [ngStyle]="iconStyle(n)">
+    }
+    @default {
+      <div class="text-[10px] text-gray-400">（{{ n.type }} 無法預覽）</div>
+    }
+  }
+</ng-template>
