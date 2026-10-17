@@ -18,7 +18,6 @@
     "@angular/forms": "^20.3.34",
     "@angular/platform-browser": "^20.3.34",
     "@angular/router": "^20.3.34",
-    "@google/genai": "^1.29.1",
     "@tailwindcss/postcss": "^4.3.3",
     "chart.js": "^4.5.1",
     "ionicons": "^8.0.13",
