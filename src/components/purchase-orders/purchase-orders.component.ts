@@ -457,8 +457,11 @@ export class PurchaseOrdersComponent {
    * 後端會逐一下載+呼叫 Gemini OCR，單一請求跑太久會被平台閘道逾時中斷，
    * 瀏覽器端只看到 `status 0` 的網路錯誤，看不出真正原因。改成固定小批次
    * 呼叫、迴圈跑到全部處理完，不管積壓多少份都不會讓單一請求跑超過逾時。
+   *
+   * 2026-10-20 改成 1：Gemini 免費方案每分鐘 5 次，後端每次呼叫會間隔 12 秒，
+   * 遇到 503 還會等一下重試；5 份一批可能超過 Cloudflare 的 100 秒回應上限。
    */
-  private static readonly AI_IMPORT_BATCH_SIZE = 5;
+  private static readonly AI_IMPORT_BATCH_SIZE = 1;
 
   async runAiImport(): Promise<void> {
     if (this.isAiImporting()) return;
@@ -490,6 +493,18 @@ export class PurchaseOrdersComponent {
         mergedRows.push(...response.data.rows);
         mergedPending.push(...(response.data.pending ?? []));
         this.aiImportProgress.set({ done: mergedRows.length + mergedPending.length, total: fileIds.length });
+
+        if (response.data.quotaExhausted) {
+          // 剩下的檔案不再送出（一定會失敗），列出來讓使用者知道還沒處理，檔案仍在待掃描資料夾
+          const handled = new Set([...mergedRows, ...mergedPending].map(row => row.fileId));
+          const quotaReason = response.data.rows.find(row => !row.success)?.reason || 'Gemini 每日額度已用完';
+          for (const file of this.aiScanFiles()) {
+            if (fileIds.includes(file.id) && !handled.has(file.id)) {
+              mergedRows.push({ fileId: file.id, fileName: file.name, success: false, reason: `未處理：${quotaReason}` });
+            }
+          }
+          break;
+        }
       } catch (error) {
         console.error('Error importing purchase orders by AI:', error);
         errorMessage = this.extractApiErrorMessage(error, 'AI 匯入進貨單失敗，請稍後重試');

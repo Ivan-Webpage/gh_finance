@@ -1045,6 +1045,8 @@ export interface PurchaseOrderAiImportResult {
   pending?: PurchaseOrderAiPendingRow[];
   /** 這次請求是否因為 MAX_FILES_PER_REQUEST 而被後端截斷（還有候選檔案沒處理到）。 */
   truncated?: boolean;
+  /** Gemini 每日額度已用完，前端應停止送出後續批次。 */
+  quotaExhausted?: boolean;
 }
 
 // ========== 未來計畫 (collaboration/future-plans) ==========
