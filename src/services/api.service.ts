@@ -53,7 +53,8 @@ import type {
   LinePushTestStatus,
   LinePushTestResult,
   LinePushSendResult,
-  LinePushHistory
+  LinePushHistory,
+  FinancialStatementLedgerDetails,
 } from '../models/financial.model';
 
 export type { LedgerEntry, Vendor, GLAccount } from '../models/financial.model';
@@ -494,7 +495,7 @@ export class ApiService {
 
   createAutoDebit(payload: {
     name: string;
-    cycleType: 'monthly' | 'bimonthly' | 'semiannual' | 'yearly';
+    cycleType: 'monthly' | 'bimonthly' | 'bimonthly_odd' | 'semiannual' | 'yearly';
     monthOfYear?: number | null;
     dayOfMonth: number;
     nextRunDate?: string | null;
@@ -511,7 +512,7 @@ export class ApiService {
   updateAutoDebit(payload: {
     ruleId: number;
     name: string;
-    cycleType: 'monthly' | 'bimonthly' | 'semiannual' | 'yearly';
+    cycleType: 'monthly' | 'bimonthly' | 'bimonthly_odd' | 'semiannual' | 'yearly';
     monthOfYear?: number | null;
     dayOfMonth: number;
     nextRunDate?: string | null;
@@ -635,6 +636,25 @@ export class ApiService {
     }
 
     return response;
+  }
+
+  /**
+   * 財務報表某科目某月份的流水帳來源明細（點擊損益表／資產負債表／月營收表的月份數字時使用）
+   */
+  async getFinancialStatementLedgerDetails(
+    statement: 'income' | 'balance' | 'monthlyRevenue',
+    section: string,
+    month: string,
+    account: string
+  ): Promise<ApiResponse<FinancialStatementLedgerDetails>> {
+    const params = new HttpParams()
+      .set('statement', statement)
+      .set('section', section)
+      .set('month', month)
+      .set('account', account);
+    return firstValueFrom(
+      this.http.get<ApiResponse<FinancialStatementLedgerDetails>>(`${this.baseUrl}/financial-statements/ledger-details`, { params })
+    );
   }
 
   // ========== DATA NORMALIZATION HELPERS ==========

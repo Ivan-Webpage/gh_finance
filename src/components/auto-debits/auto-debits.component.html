@@ -7,6 +7,42 @@
     </button>
   </div>
 
+  @if (upcomingDebits().length > 0) {
+    <div class="bg-amber-50 border border-amber-300 rounded-xl p-5 space-y-3">
+      <div class="flex items-center gap-2">
+        <ion-icon name="alarm-outline" class="text-2xl text-amber-600"></ion-icon>
+        <h3 class="text-lg font-semibold text-amber-900">即將扣款提醒</h3>
+      </div>
+      <p class="text-sm text-amber-800">以下非每月的固定扣款將在一個月內扣款，請先準備資金（共 ${{ formatAmount(upcomingDebitsTotal()) }}）。扣款日當天進入本頁會自動建立流水帳，提醒隨之消失。</p>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-amber-900 border-b border-amber-200">
+              <th class="py-2 pr-4 font-medium">名稱</th>
+              <th class="py-2 pr-4 font-medium">週期</th>
+              <th class="py-2 pr-4 font-medium">扣款日</th>
+              <th class="py-2 pr-4 font-medium">剩餘天數</th>
+              <th class="py-2 pr-4 font-medium text-right">金額</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of upcomingDebits(); track item.rule.ruleId) {
+              <tr class="border-b border-amber-100 last:border-0">
+                <td class="py-2 pr-4 text-gray-900">{{ item.rule.name }}</td>
+                <td class="py-2 pr-4 text-gray-700">{{ cycleLabel(item.rule) }}</td>
+                <td class="py-2 pr-4 text-gray-900">{{ item.dueDate }}</td>
+                <td class="py-2 pr-4" [class.text-red-600]="item.daysLeft <= 7" [class.font-semibold]="item.daysLeft <= 7">
+                  {{ item.daysLeft < 0 ? '已過 ' + (-item.daysLeft) + ' 天' : item.daysLeft === 0 ? '今天' : item.daysLeft + ' 天' }}
+                </td>
+                <td class="py-2 pr-4 text-right text-gray-900">${{ formatAmount(item.rule.amount) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
   @if (isLoading()) {
     <div class="flex items-center gap-2 text-sm text-indigo-600">
       <ion-icon name="reload-outline" class="animate-spin"></ion-icon>
@@ -53,6 +89,7 @@
           <label class="block text-sm font-medium text-gray-700">週期*</label>
           <select [ngModel]="formData().cycleType" (ngModelChange)="patchForm('cycleType', $event)" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2">
             <option value="monthly">每月</option>
+            <option value="bimonthly_odd">每單月</option>
             <option value="bimonthly">每雙月</option>
             <option value="semiannual">每半年</option>
             <option value="yearly">每年</option>
@@ -63,6 +100,9 @@
           @if (formData().cycleType === 'monthly') {
             <label class="block text-sm font-medium text-gray-700">（每月）</label>
             <div class="mt-1 text-sm text-gray-500">每月固定日期自動新增流水帳</div>
+          } @else if (formData().cycleType === 'bimonthly_odd') {
+            <label class="block text-sm font-medium text-gray-700">（每單月）</label>
+            <div class="mt-1 text-sm text-gray-500">每單月（1/3/5/7/9/11 月）固定日期自動新增流水帳</div>
           } @else if (formData().cycleType === 'bimonthly') {
             <label class="block text-sm font-medium text-gray-700">（每雙月）</label>
             <div class="mt-1 text-sm text-gray-500">每雙月（2/4/6/8/10/12 月）固定日期自動新增流水帳</div>
@@ -97,6 +137,8 @@
           <div>
             @if (formData().cycleType === 'monthly') {
               <label class="block text-sm font-medium text-gray-700">每月 X 號 (1-31)*</label>
+            } @else if (formData().cycleType === 'bimonthly_odd') {
+              <label class="block text-sm font-medium text-gray-700">單月 X 號 (1-31)*</label>
             } @else if (formData().cycleType === 'bimonthly') {
               <label class="block text-sm font-medium text-gray-700">雙月 X 號 (1-31)*</label>
             } @else {
@@ -109,12 +151,12 @@
         </div>
       }
 
-      @if (formData().cycleType === 'bimonthly' || formData().cycleType === 'semiannual') {
+      @if (formData().cycleType === 'bimonthly' || formData().cycleType === 'bimonthly_odd' || formData().cycleType === 'semiannual') {
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700">下次付款日期（選填）</label>
             <input type="date" [ngModel]="formData().nextRunDate" (ngModelChange)="patchForm('nextRunDate', $event)" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 p-2" />
-            <div class="mt-1 text-xs text-gray-500">未填則會以建立/更新當天起算，往後推 {{ formData().cycleType === 'bimonthly' ? '2' : '6' }} 個月。</div>
+            <div class="mt-1 text-xs text-gray-500">未填則會以建立/更新當天起算，往後推 {{ formData().cycleType === 'semiannual' ? '6' : '2' }} 個月{{ formData().cycleType === 'bimonthly_odd' ? '（每單月會對齊到最近的單數月；手動填寫必須是單數月）' : '' }}。</div>
           </div>
         </div>
       }
@@ -240,6 +282,20 @@
           <div class="bg-white p-6 rounded-xl border text-center text-gray-500">
             <ion-icon name="repeat-outline" class="text-4xl text-gray-400"></ion-icon>
             <p class="mt-2">尚無每月扣繳規則。</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <h2 class="text-xl font-bold text-gray-900">每單月</h2>
+      <div class="space-y-4">
+        @for (rule of bimonthlyOddRules(); track rule.ruleId) {
+          <ng-container *ngTemplateOutlet="ruleCard; context: { $implicit: rule }"></ng-container>
+        } @empty {
+          <div class="bg-white p-6 rounded-xl border text-center text-gray-500">
+            <ion-icon name="repeat-outline" class="text-4xl text-gray-400"></ion-icon>
+            <p class="mt-2">尚無每單月扣繳規則。</p>
           </div>
         }
       </div>

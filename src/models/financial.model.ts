@@ -1191,6 +1191,31 @@ export interface MonthlyRevenueTable {
   rows: MonthlyRevenueTableRow[];
 }
 
+// 財務報表數字點擊後的流水帳來源明細（/api/financial-statements/ledger-details）
+export interface FinancialStatementLedgerRow {
+  entry_id: number;
+  entry_date: string;
+  item_group: string;
+  subject_name: string;
+  account_name: string;
+  gl_account_id: number | null;
+  vendor_name: string;
+  invoice_no: string;
+  description: string;
+  raw_amount: number;
+  report_amount: number;
+}
+
+export interface FinancialStatementLedgerDetails {
+  statement: string;
+  section: string;
+  month: string;
+  account: string;
+  total: number;
+  count: number;
+  rows: FinancialStatementLedgerRow[];
+}
+
 // ========== 401報表 (tax-401-reports) ==========
 
 export interface Tax401Report {

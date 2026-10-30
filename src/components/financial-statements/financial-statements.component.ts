@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal, ViewChild, ElementR
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
-import { MonthlyIncomeStatementReport, MonthlyBalanceSheetReport, AnnualSummaryReport, MonthlyDetailReport, ExpenseBreakdown, RevenueBreakdown, UnpaidBreakdown, Tax401Report, MonthlyRevenueTable, MonthlyRevenueRowKey } from '../../models/financial.model';
+import { MonthlyIncomeStatementReport, MonthlyBalanceSheetReport, AnnualSummaryReport, MonthlyDetailReport, ExpenseBreakdown, RevenueBreakdown, UnpaidBreakdown, Tax401Report, MonthlyRevenueTable, MonthlyRevenueRowKey, FinancialStatementLedgerDetails } from '../../models/financial.model';
 import { Chart } from 'chart.js/auto';
 
 type Statement = 'summary' | 'income' | 'balance' | 'monthlyRevenue' | 'tax401';
@@ -54,6 +54,13 @@ export class FinancialStatementsComponent {
   errorMessage = signal<string | null>(null);
 
   // --- Modal State ---
+  // 點擊損益表／資產負債表／月營收表的月份數字 → 該月該科目的流水帳來源
+  ledgerDetail = signal<FinancialStatementLedgerDetails | null>(null);
+  ledgerDetailTitle = signal('');
+  ledgerDetailLoading = signal(false);
+  ledgerDetailError = signal<string | null>(null);
+  isLedgerDetailOpen = signal(false);
+
   isDetailModalOpen = signal(false);
   detailModalData = signal<MonthlyDetailReport | null>(null);
 
@@ -684,6 +691,41 @@ export class FinancialStatementsComponent {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  // 月營收表只有這幾列對應得到流水帳（實際成本、小計等是計算出來的）
+  readonly ledgerDrillableRevenueRows = new Set<string>(['revenue', 'discount', 'drinksPurchase', 'diningPurchase', 'expense']);
+
+  async openLedgerDetail(
+    statement: 'income' | 'balance' | 'monthlyRevenue',
+    section: string,
+    month: string,
+    account: string
+  ): Promise<void> {
+    const [y, m] = month.split('-');
+    this.ledgerDetailTitle.set(`${y} 年 ${parseInt(m, 10)} 月｜${account}`);
+    this.ledgerDetail.set(null);
+    this.ledgerDetailError.set(null);
+    this.ledgerDetailLoading.set(true);
+    this.isLedgerDetailOpen.set(true);
+    try {
+      const response = await this.apiService.getFinancialStatementLedgerDetails(statement, section, month, account);
+      if (response.success && response.data) {
+        this.ledgerDetail.set(response.data);
+      } else {
+        this.ledgerDetailError.set(response.error || '取得流水帳明細失敗');
+      }
+    } catch (error) {
+      console.error('Error loading ledger details:', error);
+      this.ledgerDetailError.set('取得流水帳明細失敗，請稍後重試');
+    } finally {
+      this.ledgerDetailLoading.set(false);
+    }
+  }
+
+  closeLedgerDetail(): void {
+    this.isLedgerDetailOpen.set(false);
+    this.ledgerDetail.set(null);
   }
 
   closeDetailModal(): void {

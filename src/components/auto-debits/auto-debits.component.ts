@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService, type GLAccount } from '../../services/api.service';
 
-type CycleType = 'monthly' | 'bimonthly' | 'semiannual' | 'yearly';
+type CycleType = 'monthly' | 'bimonthly' | 'bimonthly_odd' | 'semiannual' | 'yearly';
 
 interface AutoDebitFormData {
   ruleId: number | null;
@@ -61,8 +61,45 @@ export class AutoDebitsComponent implements OnInit {
 
   monthlyRules = computed(() => this.rules().filter(r => r.cycleType === 'monthly'));
   bimonthlyRules = computed(() => this.rules().filter(r => r.cycleType === 'bimonthly'));
+  bimonthlyOddRules = computed(() => this.rules().filter(r => r.cycleType === 'bimonthly_odd'));
   semiannualRules = computed(() => this.rules().filter(r => r.cycleType === 'semiannual'));
   yearlyRules = computed(() => this.rules().filter(r => r.cycleType === 'yearly'));
+
+  // 非每月的扣款（每雙月/單月/半年/年）在扣款日前一個月內提醒，方便先準備資金。
+  // 進入頁面時已到期的會自動建立流水帳並推進下次日期，所以這裡只看「下一次」扣款日。
+  upcomingDebits = computed(() => {
+    const today = new Date();
+    const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    const limit = new Date(todayUtc);
+    limit.setUTCMonth(limit.getUTCMonth() + 1);
+
+    return this.rules()
+      .filter(r => r.isActive && r.cycleType !== 'monthly')
+      .map(r => ({ rule: r, dueDate: this.nextDueDate(r, today) }))
+      .filter((x): x is { rule: AutoDebitRule; dueDate: string } => x.dueDate !== null)
+      .map(x => {
+        const due = new Date(`${x.dueDate}T00:00:00.000Z`).getTime();
+        return { ...x, daysLeft: Math.round((due - todayUtc) / 86400000), dueMs: due };
+      })
+      .filter(x => x.dueMs <= limit.getTime())
+      .sort((a, b) => a.dueMs - b.dueMs);
+  });
+
+  upcomingDebitsTotal = computed(() => this.upcomingDebits().reduce((sum, x) => sum + Number(x.rule.amount || 0), 0));
+
+  private nextDueDate(rule: AutoDebitRule, today: Date): string | null {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    if (rule.cycleType === 'yearly') {
+      const month = rule.monthOfYear || 1;
+      // 今年這期已建立流水帳（含提前手動建立）就看明年
+      const year = today.getFullYear() + (rule.currentRun ? 1 : 0);
+      const day = Math.min(Math.max(rule.dayOfMonth || 1, 1), new Date(year, month, 0).getDate());
+      return `${year}-${pad(month)}-${pad(day)}`;
+    }
+    const next = String(rule.nextRunDate || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || rule.currentRun) return null;
+    return next;
+  }
 
   glAccounts = signal<GLAccount[]>([]);
 
@@ -305,7 +342,7 @@ export class AutoDebitsComponent implements OnInit {
           cycleType: f.cycleType,
           monthOfYear: f.cycleType === 'yearly' ? monthOfYear : null,
           dayOfMonth,
-          nextRunDate: (f.cycleType === 'bimonthly' || f.cycleType === 'semiannual') ? (String(f.nextRunDate || '').trim() || null) : null,
+          nextRunDate: (f.cycleType === 'bimonthly' || f.cycleType === 'bimonthly_odd' || f.cycleType === 'semiannual') ? (String(f.nextRunDate || '').trim() || null) : null,
           amount,
           itemGroup,
           subjectName,
@@ -320,7 +357,7 @@ export class AutoDebitsComponent implements OnInit {
           cycleType: f.cycleType,
           monthOfYear: f.cycleType === 'yearly' ? monthOfYear : null,
           dayOfMonth,
-          nextRunDate: (f.cycleType === 'bimonthly' || f.cycleType === 'semiannual') ? (String(f.nextRunDate || '').trim() || null) : null,
+          nextRunDate: (f.cycleType === 'bimonthly' || f.cycleType === 'bimonthly_odd' || f.cycleType === 'semiannual') ? (String(f.nextRunDate || '').trim() || null) : null,
           amount,
           itemGroup,
           subjectName,
@@ -400,6 +437,9 @@ export class AutoDebitsComponent implements OnInit {
     }
     if (rule.cycleType === 'bimonthly') {
       return `每雙月 ${rule.dayOfMonth || 1} 日`;
+    }
+    if (rule.cycleType === 'bimonthly_odd') {
+      return `每單月 ${rule.dayOfMonth || 1} 日`;
     }
     if (rule.cycleType === 'semiannual') {
       return `每半年 ${rule.dayOfMonth || 1} 日`;

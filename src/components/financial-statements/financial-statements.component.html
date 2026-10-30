@@ -244,7 +244,7 @@
                       <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem; min-width: 7rem;" [class.text-red-600]="(item.total) < 0">{{ formatSignedCurrency(item.total) }}</td>
                       <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 17rem;">{{ item.percentage?.toFixed(2) }}%</td>
                       @for(month of report.months; track month) { 
-                        <td class="py-2 px-2 text-right text-xs w-fit" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td>
+                        <td class="py-2 px-2 text-right text-xs w-fit cursor-pointer hover:underline hover:bg-indigo-50" title="查看流水帳來源" (click)="openLedgerDetail('income', 'operatingRevenue', month, item.account)" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td>
                       }
                     </tr>
                   }
@@ -270,7 +270,7 @@
                       <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem; min-width: 7rem;" [class.text-red-600]="(item.total) < 0">{{ formatSignedCurrency(item.total) }}</td>
                       <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 17rem;">{{ item.percentage?.toFixed(2) }}%</td>
                       @for(month of report.months; track month) { 
-                        <td class="py-2 px-2 text-right text-xs w-fit" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td>
+                        <td class="py-2 px-2 text-right text-xs w-fit cursor-pointer hover:underline hover:bg-indigo-50" title="查看流水帳來源" (click)="openLedgerDetail('income', 'operatingExpenses', month, item.account)" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td>
                       }
                     </tr>
                   }
@@ -322,7 +322,7 @@
                       <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
                       <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem; min-width: 7rem;" [class.text-red-600]="(item.total) < 0">{{ formatSignedCurrency(item.total) }}</td>
                       <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 17rem;">{{ item.percentage?.toFixed(2) }}%</td>
-                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td> }
+                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit cursor-pointer hover:underline hover:bg-indigo-50" title="查看流水帳來源" (click)="openLedgerDetail('balance', 'assets', month, item.account)" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td> }
                     </tr>
                   }
                   <tr class="font-semibold text-gray-900 bg-gray-50 border-t-2 border-gray-200">
@@ -342,7 +342,7 @@
                       <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
                       <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem; min-width: 7rem;" [class.text-red-600]="(item.total) < 0">{{ formatSignedCurrency(item.total) }}</td>
                       <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 17rem;">{{ item.percentage?.toFixed(2) }}%</td>
-                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td> }
+                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit cursor-pointer hover:underline hover:bg-indigo-50" title="查看流水帳來源" (click)="openLedgerDetail('balance', 'liabilities', month, item.account)" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td> }
                     </tr>
                   }
                   <tr class="font-semibold text-gray-900 border-t-2 border-gray-200">
@@ -362,7 +362,7 @@
                       <td class="py-2 px-2 sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 4rem;">{{ item.account }}</td>
                       <td class="py-2 px-2 text-right tabular-nums font-medium sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 10rem; min-width: 7rem;" [class.text-red-600]="(item.total) < 0">{{ formatSignedCurrency(item.total) }}</td>
                       <td class="py-2 px-2 text-right tabular-nums sticky bg-white hover:bg-gray-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style="left: 17rem;">{{ item.percentage?.toFixed(2) }}%</td>
-                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td> }
+                      @for(month of report.months; track month) { <td class="py-2 px-2 text-right text-xs w-fit cursor-pointer hover:underline hover:bg-indigo-50" title="查看流水帳來源" (click)="openLedgerDetail('balance', 'equity', month, item.account)" [class.text-red-600]="(item.monthlyAmounts[month] || 0) < 0">{{ formatSignedCurrency(item.monthlyAmounts[month] || 0) }}</td> }
                     </tr>
                   }
                   <tr class="font-semibold text-gray-900 border-t-2 border-gray-200">
@@ -412,7 +412,11 @@
                     </td>
                     <td class="py-2 px-4 text-right font-semibold" [class.text-red-600]="(row.total) < 0">{{ formatSignedCurrency(row.total) }}</td>
                     @for (month of table.months; track month) {
-                      <td class="py-2 px-4 text-right" [class.text-red-600]="(row.monthlyAmounts[month]) < 0">{{ formatSignedCurrency(row.monthlyAmounts[month]) }}</td>
+                      @if (ledgerDrillableRevenueRows.has(row.key)) {
+                        <td class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-indigo-50" title="查看流水帳來源" (click)="openLedgerDetail('monthlyRevenue', row.key, month, row.label)" [class.text-red-600]="(row.monthlyAmounts[month]) < 0">{{ formatSignedCurrency(row.monthlyAmounts[month]) }}</td>
+                      } @else {
+                        <td class="py-2 px-4 text-right" [class.text-red-600]="(row.monthlyAmounts[month]) < 0">{{ formatSignedCurrency(row.monthlyAmounts[month]) }}</td>
+                      }
                     }
                   </tr>
                 }
@@ -535,6 +539,69 @@
             <button type="submit" [disabled]="tax401Saving()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">儲存</button>
           </div>
         </form>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Ledger Detail Modal：點擊月份數字後顯示的流水帳來源 -->
+@if (isLedgerDetailOpen()) {
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" (click)="closeLedgerDetail()">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col" (click)="$event.stopPropagation()">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h3 class="text-lg font-semibold">
+          {{ ledgerDetailTitle() }} 流水帳明細
+          @if (ledgerDetail(); as d) {
+            <span class="text-sm font-normal text-gray-500 ml-2">共 {{ d.count }} 筆，合計 {{ formatSignedCurrency(d.total) }}</span>
+          }
+        </h3>
+        <button (click)="closeLedgerDetail()" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
+          <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+        </button>
+      </div>
+      <div class="p-4 overflow-auto">
+        @if (ledgerDetailLoading()) {
+          <div class="text-center py-8 text-gray-500">載入中…</div>
+        } @else if (ledgerDetailError()) {
+          <div class="text-center py-8 text-red-600">{{ ledgerDetailError() }}</div>
+        } @else if (ledgerDetail(); as d) {
+          @if (d.rows.length === 0) {
+            <div class="text-center py-8 text-gray-500">這個月份沒有對應的流水帳。</div>
+          } @else {
+            <table class="w-full text-sm text-left">
+              <thead class="text-xs text-gray-700 bg-gray-50 sticky top-0">
+                <tr>
+                  <th class="py-2 px-3 whitespace-nowrap">日期</th>
+                  <th class="py-2 px-3 whitespace-nowrap">編號</th>
+                  <th class="py-2 px-3 whitespace-nowrap">項目／科目</th>
+                  <th class="py-2 px-3 whitespace-nowrap">廠商</th>
+                  <th class="py-2 px-3 whitespace-nowrap">發票號碼</th>
+                  <th class="py-2 px-3">說明</th>
+                  <th class="py-2 px-3 text-right whitespace-nowrap">金額</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of d.rows; track row.entry_id) {
+                  <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-2 px-3 whitespace-nowrap">{{ row.entry_date }}</td>
+                    <td class="py-2 px-3 whitespace-nowrap text-gray-500">#{{ row.entry_id }}</td>
+                    <td class="py-2 px-3 whitespace-nowrap">{{ row.item_group }}／{{ row.subject_name }}</td>
+                    <td class="py-2 px-3">{{ row.vendor_name || '-' }}</td>
+                    <td class="py-2 px-3 whitespace-nowrap">{{ row.invoice_no || '-' }}</td>
+                    <td class="py-2 px-3 text-gray-600">{{ row.description || '-' }}</td>
+                    <td class="py-2 px-3 text-right tabular-nums whitespace-nowrap" [class.text-red-600]="row.report_amount < 0">{{ formatSignedCurrency(row.report_amount) }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="font-semibold bg-gray-50">
+                  <td class="py-2 px-3" colspan="6">合計</td>
+                  <td class="py-2 px-3 text-right tabular-nums" [class.text-red-600]="d.total < 0">{{ formatSignedCurrency(d.total) }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          }
         }
       </div>
     </div>
