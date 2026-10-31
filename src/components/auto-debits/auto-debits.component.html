@@ -228,6 +228,13 @@
             <span class="font-medium">科目：</span>
             <span>{{ rule.subjectName }}</span>
           </div>
+          @if (rule.currentLoanSchedule; as loan) {
+            <div class="text-sm text-blue-700 mt-1">
+              本月第 {{ loan.periodNo }} 期：利息 ${{ formatAmount(loan.interest) }} ＋ 本金 ${{ formatAmount(loan.principal) }}
+              = ${{ formatAmount(loan.interest + loan.principal) }}
+              <span class="mx-2">•</span>還款後剩餘本金 ${{ formatAmount(loan.remainingBalance) }}
+            </div>
+          }
           @if (rule.remark) {
             <div class="text-sm text-gray-500 mt-1">備註：{{ rule.remark }}</div>
           }

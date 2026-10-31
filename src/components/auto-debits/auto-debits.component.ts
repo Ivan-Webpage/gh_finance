@@ -40,6 +40,12 @@ interface AutoDebitRule {
     ledgerEntryId: number | null;
     isSighOff: boolean | null;
   } | null;
+  currentLoanSchedule?: {
+    periodNo: number;
+    interest: number;
+    principal: number;
+    remainingBalance: number;
+  } | null;
 }
 
 @Component({
@@ -400,13 +406,24 @@ export class AutoDebitsComponent implements OnInit {
     if (rule.currentRun) return;
     if (!rule.isActive) return;
 
-    const rawAmount = prompt(`建立帳務 - ${rule.name}\n請輸入本期扣繳金額`, String(rule.amount ?? ''));
-    if (rawAmount === null) return;
+    // 貸款依攤還表入帳（利息＋本金減項），不輸入金額
+    const loan = rule.currentLoanSchedule;
+    let amount: number | undefined;
+    if (loan) {
+      const ok = confirm(
+        `建立帳務 - ${rule.name}\n第 ${loan.periodNo} 期：利息 $${this.formatAmount(loan.interest)} ＋ 本金 $${this.formatAmount(loan.principal)}` +
+          `\n本金會記為「負債／銀行借款」減項`
+      );
+      if (!ok) return;
+    } else {
+      const rawAmount = prompt(`建立帳務 - ${rule.name}\n請輸入本期扣繳金額`, String(rule.amount ?? ''));
+      if (rawAmount === null) return;
 
-    const amount = Number(String(rawAmount).trim());
-    if (!Number.isFinite(amount) || amount === 0) {
-      this.error.set('金額格式不正確（不可為 0）');
-      return;
+      amount = Number(String(rawAmount).trim());
+      if (!Number.isFinite(amount) || amount === 0) {
+        this.error.set('金額格式不正確（不可為 0）');
+        return;
+      }
     }
 
     this.processing.set(true);
