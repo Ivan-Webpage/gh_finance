@@ -561,7 +561,7 @@
             <div class="border-t pt-4">
               <span class="text-gray-700 text-sm font-medium">對應商品</span>
               <p class="text-xs text-gray-400 mt-0.5 mb-2">連結到「酒水成本」或「餐飲食材」的一筆商品，之後在那邊的分頁可以看到這筆貨單當「最近進貨價」參考。AI 匯入時若品名完全相符會自動連好，這裡可以手動修正或清除。</p>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <label class="block">
                   <span class="text-gray-700 text-sm">對應類型</span>
                   <select
@@ -571,6 +571,19 @@
                     <option [ngValue]="null">未對應</option>
                     <option value="wine">酒水</option>
                     <option value="ingredient">食材</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-gray-700 text-sm">廠商</span>
+                  <select
+                    [ngModel]="linkVendorFilter()"
+                    (ngModelChange)="linkVendorFilter.set($event)"
+                    [disabled]="!editingShipmentItem().productType"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm bg-white p-2 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                    <option value="">全部廠商</option>
+                    @for(v of linkVendorOptionsForType(editingShipmentItem().productType); track v.key) {
+                      <option [value]="v.key">{{ v.label }}（{{ v.count }}）</option>
+                    }
                   </select>
                 </label>
                 <label class="block">

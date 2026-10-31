@@ -80,7 +80,23 @@
           </div>
         }
       </div>
-    } @else {
+
+      @if (totalPages() > 1) {
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl shadow-md px-4 py-3 text-sm">
+          <span class="text-gray-500">共 {{ totalCount() }} 筆，第 {{ currentPage() }} / {{ totalPages() }} 頁</span>
+          <div class="flex items-center gap-2">
+            <button type="button" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() <= 1 || loading()" class="px-3 py-1.5 border rounded-md flex items-center gap-1 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+              <span>上一頁</span>
+            </button>
+            <button type="button" (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() >= totalPages() || loading()" class="px-3 py-1.5 border rounded-md flex items-center gap-1 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+              <span>下一頁</span>
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      }
+    } @else if (!loading()) {
       <div class="bg-white p-6 rounded-xl shadow-md text-center text-gray-500">
         尚無佈達事項，點擊按鈕來建立第一筆紀錄。
       </div>

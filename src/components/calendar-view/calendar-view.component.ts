@@ -105,6 +105,17 @@ export class CalendarViewComponent {
     this.emitMonthChange();
   }
 
+  /** 由外部（例如年月篩選器）直接切到指定月份，格式 YYYY-MM */
+  goToMonth(yearMonth: string): void {
+    const [year, month] = yearMonth.split('-').map(part => parseInt(part, 10));
+    if (!year || !month) return;
+    const current = this.currentDate();
+    if (current.getFullYear() === year && current.getMonth() === month - 1) return;
+    this.currentDate.set(new Date(year, month - 1, 1));
+    this.loadHolidays();
+    this.emitMonthChange();
+  }
+
   nextMonth(): void {
     this.currentDate.update(d => {
       const newDate = new Date(d);

@@ -459,6 +459,10 @@ export class DashboardComponent {
   toggleAnnouncement(index: number): void {
     this.expandedAnnouncementIndex.update(current => (current === index ? null : index));
   }
+
+  goToDecisionLog(): void {
+    this.router.navigate(['/decision-log']);
+  }
   dashboardAnnouncementsLoading = signal(false);
   dashboardAnnouncementsError = signal<string | null>(null);
 
@@ -739,7 +743,8 @@ export class DashboardComponent {
     this.dashboardAnnouncementsError.set(null);
 
     try {
-      const response = await this.apiService.getCollaborationAnnouncements();
+      // 只抓最近 3 筆，其餘到「重大事項佈達」頁面看
+      const response = await this.apiService.getCollaborationAnnouncements({ page: 1, limit: 3 });
       if (!response.success || !response.data) {
         throw new Error(response.error || '載入重大事項佈達失敗');
       }
@@ -753,7 +758,7 @@ export class DashboardComponent {
         })
         .filter(row => row.date || row.finalDecision)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 5);
+        .slice(0, 3);
 
       this.dashboardAnnouncements.set(mapped);
     } catch (error: any) {

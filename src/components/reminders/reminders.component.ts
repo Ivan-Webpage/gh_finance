@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, CUSTOM_ELEMENTS_SCHEMA, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CalendarViewComponent } from '../calendar-view/calendar-view.component';
 import { ApiService } from '../../services/api.service';
@@ -14,7 +15,7 @@ interface MonthRange {
   selector: 'app-reminders',
   templateUrl: './reminders.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink, CalendarViewComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CalendarViewComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class RemindersComponent {
@@ -26,7 +27,9 @@ export class RemindersComponent {
   remindersLoading = signal(false);
   remindersErrorMessage = signal<string | null>(null);
 
-  private month = signal<string>(this.formatYearMonth(new Date()));
+  @ViewChild(CalendarViewComponent) private calendarView?: CalendarViewComponent;
+
+  readonly month = signal<string>(this.formatYearMonth(new Date()));
   private loadingMonth = signal<string | null>(null);
   private lastLoadedMonth = signal<string | null>(null);
 
@@ -59,8 +62,112 @@ export class RemindersComponent {
     return [...this.monthEvents(), ...remindersAsEvents];
   });
 
+  // ===== 年月篩選器（跟日曆的上一月／下一月同步） =====
+  readonly monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  selectedYear = computed(() => parseInt(this.month().split('-')[0], 10));
+  selectedMonth = computed(() => parseInt(this.month().split('-')[1], 10));
+
+  yearOptions = computed(() => {
+    const thisYear = new Date().getFullYear();
+    const years = new Set<number>();
+    for (let y = thisYear - 3; y <= thisYear + 2; y++) years.add(y);
+    years.add(this.selectedYear());
+    return Array.from(years).sort((a, b) => a - b);
+  });
+
+  isCurrentMonth = computed(() => this.month() === this.formatYearMonth(new Date()));
+
+  // ===== 編輯事項 =====
+  editingReminder = signal<ReminderEntry | null>(null);
+  editDate = signal('');
+  editTime = signal('');
+  editCategory = signal('');
+  editEvent = signal('');
+  editStatus = signal<'pending' | 'active' | 'cancelled'>('pending');
+  editSaving = signal(false);
+  editErrorMessage = signal<string | null>(null);
+
   constructor() {
     void this.loadMonth(this.month());
+  }
+
+  selectYearMonth(year: number, month: number): void {
+    const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
+    if (this.calendarView) {
+      // 日曆切換後會發出 monthChange，再由 onMonthChange 載入資料
+      this.calendarView.goToMonth(yearMonth);
+    } else {
+      void this.onMonthChange(yearMonth);
+    }
+  }
+
+  goToCurrentMonth(): void {
+    const now = new Date();
+    this.selectYearMonth(now.getFullYear(), now.getMonth() + 1);
+  }
+
+  openEdit(item: ReminderEntry): void {
+    this.editingReminder.set(item);
+    this.editDate.set(item.date);
+    this.editTime.set(item.time || '');
+    this.editCategory.set(item.category || '');
+    this.editEvent.set(item.event);
+    const status = item.status;
+    this.editStatus.set(status === 'active' || status === 'cancelled' ? status : 'pending');
+    this.editErrorMessage.set(null);
+  }
+
+  closeEdit(): void {
+    if (this.editSaving()) return;
+    this.editingReminder.set(null);
+  }
+
+  async saveEdit(): Promise<void> {
+    const target = this.editingReminder();
+    if (!target || this.editSaving()) return;
+
+    const payload = {
+      id: target.id,
+      date: this.editDate(),
+      time: this.editTime().trim() || undefined,
+      category: this.editCategory().trim() || undefined,
+      event: this.editEvent().trim(),
+      status: this.editStatus(),
+    };
+
+    if (!payload.date) {
+      this.editErrorMessage.set('日期為必填');
+      return;
+    }
+    if (!payload.event) {
+      this.editErrorMessage.set('事件為必填');
+      return;
+    }
+
+    this.editSaving.set(true);
+    this.editErrorMessage.set(null);
+    try {
+      const response = await this.apiService.updateReminder(payload);
+      if (!response.success) {
+        this.editErrorMessage.set(response.error || '修改失敗');
+        return;
+      }
+
+      // 日期可能被改到別的月份，直接重新載入目前月份，列表與日曆一起更新
+      await this.loadMonth(this.month());
+
+      if (response.data?.googleSyncStatus === 'failed') {
+        this.editErrorMessage.set(`修改成功，但 Google Calendar 同步失敗：${response.data.googleSyncError || '未知錯誤'}`);
+        return;
+      }
+
+      this.editingReminder.set(null);
+    } catch (error: any) {
+      this.editErrorMessage.set(error?.error?.error || error?.message || '修改失敗');
+    } finally {
+      this.editSaving.set(false);
+    }
   }
 
   async onMonthChange(yearMonth: string): Promise<void> {

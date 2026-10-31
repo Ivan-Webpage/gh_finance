@@ -49,8 +49,35 @@ export class DecisionLogComponent {
   @ViewChild('rationaleArea') rationaleAreaRef?: ElementRef<HTMLElement>;
   @ViewChild('finalDecisionArea') finalDecisionAreaRef?: ElementRef<HTMLElement>;
 
+  // 分頁：每頁 10 筆，換頁時才向後端抓該頁資料
+  readonly pageSize = 10;
+  currentPage = signal(1);
+  totalPages = signal(1);
+  totalCount = signal(0);
+
   constructor() {
+    this.loadEmployees();
     this.loadDecisions();
+  }
+
+  private async loadEmployees(): Promise<void> {
+    try {
+      const employeeRes = await this.apiService.getEmployeeInfo();
+      if (employeeRes.success && employeeRes.data) {
+        this.employees.set((employeeRes.data as any[]).map((emp: any) => ({
+          id: Number(emp.id),
+          name: emp.employee_name,
+        })));
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  goToPage(page: number): void {
+    if (page < 1 || page > this.totalPages() || page === this.currentPage() || this.loading()) return;
+    this.expandedDecisionId.set(null);
+    this.loadDecisions(page);
   }
 
   private parseContent(content: string): { background: string; content: string; rationale: string; finalDecision: string } {
@@ -132,25 +159,27 @@ export class DecisionLogComponent {
     this.decisionForm.get('stakeholders')?.updateValueAndValidity();
   }
 
-  async loadDecisions(): Promise<void> {
+  async loadDecisions(page: number = this.currentPage()): Promise<void> {
     this.loading.set(true);
     try {
-      const [announceRes, employeeRes] = await Promise.all([
-        this.apiService.getCollaborationAnnouncements(),
-        this.apiService.getEmployeeInfo(),
-      ]);
-
-      if (employeeRes.success && employeeRes.data) {
-        this.employees.set((employeeRes.data as any[]).map((emp: any) => ({
-          id: Number(emp.id),
-          name: emp.employee_name,
-        })));
-      }
-
-      const response = announceRes;
+      let response = await this.apiService.getCollaborationAnnouncements({ page, limit: this.pageSize });
       if (!response.success || !response.data) {
         throw new Error(response.error || '載入重大事項失敗');
       }
+
+      // 刪除後該頁變空（例如最後一頁只剩一筆），退回到最後一個有資料的頁
+      const lastPage = Math.max(1, Number(response.pagination?.totalPages) || 1);
+      if (page > lastPage) {
+        page = lastPage;
+        response = await this.apiService.getCollaborationAnnouncements({ page, limit: this.pageSize });
+        if (!response.success || !response.data) {
+          throw new Error(response.error || '載入重大事項失敗');
+        }
+      }
+
+      this.currentPage.set(page);
+      this.totalPages.set(lastPage);
+      this.totalCount.set(Number(response.pagination?.total) || 0);
 
       const mapped: Decision[] = (response.data as any[]).map((item: any) => {
         const contentFields = this.parseContent(item.content || '');
@@ -179,9 +208,8 @@ export class DecisionLogComponent {
     }
   }
 
-  sortedDecisions = computed(() => {
-    return this.decisions().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  });
+  // 後端已依佈達時間遞減排序並分頁，這裡不再重排
+  sortedDecisions = computed(() => this.decisions());
 
   decisionForm = this.fb.group({
     date: ['', Validators.required],
@@ -246,7 +274,8 @@ export class DecisionLogComponent {
         if (!response.success) throw new Error(response.error || '新增失敗');
       }
 
-      await this.loadDecisions();
+      // 新增後回到第 1 頁（最新的在最前面）；編輯則停在目前這頁
+      await this.loadDecisions(editing ? this.currentPage() : 1);
       this.closeModal();
     } catch (error: any) {
       alert(error?.message || '儲存失敗');

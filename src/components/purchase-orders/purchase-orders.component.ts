@@ -660,11 +660,69 @@ export class PurchaseOrdersComponent {
     }
   }
 
-  /** 依「對應類型」回傳可選商品清單，供「對應商品」下拉選單使用 */
-  productLinkOptionsForType(type: 'wine' | 'ingredient' | null): { id: number; name: string }[] {
-    if (type === 'wine') return this.allWineCostsForLink().map(w => ({ id: Number(w.id), name: w.productName }));
-    if (type === 'ingredient') return this.allIngredientsForLink().map(i => ({ id: Number(i.id), name: i.ingredientName }));
+  /** 「對應商品」的廠商篩選（值為 vendorKey()，空字串＝全部廠商） */
+  linkVendorFilter = signal('');
+
+  /** 商品的廠商識別：有 vendorId 用 id，舊資料只有文字就用名稱，都沒有歸到「未填廠商」 */
+  private vendorKey(vendorId: number | null | undefined, vendorName: string | null | undefined): string {
+    if (vendorId !== null && vendorId !== undefined && Number.isFinite(Number(vendorId))) return `id:${Number(vendorId)}`;
+    const name = String(vendorName || '').trim();
+    return name ? `name:${name}` : 'none';
+  }
+
+  /** 依「對應類型」回傳所有可選商品（含廠商資訊） */
+  private allLinkProductsForType(type: 'wine' | 'ingredient' | null): { id: number; name: string; vendorKey: string; vendorName: string }[] {
+    if (type === 'wine') {
+      return this.allWineCostsForLink().map(w => ({
+        id: Number(w.id), name: w.productName, vendorKey: this.vendorKey(w.vendorId, w.vendor), vendorName: String(w.vendor || '').trim(),
+      }));
+    }
+    if (type === 'ingredient') {
+      return this.allIngredientsForLink().map(i => ({
+        id: Number(i.id), name: i.ingredientName, vendorKey: this.vendorKey(i.vendorId, i.vendor), vendorName: String(i.vendor || '').trim(),
+      }));
+    }
     return [];
+  }
+
+  /** 「廠商」下拉選單：只列出這個對應類型底下真的有商品的廠商 */
+  linkVendorOptionsForType(type: 'wine' | 'ingredient' | null): { key: string; label: string; count: number }[] {
+    const map = new Map<string, { key: string; label: string; count: number }>();
+    for (const p of this.allLinkProductsForType(type)) {
+      const existing = map.get(p.vendorKey);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(p.vendorKey, { key: p.vendorKey, label: p.vendorKey === 'none' ? '（未填廠商）' : p.vendorName, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.key === 'none') return 1;
+      if (b.key === 'none') return -1;
+      return a.label.localeCompare(b.label, 'zh-Hant');
+    });
+  }
+
+  /** 依「對應類型」＋「廠商」回傳可選商品清單，供「商品」下拉選單使用 */
+  productLinkOptionsForType(type: 'wine' | 'ingredient' | null): { id: number; name: string }[] {
+    const vendorFilter = this.linkVendorFilter();
+    const selectedId = this.editingShipmentItem()?.productId ?? null;
+    return this.allLinkProductsForType(type)
+      // 目前已選的商品就算不屬於篩選的廠商也保留，避免下拉選單顯示成「請選擇」而誤以為被清掉
+      .filter(p => !vendorFilter || p.vendorKey === vendorFilter || p.id === selectedId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'))
+      .map(p => ({ id: p.id, name: vendorFilter || !p.vendorName ? p.name : `${p.name}（${p.vendorName}）` }));
+  }
+
+  /** 預設篩選：已對應就選該商品的廠商；未對應就選這張進貨單的廠商（該類型底下有這家廠商的商品才選） */
+  private defaultLinkVendorFilter(item: ShipmentItem): string {
+    const products = this.allLinkProductsForType(item.productType);
+    if (item.productId !== null) {
+      const linked = products.find(p => p.id === Number(item.productId));
+      if (linked) return linked.vendorKey;
+    }
+    const shipmentVendorKey = this.vendorKey(item.vendorId, item.vendorName);
+    return products.some(p => p.vendorKey === shipmentVendorKey) ? shipmentVendorKey : '';
   }
 
   /** 切換「對應類型」時，先前選的商品不一定還存在於新類型清單裡，一併清空 */
@@ -673,6 +731,7 @@ export class PurchaseOrdersComponent {
     if (!item) return;
     item.productType = newType === '' ? null : newType;
     item.productId = null;
+    this.linkVendorFilter.set(this.defaultLinkVendorFilter(item));
   }
 
   /**
@@ -683,6 +742,7 @@ export class PurchaseOrdersComponent {
     this.productLinkError.set(null);
     // 複製一份，避免使用者在對應區塊按了「取消」之後，list 裡的物件已經被 ngModel 直接改到
     this.editingShipmentItem.set({ ...item });
+    this.linkVendorFilter.set(this.defaultLinkVendorFilter(item));
     this.isEditModalOpen.set(true);
   }
 

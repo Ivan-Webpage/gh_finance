@@ -1000,6 +1000,20 @@ export class ApiService {
     return firstValueFrom(this.http.post<ApiResponse<{ id: string; googleSyncStatus?: 'disabled' | 'success' | 'failed'; googleEventId?: string | null; googleSyncError?: string | null }>>(`${this.baseUrl}/reminders`, payload));
   }
 
+  /**
+   * 修改事項提醒（已同步過 Google Calendar 的會一併更新該行程）
+   */
+  updateReminder(payload: {
+    id: string;
+    date: string;
+    time?: string;
+    category?: string;
+    event: string;
+    status?: 'active' | 'pending' | 'cancelled';
+  }): Promise<ApiResponse<{ id: string; googleSyncStatus?: 'disabled' | 'success' | 'failed'; googleEventId?: string | null; googleSyncError?: string | null }>> {
+    return firstValueFrom(this.http.put<ApiResponse<{ id: string; googleSyncStatus?: 'disabled' | 'success' | 'failed'; googleEventId?: string | null; googleSyncError?: string | null }>>(`${this.baseUrl}/reminders`, payload));
+  }
+
   // ========== CUSTOMER API METHODS (顧客管理) ==========
 
   /**
@@ -2786,8 +2800,12 @@ export class ApiService {
     return firstValueFrom(this.http.delete<ApiResponse<any>>(`${this.baseUrl}/collaboration/meetings`, { params }));
   }
 
-  getCollaborationAnnouncements(): Promise<ApiResponse<any>> {
-    return firstValueFrom(this.http.get<ApiResponse<any>>(`${this.baseUrl}/collaboration/announcements`));
+  getCollaborationAnnouncements(paging?: { page: number; limit: number }): Promise<ApiResponse<any>> {
+    let params = new HttpParams();
+    if (paging) {
+      params = params.set('page', String(paging.page)).set('limit', String(paging.limit));
+    }
+    return firstValueFrom(this.http.get<ApiResponse<any>>(`${this.baseUrl}/collaboration/announcements`, { params }));
   }
 
   createCollaborationAnnouncement(data: {
