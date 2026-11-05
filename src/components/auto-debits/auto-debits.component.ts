@@ -65,11 +65,16 @@ export class AutoDebitsComponent implements OnInit {
 
   rules = signal<AutoDebitRule[]>([]);
 
-  monthlyRules = computed(() => this.rules().filter(r => r.cycleType === 'monthly'));
-  bimonthlyRules = computed(() => this.rules().filter(r => r.cycleType === 'bimonthly'));
-  bimonthlyOddRules = computed(() => this.rules().filter(r => r.cycleType === 'bimonthly_odd'));
-  semiannualRules = computed(() => this.rules().filter(r => r.cycleType === 'semiannual'));
-  yearlyRules = computed(() => this.rules().filter(r => r.cycleType === 'yearly'));
+  // 各週期區塊只列啟用中的規則；已停用的集中到頁面最下方的摺疊區塊（預設收合）。
+  activeRules = computed(() => this.rules().filter(r => r.isActive));
+  inactiveRules = computed(() => this.rules().filter(r => !r.isActive));
+  showInactive = signal(false);
+
+  monthlyRules = computed(() => this.activeRules().filter(r => r.cycleType === 'monthly'));
+  bimonthlyRules = computed(() => this.activeRules().filter(r => r.cycleType === 'bimonthly'));
+  bimonthlyOddRules = computed(() => this.activeRules().filter(r => r.cycleType === 'bimonthly_odd'));
+  semiannualRules = computed(() => this.activeRules().filter(r => r.cycleType === 'semiannual'));
+  yearlyRules = computed(() => this.activeRules().filter(r => r.cycleType === 'yearly'));
 
   // 非每月的扣款（每雙月/單月/半年/年）在扣款日前一個月內提醒，方便先準備資金。
   // 進入頁面時已到期的會自動建立流水帳並推進下次日期，所以這裡只看「下一次」扣款日。
