@@ -986,6 +986,29 @@ export class ShareholderRebatesComponent {
     }
   }
 
+  async unverifyMonthlyShareholder(summary: MonthlySummaryRow): Promise<void> {
+    if (!confirm(`確定要撤銷 ${summary.employee_name} (${this.formatYearMonth(summary.due_month)}) 的核對嗎？
+撤銷後可依目前明細重新核對。`)) {
+      return;
+    }
+    try {
+      const response = await this.apiService.unverifyShareholderRebate(
+        summary.employee_id,
+        this.selectedYear(),
+        this.selectedMonth(),
+      );
+      if (response.success) {
+        alert('已撤銷核對');
+        await this.loadMonthlySummary();
+      } else {
+        alert('撤銷失敗: ' + (response.error || '未知錯誤'));
+      }
+    } catch (error: any) {
+      console.error('Error unverifying monthly rebate:', error);
+      alert('撤銷失敗: ' + (error?.error?.error || error?.message || '未知錯誤'));
+    }
+  }
+
   async releaseMonthlyShareholder(summary: MonthlySummaryRow): Promise<void> {
     // 開啟發放確認 Modal
     this.openReleaseModal(summary);

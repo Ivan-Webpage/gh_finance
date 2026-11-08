@@ -2421,6 +2421,17 @@ export class ApiService {
     );
   }
 
+  /** 撤銷尚未發放的回饋金核銷 */
+  unverifyShareholderRebate(employeeId: number, year: number, month: number): Promise<ApiResponse<any>> {
+    const params = new HttpParams()
+      .set('employee_id', String(employeeId))
+      .set('year', String(year))
+      .set('month', String(month));
+    return firstValueFrom(
+      this.http.delete<ApiResponse<any>>(`${this.baseUrl}/shareholder-rebates/verify`, { params })
+    );
+  }
+
   /**
    * 發放股東回饋金
    * 
