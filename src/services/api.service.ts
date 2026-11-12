@@ -1014,6 +1014,13 @@ export class ApiService {
     return firstValueFrom(this.http.put<ApiResponse<{ id: string; googleSyncStatus?: 'disabled' | 'success' | 'failed'; googleEventId?: string | null; googleSyncError?: string | null }>>(`${this.baseUrl}/reminders`, payload));
   }
 
+  /**
+   * 刪除事項提醒（已同步過 Google Calendar 的會一併刪除該行程）
+   */
+  deleteReminder(id: string): Promise<ApiResponse<{ id: string; googleSyncStatus?: 'disabled' | 'success' | 'failed'; googleSyncError?: string | null }>> {
+    return firstValueFrom(this.http.delete<ApiResponse<{ id: string; googleSyncStatus?: 'disabled' | 'success' | 'failed'; googleSyncError?: string | null }>>(`${this.baseUrl}/reminders`, { params: { id } }));
+  }
+
   // ========== CUSTOMER API METHODS (顧客管理) ==========
 
   /**

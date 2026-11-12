@@ -170,6 +170,33 @@ export class RemindersComponent {
     }
   }
 
+  async deleteReminder(): Promise<void> {
+    const target = this.editingReminder();
+    if (!target || this.editSaving()) return;
+    if (!confirm(`確定要刪除「${target.date} ${target.event}」嗎？\n已同步到 Google 日曆的行程也會一起刪除。`)) return;
+
+    this.editSaving.set(true);
+    this.editErrorMessage.set(null);
+    try {
+      const response = await this.apiService.deleteReminder(target.id);
+      if (!response.success) {
+        this.editErrorMessage.set(response.error || '刪除失敗');
+        return;
+      }
+
+      await this.loadMonth(this.month());
+      this.editingReminder.set(null);
+
+      if (response.data?.googleSyncStatus === 'failed') {
+        alert(`已刪除，但 Google 日曆的行程刪除失敗，請到 Google 日曆手動刪除：${response.data.googleSyncError || '未知錯誤'}`);
+      }
+    } catch (error: any) {
+      this.editErrorMessage.set(error?.error?.error || error?.message || '刪除失敗');
+    } finally {
+      this.editSaving.set(false);
+    }
+  }
+
   async onMonthChange(yearMonth: string): Promise<void> {
     this.month.set(yearMonth);
     if (this.loadingMonth() === yearMonth) {
