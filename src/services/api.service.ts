@@ -621,7 +621,7 @@ export class ApiService {
    * @param type 明細類型 (revenue: 收入, expense: 支出, unpaid: 未付)
    * @returns Promise<ApiResponse<MonthlyDetailReport>>
    */
-  async getFinancialStatementsDetails(year: number, type: 'revenue' | 'expense' | 'unpaid'): Promise<ApiResponse<MonthlyDetailReport>> {
+  async getFinancialStatementsDetails(year: number, type: 'revenue' | 'expense' | 'unpaid' | 'cash'): Promise<ApiResponse<MonthlyDetailReport>> {
     const params = new HttpParams()
       .set('year', year.toString())
       .set('type', type);
@@ -757,6 +757,7 @@ export class ApiService {
     return {
       year: report.year,
       type: report.type,
+      openingCash: report.openingCash !== undefined ? this.parseNumeric(report.openingCash) : undefined,
       data: normalizedData
     };
   }

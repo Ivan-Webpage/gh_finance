@@ -210,56 +210,56 @@
                   <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-8">＋ 股東入資<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'ownerContribution')" (mouseleave)="hideHelp()"></ion-icon></td>
                     @for (year of summary.years; track year) {
-                      <td class="py-2 px-4 text-right text-gray-800">{{ formatCurrency(summary.cashEstimate.ownerContribution[year]) }}</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100 text-gray-800">{{ formatCurrency(summary.cashEstimate.ownerContribution[year]) }}</td>
                     }
                     <td class="py-2 px-4 text-right font-semibold text-gray-800">{{ formatCurrency(summary.cashEstimate.ownerContribution.total) }}</td>
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-8">＋ 貸款淨額<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'loanNet')" (mouseleave)="hideHelp()"></ion-icon></td>
                     @for (year of summary.years; track year) {
-                      <td class="py-2 px-4 text-right text-gray-800">{{ formatCurrency(summary.cashEstimate.loanNet[year]) }}</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100 text-gray-800">{{ formatCurrency(summary.cashEstimate.loanNet[year]) }}</td>
                     }
                     <td class="py-2 px-4 text-right font-semibold text-gray-800">{{ formatCurrency(summary.cashEstimate.loanNet.total) }}</td>
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-8">＋ 總計（上方）</td>
                     @for (year of summary.years; track year) {
-                      <td class="py-2 px-4 text-right" [class.text-red-600]="summary.net[year] < 0">{{ formatCurrency(summary.net[year]) }}</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100" [class.text-red-600]="summary.net[year] < 0">{{ formatCurrency(summary.net[year]) }}</td>
                     }
                     <td class="py-2 px-4 text-right font-semibold" [class.text-red-600]="summary.net.total < 0">{{ formatCurrency(summary.net.total) }}</td>
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-8">− 資本支出<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'capitalExpenditure')" (mouseleave)="hideHelp()"></ion-icon></td>
                     @for (year of summary.years; track year) {
-                      <td class="py-2 px-4 text-right text-red-600">({{ formatCurrency(summary.cashEstimate.capitalExpenditure[year]) }})</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100 text-red-600">({{ formatCurrency(summary.cashEstimate.capitalExpenditure[year]) }})</td>
                     }
                     <td class="py-2 px-4 text-right font-semibold text-red-600">({{ formatCurrency(summary.cashEstimate.capitalExpenditure.total) }})</td>
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-14 text-sm">營業設備</td>
                     @for (year of summary.years; track year) {
-                      <td class="py-2 px-4 text-right text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.equipment[year]) }})</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100 text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.equipment[year]) }})</td>
                     }
                     <td class="py-2 px-4 text-right font-semibold text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.equipment.total) }})</td>
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-14 text-sm">押金</td>
                     @for (year of summary.years; track year) {
-                      <td class="py-2 px-4 text-right text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.deposit[year]) }})</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100 text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.deposit[year]) }})</td>
                     }
                     <td class="py-2 px-4 text-right font-semibold text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.deposit.total) }})</td>
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-14 text-sm">裝潢</td>
                     @for (year of summary.years; track year) {
-                      <td class="py-2 px-4 text-right text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.renovation[year]) }})</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100 text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.renovation[year]) }})</td>
                     }
                     <td class="py-2 px-4 text-right font-semibold text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.renovation.total) }})</td>
                   </tr>
                   <tr class="border-b-2 border-gray-200 bg-emerald-50 font-bold">
                     <td class="py-3 px-4">＝ 年底推算現金</td>
                     @for (year of summary.years; track year) {
-                      <td class="py-3 px-4 text-right" [class.text-red-600]="cumulativeTo(cash.estimatedCash, summary.years, year) < 0">{{ formatCurrency(cumulativeTo(cash.estimatedCash, summary.years, year)) }}</td>
+                      <td (click)="openDetailModal(year, 'cash')" class="py-3 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100" [class.text-red-600]="cumulativeTo(cash.estimatedCash, summary.years, year) < 0">{{ formatCurrency(cumulativeTo(cash.estimatedCash, summary.years, year)) }}</td>
                     }
                     <td class="py-3 px-4 text-right" [class.text-red-600]="cash.estimatedCash.total < 0">{{ formatCurrency(cash.estimatedCash.total) }}</td>
                   </tr>
@@ -689,7 +689,13 @@
     @if(detailModalData(); as modal) {
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col m-4">
         <div class="flex justify-between items-center p-4 border-b">
-          <h3 class="text-lg font-semibold">{{ modal.year }} 年 {{ modal.type }}明細 (總計: {{ formatCurrency(detailModalTotal()) }})</h3>
+          <h3 class="text-lg font-semibold">
+            @if (modal.type === '現金推算') {
+              {{ modal.year }} 年 現金推算明細（年初 {{ formatCurrency(modal.openingCash ?? 0) }}，當年增減 {{ formatCurrency(detailModalTotal()) }}）
+            } @else {
+              {{ modal.year }} 年 {{ modal.type }}明細 (總計: {{ formatCurrency(detailModalTotal()) }})
+            }
+          </h3>
           <button (click)="closeDetailModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
             <ion-icon name="close-outline" class="text-2xl"></ion-icon>
           </button>
@@ -730,6 +736,16 @@
                     <th class="px-4 py-2 text-right">應付薪資</th>
                     <th class="px-4 py-2 text-right">應付股東回饋金</th>
                     <th class="px-4 py-2 text-right">應付雪茄進貨</th>
+                  </tr>
+                } @else if (modal.type === '現金推算') {
+                  <tr>
+                    <th class="px-4 py-2">月份</th>
+                    <th class="px-4 py-2 text-right">當月增減</th>
+                    <th class="px-4 py-2 text-right">＋股東入資</th>
+                    <th class="px-4 py-2 text-right">＋貸款淨額</th>
+                    <th class="px-4 py-2 text-right">＋收支總計</th>
+                    <th class="px-4 py-2 text-right">−資本支出</th>
+                    <th class="px-4 py-2 text-right">月底推算現金</th>
                   </tr>
                 } @else {
                   <!-- 其他類型明細表格 -->
@@ -780,6 +796,18 @@
                       <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '應付雪茄進貨')) }}</td>
                     </tr>
                   }
+                } @else if (modal.type === '現金推算') {
+                  @for(row of modal.data; track row.month) {
+                    <tr class="border-b hover:bg-gray-50">
+                      <td class="px-4 py-2 font-medium">{{ row.month }}月</td>
+                      <td class="px-4 py-2 text-right font-semibold" [class.text-red-600]="row.total < 0">{{ formatCurrency(row.total) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatCurrency(getDetailItemAmount(row, '股東入資')) }}</td>
+                      <td class="px-4 py-2 text-right" [class.text-red-600]="getDetailItemAmount(row, '貸款淨額') < 0">{{ formatCurrency(getDetailItemAmount(row, '貸款淨額')) }}</td>
+                      <td class="px-4 py-2 text-right" [class.text-red-600]="getDetailItemAmount(row, '收支總計') < 0">{{ formatCurrency(getDetailItemAmount(row, '收支總計')) }}</td>
+                      <td class="px-4 py-2 text-right text-red-600">({{ formatCurrency(getDetailItemAmount(row, '資本支出')) }})</td>
+                      <td class="px-4 py-2 text-right font-semibold bg-emerald-50" [class.text-red-600]="getDetailItemAmount(row, '月底推算現金') < 0">{{ formatCurrency(getDetailItemAmount(row, '月底推算現金')) }}</td>
+                    </tr>
+                  }
                 } @else {
                   <!-- 其他類型明細表格內容 -->
                   @for(row of modal.data; track row.month) {
@@ -824,6 +852,16 @@
                     <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付薪資')) }}</td>
                     <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付股東回饋金')) }}</td>
                     <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('應付雪茄進貨')) }}</td>
+                  </tr>
+                } @else if (modal.type === '現金推算') {
+                  <tr class="border-t-2">
+                    <td class="px-4 py-3">小計</td>
+                    <td class="px-4 py-3 text-right" [class.text-red-600]="detailModalTotal() < 0">{{ formatCurrency(detailModalTotal()) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('股東入資')) }}</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(calculateMonthlyItemTotal('貸款淨額')) }}</td>
+                    <td class="px-4 py-3 text-right" [class.text-red-600]="calculateMonthlyItemTotal('收支總計') < 0">{{ formatCurrency(calculateMonthlyItemTotal('收支總計')) }}</td>
+                    <td class="px-4 py-3 text-right text-red-600">({{ formatCurrency(calculateMonthlyItemTotal('資本支出')) }})</td>
+                    <td class="px-4 py-3 text-right">{{ formatCurrency(getDetailItemAmount(modal.data[11], '月底推算現金')) }}</td>
                   </tr>
                 } @else {
                   <!-- 其他類型明細小計 -->

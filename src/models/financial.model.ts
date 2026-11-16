@@ -107,6 +107,7 @@ export interface CashEstimate {
 export type MonthlyDetailReport = {
   year: number;
   type: string;
+  openingCash?: number; // 現金推算：當年 1 月 1 日之前累計的推算現金
   data: Array<{
     month: number;
     total: number;

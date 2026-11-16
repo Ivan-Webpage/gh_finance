@@ -722,7 +722,7 @@ export class FinancialStatementsComponent {
    * @param year 年度
    * @param type 明細類型 (revenue: 收入, expense: 支出, unpaid: 未付)
    */
-  async openDetailModal(year: number, type: 'revenue' | 'expense' | 'unpaid'): Promise<void> {
+  async openDetailModal(year: number, type: 'revenue' | 'expense' | 'unpaid' | 'cash'): Promise<void> {
     this.isLoading.set(true);
     this.errorMessage.set(null);
     
