@@ -51,6 +51,41 @@ export class FinancialStatementsComponent {
   monthlyIncomeStatement = signal<MonthlyIncomeStatementReport | null>(null);
   monthlyBalanceSheet = signal<MonthlyBalanceSheetReport | null>(null);
   isLoading = signal(false);
+
+  /** 「?」說明浮動提示（position: fixed，避免被表格的 overflow 裁掉） */
+  helpTip = signal<{ text: string; x: number; y: number } | null>(null);
+  readonly helpTexts: Record<string, string> = {
+    revenue: `來源：流水帳（finance.ledger_entries），依分錄日期的年份加總。
+條件：會計科目類型為「收入」、非抵銷科目、且金額為正數的分錄（例如銷貨收入、其他收入）。
+點年份金額可看逐月的銷貨收入／其他收入／銷貨折讓。`,
+    salesDiscount: `來源：流水帳，科目名稱為「-銷或折讓」的分錄，取絕對值後依年份加總。
+這是收入的減項，計算總計時會從收入扣除。`,
+    expense: `來源：流水帳，依年份加總以下兩類分錄的絕對值：
+1. 商品：科目為存貨-餐飲、存貨-酒水、存貨-雪茄
+2. 雜項變動：項目為「營業費用」的所有科目
+注意：取絕對值，負數的退貨／扣回分錄也會被加總為支出。
+點年份金額可看逐月的商品／雜項變動。`,
+    net: `計算：收入 − 銷貨折讓 − 支出。
+這是以流水帳收支粗估的現金式結果，不等於損益表的本期損益（損益表依會計科目分類）。`,
+    unpaid: `來源：流水帳，項目為「負債」、且科目不是「銀行借款」的分錄，依年份加總（保留正負號）。
+包含應付帳款、應付裝潢款、應付薪資、應付股東回饋金、應付雪茄進貨等。
+點年份金額可看逐月各應付科目。`,
+    merchandise: `商品：流水帳中科目為「存貨-餐飲」「存貨-酒水」「存貨-雪茄」的分錄，取絕對值後依月份加總。
+代表當月的進貨支出（不是實際耗用成本）。`,
+    miscellaneous: `雜項變動：流水帳中項目為「營業費用」的分錄，取絕對值後依月份加總。
+包含薪資支出、健保費、勞保費、回饋金支出、租金、水電瓦斯、貸款利息、保全費、交通費、其他費用、營業稅等所有營業費用科目。`,
+  };
+
+  showHelp(event: MouseEvent, key: string): void {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const width = 320;
+    const x = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    this.helpTip.set({ text: this.helpTexts[key] ?? '', x, y: rect.bottom + 6 });
+  }
+
+  hideHelp(): void {
+    this.helpTip.set(null);
+  }
   errorMessage = signal<string | null>(null);
 
   // --- Modal State ---

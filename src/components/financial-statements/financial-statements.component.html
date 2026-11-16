@@ -155,7 +155,7 @@
                 <!-- 收入總行 - 點擊各年份金額打開該年度明細模態框 -->
                 <tr class="border-b border-gray-100 bg-blue-50 font-semibold">
                   <td class="py-3 px-4 text-gray-800">
-                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>收入
+                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>收入<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'revenue')" (mouseleave)="hideHelp()"></ion-icon>
                   </td>
                   @for (year of summary.years; track year) {
                     <td class="py-3 px-4 text-right font-medium text-blue-600 cursor-pointer hover:underline hover:bg-blue-100" (click)="openDetailModal(year, 'revenue')">{{ formatCurrency(summary.revenue[year]) }}</td>
@@ -167,7 +167,7 @@
                 @if (summary.salesDiscount) {
                   <tr class="border-b border-gray-100 bg-red-50">
                     <td class="py-3 px-4 text-gray-800 pl-8">
-                      <ion-icon name="remove-circle-outline" class="align-middle mr-2 text-red-500"></ion-icon>-銷貨折讓
+                      <ion-icon name="remove-circle-outline" class="align-middle mr-2 text-red-500"></ion-icon>-銷貨折讓<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'salesDiscount')" (mouseleave)="hideHelp()"></ion-icon>
                     </td>
                     @for (year of summary.years; track year) {
                       <td class="py-3 px-4 text-right font-medium text-red-600">
@@ -183,7 +183,7 @@
                 <!-- 支出總行 - 點擊各年份金額打開該年度明細模態框 -->
                 <tr class="border-b border-gray-100 bg-red-50 font-semibold">
                   <td class="py-3 px-4 text-gray-800">
-                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>支出
+                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>支出<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'expense')" (mouseleave)="hideHelp()"></ion-icon>
                   </td>
                   @for (year of summary.years; track year) {
                     <td class="py-3 px-4 text-right font-medium text-red-600 cursor-pointer hover:underline hover:bg-red-100" (click)="openDetailModal(year, 'expense')">{{ formatCurrency(summary.expense[year]) }}</td>
@@ -193,7 +193,7 @@
                 
                 <!-- 總計行 -->
                 <tr class="border-b-2 border-gray-200 bg-gray-50 font-bold">
-                  <td class="py-3 px-4">總計</td>
+                  <td class="py-3 px-4">總計<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'net')" (mouseleave)="hideHelp()"></ion-icon></td>
                   @for (year of summary.years; track year) {
                     <td class="py-3 px-4 text-right" [class.text-red-600]="summary.net[year] < 0">{{ formatCurrency(summary.net[year]) }}</td>
                   }
@@ -203,7 +203,7 @@
                 <!-- 未付總行 - 點擊各年份金額打開該年度明細模態框 -->
                 <tr class="border-b border-gray-100 bg-orange-50 font-semibold">
                   <td class="py-3 px-4 text-gray-800">
-                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>未付
+                    <ion-icon name="folder-open-outline" class="align-middle mr-2"></ion-icon>未付<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'unpaid')" (mouseleave)="hideHelp()"></ion-icon>
                   </td>
                   @for (year of summary.years; track year) {
                     <td class="py-3 px-4 text-right font-medium text-orange-600 cursor-pointer hover:underline hover:bg-orange-100" (click)="openDetailModal(year, 'unpaid')">{{ formatCurrency(summary.unpaid[year]) }}</td>
@@ -642,8 +642,8 @@
                   <tr>
                     <th class="px-4 py-2">月份</th>
                     <th class="px-4 py-2 text-right">總計金額</th>
-                    <th class="px-4 py-2 text-right">商品</th>
-                    <th class="px-4 py-2 text-right">雜項變動</th>
+                    <th class="px-4 py-2 text-right normal-case">商品<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'merchandise')" (mouseleave)="hideHelp()"></ion-icon></th>
+                    <th class="px-4 py-2 text-right normal-case">雜項變動<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'miscellaneous')" (mouseleave)="hideHelp()"></ion-icon></th>
                   </tr>
                 } @else if (modal.type === '未付') {
                   <!-- 未付明細表格 -->
@@ -768,4 +768,10 @@
       </div>
     }
   </div>
+}
+
+<!-- 「?」說明浮動提示 -->
+@if (helpTip(); as tip) {
+  <div class="fixed z-[60] w-80 bg-gray-800 text-white text-xs leading-relaxed rounded-lg shadow-lg px-3 py-2 whitespace-pre-line pointer-events-none normal-case font-normal"
+       [style.left.px]="tip.x" [style.top.px]="tip.y">{{ tip.text }}</div>
 }
