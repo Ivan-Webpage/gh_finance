@@ -85,6 +85,20 @@ export interface AnnualSummaryReport {
   net: Record<number, number> & { total: number };
   unpaid: Record<number, number> & { total: number };
   unpaidBreakdown?: UnpaidBreakdown; // 未付詳細分類（可選，用於顯示各種未付款項）
+  cashEstimate?: CashEstimate; // 現金推算（業主存入＋貸款淨額＋總計−資本支出）
+}
+
+/** 總表的現金推算（每年為當年增減，total 為累計） */
+export interface CashEstimate {
+  ownerContribution: Record<number, number> & { total: number }; // 業主存入
+  loanNet: Record<number, number> & { total: number }; // 銀行借款（撥款 − 已還本金）
+  capitalExpenditure: Record<number, number> & { total: number }; // 資本支出合計
+  capitalBreakdown: {
+    equipment: Record<number, number> & { total: number }; // 營業設備
+    deposit: Record<number, number> & { total: number }; // 押金
+    renovation: Record<number, number> & { total: number }; // 裝潢
+  };
+  estimatedCash: Record<number, number> & { total: number }; // 當年現金增減
 }
 
 /**

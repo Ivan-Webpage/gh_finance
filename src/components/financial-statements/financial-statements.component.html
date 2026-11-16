@@ -200,6 +200,71 @@
                   <td class="py-3 px-4 text-right" [class.text-red-600]="summary.net.total < 0">{{ formatCurrency(summary.net.total) }}</td>
                 </tr>
                 
+                <!-- 現金推算：未付不計入（依使用者記帳規則，成本與資產只含已付金額） -->
+                @if (summary.cashEstimate; as cash) {
+                  <tr class="bg-emerald-50 font-semibold border-t-2 border-gray-200">
+                    <td class="py-3 px-4 text-gray-800" [attr.colspan]="summary.years.length + 2">
+                      <ion-icon name="wallet-outline" class="align-middle mr-2"></ion-icon>現金推算<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'cashEstimate')" (mouseleave)="hideHelp()"></ion-icon>
+                    </td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 px-4 text-gray-700 pl-8">＋ 股東入資<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'ownerContribution')" (mouseleave)="hideHelp()"></ion-icon></td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right text-gray-800">{{ formatCurrency(summary.cashEstimate.ownerContribution[year]) }}</td>
+                    }
+                    <td class="py-2 px-4 text-right font-semibold text-gray-800">{{ formatCurrency(summary.cashEstimate.ownerContribution.total) }}</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 px-4 text-gray-700 pl-8">＋ 貸款淨額<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'loanNet')" (mouseleave)="hideHelp()"></ion-icon></td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right text-gray-800">{{ formatCurrency(summary.cashEstimate.loanNet[year]) }}</td>
+                    }
+                    <td class="py-2 px-4 text-right font-semibold text-gray-800">{{ formatCurrency(summary.cashEstimate.loanNet.total) }}</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 px-4 text-gray-700 pl-8">＋ 總計（上方）</td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right" [class.text-red-600]="summary.net[year] < 0">{{ formatCurrency(summary.net[year]) }}</td>
+                    }
+                    <td class="py-2 px-4 text-right font-semibold" [class.text-red-600]="summary.net.total < 0">{{ formatCurrency(summary.net.total) }}</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 px-4 text-gray-700 pl-8">− 資本支出<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'capitalExpenditure')" (mouseleave)="hideHelp()"></ion-icon></td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right text-red-600">({{ formatCurrency(summary.cashEstimate.capitalExpenditure[year]) }})</td>
+                    }
+                    <td class="py-2 px-4 text-right font-semibold text-red-600">({{ formatCurrency(summary.cashEstimate.capitalExpenditure.total) }})</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 px-4 text-gray-700 pl-14 text-sm">營業設備</td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.equipment[year]) }})</td>
+                    }
+                    <td class="py-2 px-4 text-right font-semibold text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.equipment.total) }})</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 px-4 text-gray-700 pl-14 text-sm">押金</td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.deposit[year]) }})</td>
+                    }
+                    <td class="py-2 px-4 text-right font-semibold text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.deposit.total) }})</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="py-2 px-4 text-gray-700 pl-14 text-sm">裝潢</td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.renovation[year]) }})</td>
+                    }
+                    <td class="py-2 px-4 text-right font-semibold text-gray-500">({{ formatCurrency(summary.cashEstimate.capitalBreakdown.renovation.total) }})</td>
+                  </tr>
+                  <tr class="border-b-2 border-gray-200 bg-emerald-50 font-bold">
+                    <td class="py-3 px-4">＝ 年底推算現金</td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-3 px-4 text-right" [class.text-red-600]="cumulativeTo(cash.estimatedCash, summary.years, year) < 0">{{ formatCurrency(cumulativeTo(cash.estimatedCash, summary.years, year)) }}</td>
+                    }
+                    <td class="py-3 px-4 text-right" [class.text-red-600]="cash.estimatedCash.total < 0">{{ formatCurrency(cash.estimatedCash.total) }}</td>
+                  </tr>
+                }
+
                 <!-- 未付總行 - 點擊各年份金額打開該年度明細模態框 -->
                 <tr class="border-b border-gray-100 bg-orange-50 font-semibold">
                   <td class="py-3 px-4 text-gray-800">
@@ -210,6 +275,16 @@
                   }
                   <td class="py-3 px-4 text-right font-bold hover:underline">{{ formatCurrency(summary.unpaid.total) }}</td>
                 </tr>
+
+                @if (summary.cashEstimate; as cash) {
+                  <tr class="border-b border-gray-200 bg-yellow-50 font-bold">
+                    <td class="py-3 px-4">扣除未付後<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'cashAfterUnpaid')" (mouseleave)="hideHelp()"></ion-icon></td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-3 px-4 text-right" [class.text-red-600]="cumulativeTo(cash.estimatedCash, summary.years, year) - cumulativeTo(summary.unpaid, summary.years, year) < 0">{{ formatCurrency(cumulativeTo(cash.estimatedCash, summary.years, year) - cumulativeTo(summary.unpaid, summary.years, year)) }}</td>
+                    }
+                    <td class="py-3 px-4 text-right" [class.text-red-600]="cash.estimatedCash.total - summary.unpaid.total < 0">{{ formatCurrency(cash.estimatedCash.total - summary.unpaid.total) }}</td>
+                  </tr>
+                }
               </tbody>
             </table>
           } @else {

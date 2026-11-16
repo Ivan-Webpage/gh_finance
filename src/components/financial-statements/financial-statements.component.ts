@@ -70,11 +70,27 @@ export class FinancialStatementsComponent {
     unpaid: `來源：流水帳，項目為「負債」、且科目不是「銀行借款」的分錄，依年份加總（保留正負號）。
 包含應付帳款、應付裝潢款、應付薪資、應付股東回饋金、應付雪茄進貨等。
 點年份金額可看逐月各應付科目。`,
+    cashEstimate: `依你的記帳規則（應付只是待付提醒，付款時才記真正科目），成本與資產只含已經付出去的錢，所以「未付」不計入推算現金。
+推算現金 ＝ 股東入資 ＋ 貸款淨額 ＋ 總計 − 資本支出。
+年份欄是「到該年年底為止」的累計，從篩選的起始年度開始算（起始年度請選 2024，才會包含開店以來的全部）。
+這是由流水帳推算的數字，漏記的支出（例如未入帳的金流手續費）會讓它比實際現金高，請定期跟銀行餘額核對。`,
+    ownerContribution: `來源：流水帳科目「業主存入」，依年份加總。`,
+    loanNet: `來源：流水帳科目「銀行借款」，撥款為正數、每月自動扣繳的還本金為負數，加總就是借款餘額的變動。`,
+    capitalExpenditure: `營業設備＋押金＋裝潢（已付金額，押金歸還為負數）。
+裝潢的未付分期記在「應付裝潢款」，付款後才會出現在這裡。`,
+    cashAfterUnpaid: `年底推算現金 − 累計未付。
+未付是之後一定要付出去的錢，這一行才是真正可以自由運用的金額，判斷能不能分紅、增加支出時請看這一行。`,
     merchandise: `商品：流水帳中科目為「存貨-餐飲」「存貨-酒水」「存貨-雪茄」的分錄，取絕對值後依月份加總。
 代表當月的進貨支出（不是實際耗用成本）。`,
     miscellaneous: `雜項變動：流水帳中項目為「營業費用」的分錄，取絕對值後依月份加總。
 包含薪資支出、健保費、勞保費、回饋金支出、租金、水電瓦斯、貸款利息、保全費、交通費、其他費用、營業稅等所有營業費用科目。`,
   };
+
+  /** 從篩選起始年度累計到指定年度（含） */
+  cumulativeTo(values: Record<number, number> | undefined, years: number[], year: number): number {
+    if (!values) return 0;
+    return years.filter(y => y <= year).reduce((sum, y) => sum + (Number(values[y]) || 0), 0);
+  }
 
   showHelp(event: MouseEvent, key: string): void {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();

@@ -722,6 +722,19 @@ export class ApiService {
             payableShareholderRebate: this.convertYearTotalsToNumbers(report.unpaidBreakdown.payableShareholderRebate || { total: 0 }),
             payableForGoods: this.convertYearTotalsToNumbers(report.unpaidBreakdown.payableForGoods || { total: 0 })
           }
+        : undefined,
+      cashEstimate: report.cashEstimate
+        ? {
+            ownerContribution: this.convertYearTotalsToNumbers(report.cashEstimate.ownerContribution || { total: 0 }),
+            loanNet: this.convertYearTotalsToNumbers(report.cashEstimate.loanNet || { total: 0 }),
+            capitalExpenditure: this.convertYearTotalsToNumbers(report.cashEstimate.capitalExpenditure || { total: 0 }),
+            capitalBreakdown: {
+              equipment: this.convertYearTotalsToNumbers(report.cashEstimate.capitalBreakdown?.equipment || { total: 0 }),
+              deposit: this.convertYearTotalsToNumbers(report.cashEstimate.capitalBreakdown?.deposit || { total: 0 }),
+              renovation: this.convertYearTotalsToNumbers(report.cashEstimate.capitalBreakdown?.renovation || { total: 0 }),
+            },
+            estimatedCash: this.convertYearTotalsToNumbers(report.cashEstimate.estimatedCash || { total: 0 }),
+          }
         : undefined
     };
   }
