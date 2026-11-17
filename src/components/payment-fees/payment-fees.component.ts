@@ -130,7 +130,7 @@ export class PaymentFeesComponent {
 
   statusLabel(cell: PaymentFeeCoverageCell, month: string): string {
     if (month >= this.currentMonth && cell.status !== 'no_sales' && cell.status !== 'imported') return '本月進行中';
-    return { no_sales: '無交易', imported: '已匯入', partial: '部分匯入', missing: '未匯入', not_supported: '尚未支援' }[cell.status];
+    return { no_sales: '無交易', imported: '已匯入', partial: '部分匯入', missing: '未匯入', not_supported: '尚未支援', confirmed: '已確認' }[cell.status];
   }
 
   statusClass(cell: PaymentFeeCoverageCell, month: string): string {
@@ -141,7 +141,38 @@ export class PaymentFeesComponent {
       partial: 'bg-amber-100 text-amber-800',
       missing: 'bg-red-100 text-red-700',
       not_supported: 'bg-gray-100 text-gray-600',
+      confirmed: 'bg-blue-100 text-blue-800',
     }[cell.status];
+  }
+
+  async confirmCell(month: string, cell: PaymentFeeCoverageCell): Promise<void> {
+    const note = prompt(`${month} ${cell.platform}：標記為已確認（差異原因已核對）。
+請輸入原因（選填）：`, '');
+    if (note === null) return;
+    try {
+      const res = await this.api.confirmPaymentFeeMonth(cell.platform, month, note.trim() || null);
+      if (!res.success) {
+        alert(res.error || '標記失敗');
+        return;
+      }
+      await this.loadCoverage();
+    } catch (error: any) {
+      alert(error?.error?.error || '標記失敗，請稍後再試');
+    }
+  }
+
+  async unconfirmCell(month: string, cell: PaymentFeeCoverageCell): Promise<void> {
+    if (!confirm(`取消 ${month} ${cell.platform} 的「已確認」標記？`)) return;
+    try {
+      const res = await this.api.unconfirmPaymentFeeMonth(cell.platform, month);
+      if (!res.success) {
+        alert(res.error || '取消失敗');
+        return;
+      }
+      await this.loadCoverage();
+    } catch (error: any) {
+      alert(error?.error?.error || '取消失敗，請稍後再試');
+    }
   }
 
   async loadList(): Promise<void> {

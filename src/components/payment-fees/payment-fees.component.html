@@ -198,11 +198,23 @@
                       @if (c.status !== 'no_sales') {
                         <div class="text-xs text-gray-500 mt-1">
                           iChef {{ money(c.ichefSales) }}
-                          @if (c.status === 'imported' || c.status === 'partial') { · 報表 {{ percent(c.coverage) }} }
+                          @if (c.status === 'imported' || c.status === 'partial' || c.status === 'confirmed') { · 報表 {{ percent(c.coverage) }} }
                         </div>
                         <div class="text-xs text-gray-500">
                           @if (c.hasActualEntry) { 實際 {{ money(c.importedFee) }} }
                         </div>
+                        @if (c.confirmation; as cf) {
+                          <div class="text-xs text-blue-700 whitespace-normal max-w-[14rem]" [title]="cf.confirmedAt + ' ' + (cf.confirmedBy || '')">
+                            {{ cf.note || '已核對' }}
+                          </div>
+                        }
+                        @if (canEdit() && m.month < currentMonth) {
+                          @if (c.status === 'partial' || c.status === 'missing') {
+                            <button (click)="confirmCell(m.month, c)" class="text-xs text-blue-600 hover:underline">標記已確認</button>
+                          } @else if (c.status === 'confirmed') {
+                            <button (click)="unconfirmCell(m.month, c)" class="text-xs text-gray-500 hover:text-red-600">取消確認</button>
+                          }
+                        }
                       }
                     </td>
                   }

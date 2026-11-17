@@ -130,8 +130,9 @@ export interface PaymentFeeCoverageCell {
   importedSales: string;
   importedFee: string;
   coverage: number | null;
-  status: 'no_sales' | 'imported' | 'partial' | 'missing' | 'not_supported';
+  status: 'no_sales' | 'imported' | 'partial' | 'missing' | 'not_supported' | 'confirmed';
   hasActualEntry: boolean;
+  confirmation: { note: string | null; confirmedBy: string | null; confirmedAt: string } | null;
 }
 
 export interface PaymentFeeCoverageMonth {
@@ -3236,6 +3237,15 @@ export class ApiService {
       if (value) params = params.set(key, value);
     }
     return firstValueFrom(this.http.get<ApiResponse<{ entries: PaymentFeeEntry[]; imports: PaymentFeeImport[] }>>(`${this.baseUrl}/payment-fees`, { params }));
+  }
+
+  confirmPaymentFeeMonth(platform: string, month: string, note: string | null): Promise<ApiResponse<unknown>> {
+    return firstValueFrom(this.http.post<ApiResponse<unknown>>(`${this.baseUrl}/payment-fees/confirmations`, { platform, month, note }));
+  }
+
+  unconfirmPaymentFeeMonth(platform: string, month: string): Promise<ApiResponse<unknown>> {
+    const params = new HttpParams().set('platform', platform).set('month', month);
+    return firstValueFrom(this.http.delete<ApiResponse<unknown>>(`${this.baseUrl}/payment-fees/confirmations`, { params }));
   }
 
   getPaymentFeeCoverage(): Promise<ApiResponse<PaymentFeeCoverageMonth[]>> {
