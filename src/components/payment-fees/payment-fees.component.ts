@@ -15,7 +15,7 @@ import { AuthService } from '../../services/auth.service';
 
 /**
  * 手續費對帳：上傳 Line Pay／街口／悠遊付官方報表 → 預覽 → 確認後寫入「營業費用／金流手續費」流水帳。
- * 每平台每月一筆【實際】分錄；可勾選用實際數字取代每月排程寫的【自動】估算分錄。
+ * 每平台每月一筆【實際】分錄；不做任何估算，還沒匯入的月份由「每月對帳狀態」提醒。
  */
 @Component({
   selector: 'app-payment-fees',
@@ -33,7 +33,7 @@ export class PaymentFeesComponent {
     { value: '街口', hint: '街口商家後台 → 店家發票手續費月報表，下載 .xlsx' },
     { value: '悠遊付', hint: '悠遊付商家後台 → 手續費列表，搜尋後匯出 .xlsx' },
   ];
-  readonly sourceLabels: Record<string, string> = { actual: '實際（報表）', estimate: '估算（費率）', manual: '人工記帳' };
+  readonly sourceLabels: Record<string, string> = { actual: '實際（報表）', manual: '人工記帳' };
 
   canEdit = computed(() => this.auth.hasPermission('edit_ledger') || this.auth.hasRole('super_admin'));
 
@@ -41,7 +41,6 @@ export class PaymentFeesComponent {
   platform = signal<PaymentFeePlatform>('Line Pay');
   file = signal<File | null>(null);
   preview = signal<PaymentFeePreview | null>(null);
-  replaceMonths = signal<Set<string>>(new Set());
   isPreviewing = signal(false);
   isImporting = signal(false);
   uploadError = signal<string | null>(null);
@@ -183,7 +182,6 @@ export class PaymentFeesComponent {
     this.file.set(null);
     this.preview.set(null);
     this.uploadError.set(null);
-    this.replaceMonths.set(new Set());
     const input = document.getElementById('payment-fee-file') as HTMLInputElement | null;
     if (input) input.value = '';
   }
@@ -197,7 +195,6 @@ export class PaymentFeesComponent {
       const res = await this.api.previewPaymentFeeReport(file, this.platform());
       if (res.success && res.data) {
         this.preview.set(res.data);
-        this.replaceMonths.set(new Set(res.data.months.filter((m) => m.defaultReplace).map((m) => m.month)));
       } else {
         this.uploadError.set(res.error || '解析失敗');
       }
@@ -208,29 +205,17 @@ export class PaymentFeesComponent {
     }
   }
 
-  toggleReplace(month: string, checked: boolean): void {
-    this.replaceMonths.update((set) => {
-      const next = new Set(set);
-      if (checked) next.add(month);
-      else next.delete(month);
-      return next;
-    });
-  }
-
   async confirmImport(): Promise<void> {
     const file = this.file();
     const preview = this.preview();
     if (!file || !preview) return;
-    const months = [...this.replaceMonths()].sort();
-    const msg =
-      `確定匯入 ${preview.platform} ${preview.newRecords} 筆手續費（${this.money(preview.newFee)}）？` +
-      (months.length ? `\n會刪除 ${months.join('、')} 的估算分錄，改用實際數字。` : '');
+    const msg = `確定匯入 ${preview.platform} ${preview.newRecords} 筆手續費（${this.money(preview.newFee)}）？`;
     if (!confirm(msg)) return;
 
     this.isImporting.set(true);
     this.uploadError.set(null);
     try {
-      const res = await this.api.importPaymentFeeReport(file, preview.platform, months);
+      const res = await this.api.importPaymentFeeReport(file, preview.platform);
       if (res.success && res.data) {
         this.importResult.set(res.data);
         this.clearUpload();

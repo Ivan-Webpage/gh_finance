@@ -79,7 +79,7 @@ export interface PaymentFeeEntry {
   is_sigh_off: boolean;
   updated_editor: string | null;
   updated_at: string;
-  source: 'actual' | 'estimate' | 'manual';
+  source: 'actual' | 'manual';
   platform: string | null;
 }
 
@@ -105,10 +105,8 @@ export interface PaymentFeeMonthPreview {
   actualFeeAfter: string;
   actualSalesAfter: string;
   existingActualEntry: { entryId: number; amount: string } | null;
-  estimateEntry: { entryId: number; amount: string; description: string } | null;
   ichefSales: string | null;
   coverage: number | null;
-  defaultReplace: boolean;
 }
 
 export interface PaymentFeePreview {
@@ -134,7 +132,6 @@ export interface PaymentFeeCoverageCell {
   coverage: number | null;
   status: 'no_sales' | 'imported' | 'partial' | 'missing' | 'not_supported';
   hasActualEntry: boolean;
-  estimateAmount: string | null;
 }
 
 export interface PaymentFeeCoverageMonth {
@@ -147,7 +144,6 @@ export interface PaymentFeeImportResult {
   insertedRecords: number;
   skippedRecords: number;
   ledger: Array<{ month: string; entryId: number; amount: string; action: 'created' | 'updated' }>;
-  replacedEstimates: Array<{ month: string; entryId: number; amount: string }>;
 }
 
 /** 未標註發票指派（/api/customers/invoice-assignments） */
@@ -3253,11 +3249,10 @@ export class ApiService {
     return firstValueFrom(this.http.post<ApiResponse<PaymentFeePreview>>(`${this.baseUrl}/payment-fees/preview`, form));
   }
 
-  importPaymentFeeReport(file: File, platform: PaymentFeePlatform, replaceMonths: string[]): Promise<ApiResponse<PaymentFeeImportResult>> {
+  importPaymentFeeReport(file: File, platform: PaymentFeePlatform): Promise<ApiResponse<PaymentFeeImportResult>> {
     const form = new FormData();
     form.append('file', file, file.name);
     form.append('platform', platform);
-    form.append('replaceMonths', JSON.stringify(replaceMonths));
     return firstValueFrom(this.http.post<ApiResponse<PaymentFeeImportResult>>(`${this.baseUrl}/payment-fees/import`, form));
   }
 
