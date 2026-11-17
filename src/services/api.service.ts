@@ -3242,14 +3242,14 @@ export class ApiService {
     return firstValueFrom(this.http.get<ApiResponse<PaymentFeeCoverageMonth[]>>(`${this.baseUrl}/payment-fees/coverage`));
   }
 
-  previewPaymentFeeReport(file: File, platform: PaymentFeePlatform): Promise<ApiResponse<PaymentFeePreview>> {
+  previewPaymentFeeReport(file: File, platform: PaymentFeePlatform | 'auto'): Promise<ApiResponse<PaymentFeePreview>> {
     const form = new FormData();
     form.append('file', file, file.name);
     form.append('platform', platform);
     return firstValueFrom(this.http.post<ApiResponse<PaymentFeePreview>>(`${this.baseUrl}/payment-fees/preview`, form));
   }
 
-  importPaymentFeeReport(file: File, platform: PaymentFeePlatform): Promise<ApiResponse<PaymentFeeImportResult>> {
+  importPaymentFeeReport(file: File, platform: PaymentFeePlatform | 'auto'): Promise<ApiResponse<PaymentFeeImportResult>> {
     const form = new FormData();
     form.append('file', file, file.name);
     form.append('platform', platform);

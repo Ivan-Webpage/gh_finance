@@ -16,12 +16,12 @@
           <select [ngModel]="platform()" (ngModelChange)="onPlatformChange($event)"
             class="border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-gray-50">
             @for (p of platforms; track p.value) {
-              <option [value]="p.value">{{ p.value }}</option>
+              <option [value]="p.value">{{ p.value === 'auto' ? '自動判斷' : p.value }}</option>
             }
           </select>
         </div>
         <div class="flex-grow min-w-[16rem]">
-          <label class="block text-sm font-medium text-gray-600 mb-1">報表檔案（可一次選多個，同一平台）</label>
+          <label class="block text-sm font-medium text-gray-600 mb-1">報表檔案（可一次選多個）</label>
           <input id="payment-fee-file" type="file" multiple accept=".csv,.xlsx" (change)="onFilesSelected($event)" [disabled]="isImporting()"
             class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
         </div>
@@ -39,6 +39,7 @@
               <thead>
                 <tr class="text-left text-gray-500 border-b">
                   <th class="py-2 pr-3 font-medium">檔案</th>
+                  <th class="py-2 pr-3 font-medium">平台</th>
                   <th class="py-2 pr-3 font-medium">期間</th>
                   <th class="py-2 pr-3 font-medium text-right">新／重複</th>
                   <th class="py-2 pr-3 font-medium text-right">新增手續費</th>
@@ -81,6 +82,7 @@
                         </details>
                       }
                     </td>
+                    <td class="py-2 pr-3 whitespace-nowrap">{{ u.preview?.platform || '—' }}</td>
                     <td class="py-2 pr-3 whitespace-nowrap">
                       @if (u.preview) { {{ u.preview.periodStart }} ～ {{ u.preview.periodEnd }} } @else { — }
                     </td>

@@ -39,7 +39,8 @@ export class PaymentFeesComponent {
   private api = inject(ApiService);
   private auth = inject(AuthService);
 
-  readonly platforms: Array<{ value: PaymentFeePlatform; hint: string }> = [
+  readonly platforms: Array<{ value: PaymentFeePlatform | 'auto'; hint: string }> = [
+    { value: 'auto', hint: '系統依檔案內容自動判斷平台，可一次混選 Line Pay（CSV）、街口、悠遊付（xlsx）的報表' },
     { value: 'Line Pay', hint: 'LINE Pay 商家後台 → 請款明細，下載 CSV（檔名像 1ICF_…_CAPTURE.csv）' },
     { value: '街口', hint: '街口商家後台 → 店家發票手續費月報表，下載 .xlsx' },
     { value: '悠遊付', hint: '悠遊付商家後台 → 手續費列表，搜尋後匯出 .xlsx' },
@@ -49,7 +50,7 @@ export class PaymentFeesComponent {
   canEdit = computed(() => this.auth.hasPermission('edit_ledger') || this.auth.hasRole('super_admin'));
 
   // 上傳
-  platform = signal<PaymentFeePlatform>('Line Pay');
+  platform = signal<PaymentFeePlatform | 'auto'>('auto');
   uploads = signal<UploadItem[]>([]);
   isPreviewing = signal(false);
   isImporting = signal(false);
@@ -175,7 +176,7 @@ export class PaymentFeesComponent {
     this.loadList();
   }
 
-  onPlatformChange(value: PaymentFeePlatform): void {
+  onPlatformChange(value: PaymentFeePlatform | 'auto'): void {
     this.platform.set(value);
     this.clearUpload();
   }
@@ -233,7 +234,7 @@ export class PaymentFeesComponent {
     const ready = this.uploads().filter((u) => u.status === 'ready');
     if (ready.length === 0) return;
     const fee = ready.reduce((sum, u) => sum + Number(u.preview?.newFee || 0), 0);
-    if (!confirm(`確定匯入 ${ready.length} 個 ${this.platform()} 報表（預估新增手續費 ${this.money(fee)}）？`)) return;
+    if (!confirm(`確定匯入 ${ready.length} 個報表（預估新增手續費 ${this.money(fee)}）？`)) return;
 
     this.isImporting.set(true);
     this.uploadError.set(null);
@@ -242,7 +243,7 @@ export class PaymentFeesComponent {
     for (const item of ready) {
       this.patchUpload(item.id, { status: 'importing' });
       try {
-        const res = await this.api.importPaymentFeeReport(item.file, this.platform());
+        const res = await this.api.importPaymentFeeReport(item.file, item.preview?.platform ?? this.platform());
         if (res.success && res.data) {
           inserted += res.data.insertedRecords;
           imported += 1;
