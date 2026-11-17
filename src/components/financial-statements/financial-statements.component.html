@@ -230,13 +230,6 @@
                     <td class="py-2 px-4 text-right text-emerald-800">{{ formatCurrency(cash.ownerContribution.total + cash.loanNet.total) }}</td>
                   </tr>
                   <tr class="border-b border-gray-100">
-                    <td class="py-2 px-4 text-gray-700 pl-8">＋ 營業損益（上方總計）</td>
-                    @for (year of summary.years; track year) {
-                      <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100" [class.text-red-600]="summary.net[year] < 0">{{ formatCurrency(summary.net[year]) }}</td>
-                    }
-                    <td class="py-2 px-4 text-right font-semibold" [class.text-red-600]="summary.net.total < 0">{{ formatCurrency(summary.net.total) }}</td>
-                  </tr>
-                  <tr class="border-b border-gray-100">
                     <td class="py-2 px-4 text-gray-700 pl-8">− 資本支出<ion-icon name="help-circle-outline" class="align-middle ml-1 text-gray-400 hover:text-indigo-600 cursor-help" (mouseenter)="showHelp($event, 'capitalExpenditure')" (mouseleave)="hideHelp()"></ion-icon></td>
                     @for (year of summary.years; track year) {
                       <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100 text-red-600">({{ formatCurrency(summary.cashEstimate.capitalExpenditure[year]) }})</td>
