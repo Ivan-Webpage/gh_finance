@@ -221,8 +221,16 @@
                     }
                     <td class="py-2 px-4 text-right font-semibold text-gray-800">{{ formatCurrency(summary.cashEstimate.loanNet.total) }}</td>
                   </tr>
+                  <!-- 小計：股東入資＋貸款淨額（資金來源），僅供對照，下方加總不含這一列 -->
+                  <tr class="border-b border-emerald-200 bg-emerald-100/70 font-semibold">
+                    <td class="py-2 px-4 text-emerald-800 pl-8">小計（資金來源）</td>
+                    @for (year of summary.years; track year) {
+                      <td class="py-2 px-4 text-right text-emerald-800">{{ formatCurrency(cash.ownerContribution[year] + cash.loanNet[year]) }}</td>
+                    }
+                    <td class="py-2 px-4 text-right text-emerald-800">{{ formatCurrency(cash.ownerContribution.total + cash.loanNet.total) }}</td>
+                  </tr>
                   <tr class="border-b border-gray-100">
-                    <td class="py-2 px-4 text-gray-700 pl-8">＋ 總計（上方）</td>
+                    <td class="py-2 px-4 text-gray-700 pl-8">＋ 營業損益（上方總計）</td>
                     @for (year of summary.years; track year) {
                       <td (click)="openDetailModal(year, 'cash')" class="py-2 px-4 text-right cursor-pointer hover:underline hover:bg-emerald-100" [class.text-red-600]="summary.net[year] < 0">{{ formatCurrency(summary.net[year]) }}</td>
                     }
