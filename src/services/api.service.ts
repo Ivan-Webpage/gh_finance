@@ -126,6 +126,22 @@ export interface PaymentFeePreview {
   duplicateFile: { importId: number; fileName: string; importedAt: string } | null;
 }
 
+export interface PaymentFeeCoverageCell {
+  platform: string;
+  ichefSales: string;
+  importedSales: string;
+  importedFee: string;
+  coverage: number | null;
+  status: 'no_sales' | 'imported' | 'partial' | 'missing' | 'not_supported';
+  hasActualEntry: boolean;
+  estimateAmount: string | null;
+}
+
+export interface PaymentFeeCoverageMonth {
+  month: string;
+  cells: PaymentFeeCoverageCell[];
+}
+
 export interface PaymentFeeImportResult {
   importId: number;
   insertedRecords: number;
@@ -3224,6 +3240,10 @@ export class ApiService {
       if (value) params = params.set(key, value);
     }
     return firstValueFrom(this.http.get<ApiResponse<{ entries: PaymentFeeEntry[]; imports: PaymentFeeImport[] }>>(`${this.baseUrl}/payment-fees`, { params }));
+  }
+
+  getPaymentFeeCoverage(): Promise<ApiResponse<PaymentFeeCoverageMonth[]>> {
+    return firstValueFrom(this.http.get<ApiResponse<PaymentFeeCoverageMonth[]>>(`${this.baseUrl}/payment-fees/coverage`));
   }
 
   previewPaymentFeeReport(file: File, platform: PaymentFeePlatform): Promise<ApiResponse<PaymentFeePreview>> {

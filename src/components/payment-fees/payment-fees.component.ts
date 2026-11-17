@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   ApiService,
+  PaymentFeeCoverageCell,
+  PaymentFeeCoverageMonth,
   PaymentFeeEntry,
   PaymentFeeImport,
   PaymentFeeImportResult,
@@ -69,8 +71,66 @@ export class PaymentFeesComponent {
   });
   displayedTotal = computed(() => this.displayedEntries().reduce((sum, e) => sum + Number(e.amount || 0), 0));
 
+  // 每月對帳狀態
+  readonly coveragePlatforms = ['信用卡', 'Line Pay', '街口', '悠遊付'];
+  coverage = signal<PaymentFeeCoverageMonth[]>([]);
+  coverageError = signal<string | null>(null);
+  coverageLoaded = signal(false);
+  onlyIncomplete = signal(true);
+  readonly currentMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date()).slice(0, 7);
+
+  private isPending(cell: PaymentFeeCoverageCell): boolean {
+    return cell.status === 'missing' || cell.status === 'partial';
+  }
+  /** 已結束的月份裡，還沒匯入（或只匯入部分）的 平台×月份 數（信用卡尚未支援匯入，不算） */
+  pendingCount = computed(() =>
+    this.coverage()
+      .filter((m) => m.month < this.currentMonth)
+      .reduce((n, m) => n + m.cells.filter((c) => this.isPending(c)).length, 0)
+  );
+  displayedCoverage = computed(() =>
+    this.onlyIncomplete()
+      ? this.coverage().filter((m) => m.month < this.currentMonth && m.cells.some((c) => this.isPending(c)))
+      : this.coverage()
+  );
+
   constructor() {
     this.loadList();
+    this.loadCoverage();
+  }
+
+  async loadCoverage(): Promise<void> {
+    this.coverageError.set(null);
+    try {
+      const res = await this.api.getPaymentFeeCoverage();
+      if (res.success && res.data) {
+        this.coverage.set(res.data);
+        this.coverageLoaded.set(true);
+      }
+      else this.coverageError.set(res.error || '載入對帳狀態失敗');
+    } catch (error: any) {
+      this.coverageError.set(error?.error?.error || '載入對帳狀態失敗');
+    }
+  }
+
+  cellOf(month: PaymentFeeCoverageMonth, platform: string): PaymentFeeCoverageCell | undefined {
+    return month.cells.find((c) => c.platform === platform);
+  }
+
+  statusLabel(cell: PaymentFeeCoverageCell, month: string): string {
+    if (month >= this.currentMonth && cell.status !== 'no_sales' && cell.status !== 'imported') return '本月進行中';
+    return { no_sales: '無交易', imported: '已匯入', partial: '部分匯入', missing: '未匯入', not_supported: '尚未支援' }[cell.status];
+  }
+
+  statusClass(cell: PaymentFeeCoverageCell, month: string): string {
+    if (month >= this.currentMonth && cell.status !== 'no_sales' && cell.status !== 'imported') return 'bg-gray-100 text-gray-600';
+    return {
+      no_sales: 'text-gray-400',
+      imported: 'bg-green-100 text-green-800',
+      partial: 'bg-amber-100 text-amber-800',
+      missing: 'bg-red-100 text-red-700',
+      not_supported: 'bg-gray-100 text-gray-600',
+    }[cell.status];
   }
 
   async loadList(): Promise<void> {
@@ -174,7 +234,7 @@ export class PaymentFeesComponent {
       if (res.success && res.data) {
         this.importResult.set(res.data);
         this.clearUpload();
-        await this.loadList();
+        await Promise.all([this.loadList(), this.loadCoverage()]);
       } else {
         this.uploadError.set(res.error || '匯入失敗');
       }

@@ -128,6 +128,75 @@
   }
 
   <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-800">每月對帳狀態</h2>
+        <p class="text-sm mt-1" [class.text-red-700]="pendingCount() > 0" [class.text-green-700]="pendingCount() === 0">
+          @if (!coverageLoaded()) {
+            <span class="text-gray-500">載入中...</span>
+          } @else if (pendingCount() > 0) {
+            已結束的月份中，還有 {{ pendingCount() }} 個「平台×月份」沒有匯入完整的官方報表
+          } @else {
+            已結束的月份都已匯入官方報表（信用卡除外）
+          }
+        </p>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-gray-600">
+        <input type="checkbox" [ngModel]="onlyIncomplete()" (ngModelChange)="onlyIncomplete.set($event)">
+        只顯示還沒補齊的月份
+      </label>
+    </div>
+    @if (coverageError()) {
+      <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{{ coverageError() }}</div>
+    }
+    @if (!coverageLoaded()) {
+    } @else if (displayedCoverage().length === 0) {
+      <p class="text-sm text-gray-500">沒有需要補的月份。</p>
+    } @else {
+      <div class="overflow-x-auto max-h-[28rem] overflow-y-auto">
+        <table class="min-w-full text-sm">
+          <thead class="sticky top-0 bg-white">
+            <tr class="text-left text-gray-500 border-b">
+              <th class="py-2 pr-3 font-medium">月份</th>
+              @for (p of coveragePlatforms; track p) {
+                <th class="py-2 pr-3 font-medium">{{ p }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of displayedCoverage(); track m.month) {
+              <tr class="border-b last:border-0 align-top">
+                <td class="py-2 pr-3 font-medium whitespace-nowrap">{{ m.month }}</td>
+                @for (p of coveragePlatforms; track p) {
+                  @if (cellOf(m, p); as c) {
+                    <td class="py-2 pr-3 whitespace-nowrap">
+                      <span class="px-2 py-0.5 rounded-full text-xs" [ngClass]="statusClass(c, m.month)">{{ statusLabel(c, m.month) }}</span>
+                      @if (c.status !== 'no_sales') {
+                        <div class="text-xs text-gray-500 mt-1">
+                          iChef {{ money(c.ichefSales) }}
+                          @if (c.status === 'imported' || c.status === 'partial') { · 報表 {{ percent(c.coverage) }} }
+                        </div>
+                        <div class="text-xs text-gray-500">
+                          @if (c.hasActualEntry) { 實際 {{ money(c.importedFee) }} }
+                          @if (c.estimateAmount) { 估算 {{ money(c.estimateAmount) }} }
+                        </div>
+                      }
+                    </td>
+                  }
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500">
+        判斷方式：官方報表的交易額達到 iChef 該付款方式當月營收的 90% 即算已匯入。街口撥款常跨月，用「本月＋下個月」合併比對。
+        信用卡報表格式確認前只能先用估算。
+      </p>
+    }
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
     <h2 class="text-lg font-semibold text-gray-800">金流手續費流水帳</h2>
     <div class="flex flex-wrap items-end gap-3">
       <div>
