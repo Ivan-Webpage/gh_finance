@@ -1,0 +1,251 @@
+<div class="space-y-6">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900">手續費對帳</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      上傳各平台官方報表，系統會寫入「營業費用／金流手續費」流水帳（每平台每月一筆）。
+      還沒匯入的月份，每月 1 日的排程會依固定費率先估算。
+    </p>
+  </div>
+
+  @if (canEdit()) {
+    <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+      <h2 class="text-lg font-semibold text-gray-800">上傳官方報表</h2>
+      <div class="flex flex-wrap items-end gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">平台</label>
+          <select [ngModel]="platform()" (ngModelChange)="onPlatformChange($event)"
+            class="border-gray-300 rounded-lg shadow-sm text-sm p-2 bg-gray-50">
+            @for (p of platforms; track p.value) {
+              <option [value]="p.value">{{ p.value }}</option>
+            }
+          </select>
+        </div>
+        <div class="flex-grow min-w-[16rem]">
+          <label class="block text-sm font-medium text-gray-600 mb-1">報表檔案</label>
+          <input id="payment-fee-file" type="file" accept=".csv,.xlsx" (change)="onFileSelected($event)"
+            class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+        </div>
+      </div>
+      <p class="text-xs text-gray-500">{{ platformHint() }}。信用卡（中信刷卡機）報表格式確認後再加入。</p>
+
+      @if (isPreviewing()) {
+        <p class="text-sm text-gray-500">解析中...</p>
+      }
+      @if (uploadError()) {
+        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm whitespace-pre-line">{{ uploadError() }}</div>
+      }
+
+      @if (preview(); as p) {
+        <div class="border rounded-lg p-4 space-y-3 bg-gray-50">
+          <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-700">
+            <span>檔案：<b>{{ p.fileName }}</b></span>
+            <span>期間：{{ p.periodStart }} ～ {{ p.periodEnd }}</span>
+            <span>共 {{ p.totalRecords }} 筆，新的 <b class="text-indigo-700">{{ p.newRecords }}</b> 筆
+              @if (p.duplicateRecords > 0) { <span class="text-amber-700">（{{ p.duplicateRecords }} 筆已匯入過，會略過）</span> }
+            </span>
+            <span>新增手續費：<b>{{ money(p.newFee, 2) }}</b></span>
+          </div>
+
+          @if (p.duplicateFile) {
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded text-sm">
+              這個檔案已經在 {{ p.duplicateFile.importedAt }} 匯入過（{{ p.duplicateFile.fileName }}），不能重複匯入。
+            </div>
+          } @else if (p.newRecords === 0) {
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded text-sm">
+              報表裡每一筆都已經匯入過了，沒有新資料。
+            </div>
+          }
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500 border-b">
+                  <th class="py-2 pr-3 font-medium">月份</th>
+                  <th class="py-2 pr-3 font-medium text-right">新／重複</th>
+                  <th class="py-2 pr-3 font-medium text-right">匯入後實際手續費</th>
+                  <th class="py-2 pr-3 font-medium text-right">報表交易額</th>
+                  <th class="py-2 pr-3 font-medium text-right">iChef 營收</th>
+                  <th class="py-2 pr-3 font-medium text-right">涵蓋率</th>
+                  <th class="py-2 pr-3 font-medium text-right">目前估算</th>
+                  <th class="py-2 font-medium">用實際取代估算</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (m of p.months; track m.month) {
+                  <tr class="border-b last:border-0">
+                    <td class="py-2 pr-3">{{ m.month }}</td>
+                    <td class="py-2 pr-3 text-right">{{ m.newRecords }}／{{ m.duplicateRecords }}</td>
+                    <td class="py-2 pr-3 text-right font-medium">{{ money(m.actualFeeAfter) }}
+                      @if (m.existingActualEntry) { <span class="text-xs text-gray-500">（原 {{ money(m.existingActualEntry.amount) }}）</span> }
+                    </td>
+                    <td class="py-2 pr-3 text-right">{{ money(m.actualSalesAfter) }}</td>
+                    <td class="py-2 pr-3 text-right">{{ m.ichefSales === null ? '—' : money(m.ichefSales) }}</td>
+                    <td class="py-2 pr-3 text-right" [class.text-amber-700]="m.coverage !== null && m.coverage < 0.9">{{ percent(m.coverage) }}</td>
+                    <td class="py-2 pr-3 text-right">{{ m.estimateEntry ? money(m.estimateEntry.amount) : '—' }}</td>
+                    <td class="py-2">
+                      @if (m.estimateEntry) {
+                        <label class="flex items-center gap-2">
+                          <input type="checkbox" [checked]="replaceMonths().has(m.month)"
+                            (change)="toggleReplace(m.month, $any($event.target).checked)">
+                          <span class="text-xs text-gray-600">刪除估算</span>
+                        </label>
+                      } @else {
+                        <span class="text-xs text-gray-400">沒有估算</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-gray-500">
+            涵蓋率＝報表交易額 ÷ iChef 當月該付款方式營收。涵蓋率不到 90% 通常代表報表只有半個月，預設不取代估算，避免少記；
+            街口、悠遊付依撥款／結算日分月，涵蓋率僅供參考。沒勾選的月份會同時保留估算與實際兩筆，請留意重複。
+          </p>
+
+          <div class="flex gap-3">
+            <button (click)="confirmImport()" [disabled]="!canImport()"
+              class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 text-sm disabled:opacity-50">
+              {{ isImporting() ? '匯入中...' : '確認匯入' }}
+            </button>
+            <button (click)="clearUpload()" class="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">取消</button>
+          </div>
+        </div>
+      }
+
+      @if (importResult(); as r) {
+        <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm space-y-1">
+          <div>已匯入 {{ r.insertedRecords }} 筆@if (r.skippedRecords) {（略過 {{ r.skippedRecords }} 筆重複）}。</div>
+          @for (l of r.ledger; track l.entryId) {
+            <div>{{ l.month }}：{{ l.action === 'created' ? '新增' : '更新' }}流水帳 #{{ l.entryId }}，金額 {{ money(l.amount) }}</div>
+          }
+          @for (e of r.replacedEstimates; track e.entryId) {
+            <div>{{ e.month }}：已刪除估算 #{{ e.entryId }}（{{ money(e.amount) }}）</div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+    <h2 class="text-lg font-semibold text-gray-800">金流手續費流水帳</h2>
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">起日</label>
+        <input type="date" [ngModel]="filterFrom()" (ngModelChange)="filterFrom.set($event)" class="border-gray-300 rounded-lg text-sm p-2">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">迄日</label>
+        <input type="date" [ngModel]="filterTo()" (ngModelChange)="filterTo.set($event)" class="border-gray-300 rounded-lg text-sm p-2">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">平台</label>
+        <select [ngModel]="filterPlatform()" (ngModelChange)="filterPlatform.set($event)" class="border-gray-300 rounded-lg text-sm p-2">
+          <option value="">全部</option>
+          <option value="信用卡">信用卡</option>
+          <option value="Line Pay">Line Pay</option>
+          <option value="街口">街口</option>
+          <option value="悠遊付">悠遊付</option>
+          <option value="其他">其他（人工記帳）</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">來源</label>
+        <select [ngModel]="filterSource()" (ngModelChange)="filterSource.set($event)" class="border-gray-300 rounded-lg text-sm p-2">
+          <option value="">全部</option>
+          <option value="actual">實際（報表）</option>
+          <option value="estimate">估算（費率）</option>
+          <option value="manual">人工記帳</option>
+        </select>
+      </div>
+      <button (click)="loadList()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">查詢</button>
+      <button (click)="resetFilters()" class="px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">清除</button>
+      <div class="flex-grow min-w-[10rem]">
+        <label class="block text-xs text-gray-500 mb-1">說明關鍵字</label>
+        <input type="text" [ngModel]="filterKeyword()" (ngModelChange)="filterKeyword.set($event)" placeholder="例如 2026-10"
+          class="w-full border-gray-300 rounded-lg text-sm p-2">
+      </div>
+    </div>
+
+    @if (listError()) {
+      <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{{ listError() }}</div>
+    }
+
+    @if (isLoading()) {
+      <p class="text-sm text-gray-500">載入中...</p>
+    } @else if (displayedEntries().length === 0) {
+      <p class="text-sm text-gray-500">沒有符合條件的手續費分錄。</p>
+    } @else {
+      <p class="text-sm text-gray-600">共 {{ displayedEntries().length }} 筆，合計 <b>{{ money(displayedTotal()) }}</b></p>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-gray-500 border-b">
+              <th class="py-2 pr-3 font-medium">#</th>
+              <th class="py-2 pr-3 font-medium">日期</th>
+              <th class="py-2 pr-3 font-medium">平台</th>
+              <th class="py-2 pr-3 font-medium">來源</th>
+              <th class="py-2 pr-3 font-medium text-right">金額</th>
+              <th class="py-2 pr-3 font-medium">說明</th>
+              <th class="py-2 font-medium">最後修改</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of displayedEntries(); track e.entry_id) {
+              <tr class="border-b last:border-0">
+                <td class="py-2 pr-3 text-gray-500">{{ e.entry_id }}</td>
+                <td class="py-2 pr-3 whitespace-nowrap">{{ e.entry_date }}</td>
+                <td class="py-2 pr-3 whitespace-nowrap">{{ e.platform || '其他' }}</td>
+                <td class="py-2 pr-3 whitespace-nowrap">
+                  <span class="px-2 py-0.5 rounded-full text-xs"
+                    [class.bg-green-100]="e.source === 'actual'" [class.text-green-800]="e.source === 'actual'"
+                    [class.bg-amber-100]="e.source === 'estimate'" [class.text-amber-800]="e.source === 'estimate'"
+                    [class.bg-gray-100]="e.source === 'manual'" [class.text-gray-700]="e.source === 'manual'">
+                    {{ sourceLabels[e.source] }}
+                  </span>
+                </td>
+                <td class="py-2 pr-3 text-right font-medium">{{ money(e.amount) }}</td>
+                <td class="py-2 pr-3 text-gray-700 min-w-[16rem]">{{ e.description || '-' }}</td>
+                <td class="py-2 text-xs text-gray-500 whitespace-nowrap">{{ e.updated_at }} {{ e.updated_editor }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  @if (imports().length > 0) {
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-lg font-semibold text-gray-800 mb-3">匯入紀錄</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-gray-500 border-b">
+              <th class="py-2 pr-3 font-medium">時間</th>
+              <th class="py-2 pr-3 font-medium">平台</th>
+              <th class="py-2 pr-3 font-medium">檔案</th>
+              <th class="py-2 pr-3 font-medium">期間</th>
+              <th class="py-2 pr-3 font-medium text-right">新／總筆數</th>
+              <th class="py-2 pr-3 font-medium text-right">新增手續費</th>
+              <th class="py-2 font-medium">匯入者</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of imports(); track i.import_id) {
+              <tr class="border-b last:border-0">
+                <td class="py-2 pr-3 whitespace-nowrap">{{ i.imported_at }}</td>
+                <td class="py-2 pr-3">{{ i.platform }}</td>
+                <td class="py-2 pr-3 text-gray-700 break-all">{{ i.file_name }}</td>
+                <td class="py-2 pr-3 whitespace-nowrap">{{ i.period_start }} ～ {{ i.period_end }}</td>
+                <td class="py-2 pr-3 text-right">{{ i.new_row_count }}／{{ i.row_count }}</td>
+                <td class="py-2 pr-3 text-right">{{ money(i.fee_total, 2) }}</td>
+                <td class="py-2 text-xs text-gray-500">{{ i.imported_by }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

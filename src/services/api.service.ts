@@ -68,6 +68,72 @@ export interface StoreClosureEntry {
   reason: string | null;
 }
 
+/** 手續費對帳（/api/payment-fees） */
+export type PaymentFeePlatform = 'Line Pay' | '街口' | '悠遊付';
+
+export interface PaymentFeeEntry {
+  entry_id: number;
+  entry_date: string;
+  amount: string;
+  description: string | null;
+  is_sigh_off: boolean;
+  updated_editor: string | null;
+  updated_at: string;
+  source: 'actual' | 'estimate' | 'manual';
+  platform: string | null;
+}
+
+export interface PaymentFeeImport {
+  import_id: number;
+  platform: string;
+  file_name: string;
+  period_start: string | null;
+  period_end: string | null;
+  row_count: number;
+  new_row_count: number;
+  fee_total: string;
+  imported_by: string | null;
+  imported_at: string;
+}
+
+export interface PaymentFeeMonthPreview {
+  month: string;
+  fileRecords: number;
+  newRecords: number;
+  duplicateRecords: number;
+  fileFee: string;
+  actualFeeAfter: string;
+  actualSalesAfter: string;
+  existingActualEntry: { entryId: number; amount: string } | null;
+  estimateEntry: { entryId: number; amount: string; description: string } | null;
+  ichefSales: string | null;
+  coverage: number | null;
+  defaultReplace: boolean;
+}
+
+export interface PaymentFeePreview {
+  platform: PaymentFeePlatform;
+  fileName: string;
+  fileSha256: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  totalRecords: number;
+  newRecords: number;
+  duplicateRecords: number;
+  fileFee: string;
+  newFee: string;
+  months: PaymentFeeMonthPreview[];
+  duplicateFile: { importId: number; fileName: string; importedAt: string } | null;
+}
+
+export interface PaymentFeeImportResult {
+  importId: number;
+  insertedRecords: number;
+  skippedRecords: number;
+  ledger: Array<{ month: string; entryId: number; amount: string; action: 'created' | 'updated' }>;
+  replacedEstimates: Array<{ month: string; entryId: number; amount: string }>;
+}
+
 /** 未標註發票指派（/api/customers/invoice-assignments） */
 export type InvoiceAssignmentStatus = 'unassigned' | 'manual' | 'tagged';
 export interface InvoiceAssignmentEntry {
@@ -3148,6 +3214,31 @@ export class ApiService {
   deleteStoreClosure(id: string): Promise<ApiResponse<unknown>> {
     const params = new HttpParams().set('id', id);
     return firstValueFrom(this.http.delete<ApiResponse<unknown>>(`${this.baseUrl}/store-closures`, { params }));
+  }
+
+  // ========== 手續費對帳 (payment-fees) ==========
+
+  getPaymentFees(filters: { from?: string; to?: string; platform?: string; source?: string }): Promise<ApiResponse<{ entries: PaymentFeeEntry[]; imports: PaymentFeeImport[] }>> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params = params.set(key, value);
+    }
+    return firstValueFrom(this.http.get<ApiResponse<{ entries: PaymentFeeEntry[]; imports: PaymentFeeImport[] }>>(`${this.baseUrl}/payment-fees`, { params }));
+  }
+
+  previewPaymentFeeReport(file: File, platform: PaymentFeePlatform): Promise<ApiResponse<PaymentFeePreview>> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('platform', platform);
+    return firstValueFrom(this.http.post<ApiResponse<PaymentFeePreview>>(`${this.baseUrl}/payment-fees/preview`, form));
+  }
+
+  importPaymentFeeReport(file: File, platform: PaymentFeePlatform, replaceMonths: string[]): Promise<ApiResponse<PaymentFeeImportResult>> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('platform', platform);
+    form.append('replaceMonths', JSON.stringify(replaceMonths));
+    return firstValueFrom(this.http.post<ApiResponse<PaymentFeeImportResult>>(`${this.baseUrl}/payment-fees/import`, form));
   }
 
   // ========== 未標註發票指派 (customers/invoice-assignments) ==========

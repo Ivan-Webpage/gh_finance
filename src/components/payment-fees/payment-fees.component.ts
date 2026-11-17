@@ -1,0 +1,196 @@
+import { ChangeDetectionStrategy, Component, computed, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import {
+  ApiService,
+  PaymentFeeEntry,
+  PaymentFeeImport,
+  PaymentFeeImportResult,
+  PaymentFeePlatform,
+  PaymentFeePreview,
+} from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
+
+/**
+ * 手續費對帳：上傳 Line Pay／街口／悠遊付官方報表 → 預覽 → 確認後寫入「營業費用／金流手續費」流水帳。
+ * 每平台每月一筆【實際】分錄；可勾選用實際數字取代每月排程寫的【自動】估算分錄。
+ */
+@Component({
+  selector: 'app-payment-fees',
+  templateUrl: './payment-fees.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, FormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+})
+export class PaymentFeesComponent {
+  private api = inject(ApiService);
+  private auth = inject(AuthService);
+
+  readonly platforms: Array<{ value: PaymentFeePlatform; hint: string }> = [
+    { value: 'Line Pay', hint: 'LINE Pay 商家後台 → 請款明細，下載 CSV（檔名像 1ICF_…_CAPTURE.csv）' },
+    { value: '街口', hint: '街口商家後台 → 店家發票手續費月報表，下載 .xlsx' },
+    { value: '悠遊付', hint: '悠遊付商家後台 → 手續費列表，搜尋後匯出 .xlsx' },
+  ];
+  readonly sourceLabels: Record<string, string> = { actual: '實際（報表）', estimate: '估算（費率）', manual: '人工記帳' };
+
+  canEdit = computed(() => this.auth.hasPermission('edit_ledger') || this.auth.hasRole('super_admin'));
+
+  // 上傳
+  platform = signal<PaymentFeePlatform>('Line Pay');
+  file = signal<File | null>(null);
+  preview = signal<PaymentFeePreview | null>(null);
+  replaceMonths = signal<Set<string>>(new Set());
+  isPreviewing = signal(false);
+  isImporting = signal(false);
+  uploadError = signal<string | null>(null);
+  importResult = signal<PaymentFeeImportResult | null>(null);
+
+  platformHint = computed(() => this.platforms.find((p) => p.value === this.platform())?.hint ?? '');
+  canImport = computed(() => {
+    const p = this.preview();
+    return !!p && !p.duplicateFile && p.newRecords > 0 && !this.isImporting();
+  });
+
+  // 列表
+  entries = signal<PaymentFeeEntry[]>([]);
+  imports = signal<PaymentFeeImport[]>([]);
+  isLoading = signal(false);
+  listError = signal<string | null>(null);
+  filterFrom = signal('');
+  filterTo = signal('');
+  filterPlatform = signal('');
+  filterSource = signal('');
+  filterKeyword = signal('');
+
+  displayedEntries = computed(() => {
+    const kw = this.filterKeyword().trim().toLowerCase();
+    if (!kw) return this.entries();
+    return this.entries().filter((e) => (e.description || '').toLowerCase().includes(kw));
+  });
+  displayedTotal = computed(() => this.displayedEntries().reduce((sum, e) => sum + Number(e.amount || 0), 0));
+
+  constructor() {
+    this.loadList();
+  }
+
+  async loadList(): Promise<void> {
+    this.isLoading.set(true);
+    this.listError.set(null);
+    try {
+      const res = await this.api.getPaymentFees({
+        from: this.filterFrom(),
+        to: this.filterTo(),
+        platform: this.filterPlatform(),
+        source: this.filterSource(),
+      });
+      if (res.success && res.data) {
+        this.entries.set(res.data.entries);
+        this.imports.set(res.data.imports);
+      } else {
+        this.listError.set(res.error || '載入失敗');
+      }
+    } catch (error: any) {
+      this.listError.set(error?.error?.error || '載入失敗，請稍後再試');
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  resetFilters(): void {
+    this.filterFrom.set('');
+    this.filterTo.set('');
+    this.filterPlatform.set('');
+    this.filterSource.set('');
+    this.filterKeyword.set('');
+    this.loadList();
+  }
+
+  onPlatformChange(value: PaymentFeePlatform): void {
+    this.platform.set(value);
+    this.clearUpload();
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.file.set(input.files?.[0] ?? null);
+    this.preview.set(null);
+    this.importResult.set(null);
+    this.uploadError.set(null);
+    if (this.file()) this.runPreview();
+  }
+
+  clearUpload(): void {
+    this.file.set(null);
+    this.preview.set(null);
+    this.uploadError.set(null);
+    this.replaceMonths.set(new Set());
+    const input = document.getElementById('payment-fee-file') as HTMLInputElement | null;
+    if (input) input.value = '';
+  }
+
+  async runPreview(): Promise<void> {
+    const file = this.file();
+    if (!file) return;
+    this.isPreviewing.set(true);
+    this.uploadError.set(null);
+    try {
+      const res = await this.api.previewPaymentFeeReport(file, this.platform());
+      if (res.success && res.data) {
+        this.preview.set(res.data);
+        this.replaceMonths.set(new Set(res.data.months.filter((m) => m.defaultReplace).map((m) => m.month)));
+      } else {
+        this.uploadError.set(res.error || '解析失敗');
+      }
+    } catch (error: any) {
+      this.uploadError.set(error?.error?.error || '解析失敗，請確認檔案與平台是否相符');
+    } finally {
+      this.isPreviewing.set(false);
+    }
+  }
+
+  toggleReplace(month: string, checked: boolean): void {
+    this.replaceMonths.update((set) => {
+      const next = new Set(set);
+      if (checked) next.add(month);
+      else next.delete(month);
+      return next;
+    });
+  }
+
+  async confirmImport(): Promise<void> {
+    const file = this.file();
+    const preview = this.preview();
+    if (!file || !preview) return;
+    const months = [...this.replaceMonths()].sort();
+    const msg =
+      `確定匯入 ${preview.platform} ${preview.newRecords} 筆手續費（${this.money(preview.newFee)}）？` +
+      (months.length ? `\n會刪除 ${months.join('、')} 的估算分錄，改用實際數字。` : '');
+    if (!confirm(msg)) return;
+
+    this.isImporting.set(true);
+    this.uploadError.set(null);
+    try {
+      const res = await this.api.importPaymentFeeReport(file, preview.platform, months);
+      if (res.success && res.data) {
+        this.importResult.set(res.data);
+        this.clearUpload();
+        await this.loadList();
+      } else {
+        this.uploadError.set(res.error || '匯入失敗');
+      }
+    } catch (error: any) {
+      this.uploadError.set(error?.error?.error || '匯入失敗，請稍後再試');
+    } finally {
+      this.isImporting.set(false);
+    }
+  }
+
+  money(value: string | number | null | undefined, digits = 0): string {
+    const n = Number(value ?? 0);
+    return n.toLocaleString('zh-TW', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  percent(value: number | null): string {
+    return value === null ? '—' : `${(value * 100).toFixed(0)}%`;
+  }
+}

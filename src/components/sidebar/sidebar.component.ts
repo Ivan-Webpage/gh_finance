@@ -70,6 +70,7 @@ export class SidebarComponent implements OnInit {
         { path: '/ledger', icon: 'reader-outline', name: '流水帳' },
         { path: '/accounts-payable', icon: 'cash-outline', name: '應付帳款' },
         { path: '/auto-debits', icon: 'repeat-outline', name: '固定自動扣繳' },
+        { path: '/payment-fees', icon: 'card-outline', name: '手續費對帳' },
       ]
     },
     {

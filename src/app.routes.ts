@@ -22,6 +22,7 @@ export const APP_ROUTES: Routes = [
   { path: 'ledger', loadComponent: () => import('./components/ledger/ledger.component').then(m => m.LedgerComponent), title: '流水帳', canActivate: [authGuard] },
   { path: 'accounts-payable', loadComponent: () => import('./components/accounts-payable/accounts-payable.component').then(m => m.AccountsPayableComponent), title: '應付帳款', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'auto-debits', loadComponent: () => import('./components/auto-debits/auto-debits.component').then(m => m.AutoDebitsComponent), title: '固定自動扣繳', canActivate: [authGuard] },
+  { path: 'payment-fees', loadComponent: () => import('./components/payment-fees/payment-fees.component').then(m => m.PaymentFeesComponent), title: '手續費對帳', canActivate: [authGuard] },
   { path: 'off-book-finance', loadComponent: () => import('./components/off-book-finance/off-book-finance.component').then(m => m.OffBookFinanceComponent), title: '外帳財務', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'vendors', loadComponent: () => import('./components/vendors/vendors.component').then(m => m.VendorsComponent), title: '廠商管理', canActivate: [authGuard, viewerRestrictedPagesGuard] },
   { path: 'purchase-orders', loadComponent: () => import('./components/purchase-orders/purchase-orders.component').then(m => m.PurchaseOrdersComponent), title: '進貨單管理', canActivate: [authGuard, viewerRestrictedPagesGuard] },
