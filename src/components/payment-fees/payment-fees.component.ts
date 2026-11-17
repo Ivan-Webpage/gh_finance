@@ -45,7 +45,7 @@ export class PaymentFeesComponent {
     { value: '街口', hint: '街口商家後台 → 店家發票手續費月報表，下載 .xlsx' },
     { value: '悠遊付', hint: '悠遊付商家後台 → 手續費列表，搜尋後匯出 .xlsx' },
   ];
-  readonly sourceLabels: Record<string, string> = { actual: '實際（報表）', manual: '人工記帳' };
+  readonly sourceLabels: Record<string, string> = { actual: '實際（報表）', estimated: '推算（無資料）', manual: '人工記帳' };
 
   canEdit = computed(() => this.auth.hasPermission('edit_ledger') || this.auth.hasRole('super_admin'));
 

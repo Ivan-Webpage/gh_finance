@@ -258,6 +258,7 @@
         <select [ngModel]="filterSource()" (ngModelChange)="filterSource.set($event)" class="border-gray-300 rounded-lg text-sm p-2">
           <option value="">全部</option>
           <option value="actual">實際（報表）</option>
+          <option value="estimated">推算（無資料）</option>
           <option value="manual">人工記帳</option>
         </select>
       </div>
@@ -302,6 +303,7 @@
                 <td class="py-2 pr-3 whitespace-nowrap">
                   <span class="px-2 py-0.5 rounded-full text-xs"
                     [class.bg-green-100]="e.source === 'actual'" [class.text-green-800]="e.source === 'actual'"
+                    [class.bg-orange-100]="e.source === 'estimated'" [class.text-orange-800]="e.source === 'estimated'"
                     [class.bg-gray-100]="e.source === 'manual'" [class.text-gray-700]="e.source === 'manual'">
                     {{ sourceLabels[e.source] }}
                   </span>

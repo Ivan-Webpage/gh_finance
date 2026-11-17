@@ -79,7 +79,7 @@ export interface PaymentFeeEntry {
   is_sigh_off: boolean;
   updated_editor: string | null;
   updated_at: string;
-  source: 'actual' | 'manual';
+  source: 'actual' | 'estimated' | 'manual';
   platform: string | null;
 }
 
