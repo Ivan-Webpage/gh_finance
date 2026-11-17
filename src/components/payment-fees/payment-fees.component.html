@@ -21,64 +21,103 @@
           </select>
         </div>
         <div class="flex-grow min-w-[16rem]">
-          <label class="block text-sm font-medium text-gray-600 mb-1">報表檔案</label>
-          <input id="payment-fee-file" type="file" accept=".csv,.xlsx" (change)="onFileSelected($event)"
+          <label class="block text-sm font-medium text-gray-600 mb-1">報表檔案（可一次選多個，同一平台）</label>
+          <input id="payment-fee-file" type="file" multiple accept=".csv,.xlsx" (change)="onFilesSelected($event)" [disabled]="isImporting()"
             class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
         </div>
       </div>
       <p class="text-xs text-gray-500">{{ platformHint() }}。信用卡（中信刷卡機）報表格式確認後再加入。</p>
 
-      @if (isPreviewing()) {
-        <p class="text-sm text-gray-500">解析中...</p>
-      }
       @if (uploadError()) {
         <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm whitespace-pre-line">{{ uploadError() }}</div>
       }
 
-      @if (preview(); as p) {
+      @if (uploads().length > 0) {
         <div class="border rounded-lg p-4 space-y-3 bg-gray-50">
-          <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-700">
-            <span>檔案：<b>{{ p.fileName }}</b></span>
-            <span>期間：{{ p.periodStart }} ～ {{ p.periodEnd }}</span>
-            <span>共 {{ p.totalRecords }} 筆，新的 <b class="text-indigo-700">{{ p.newRecords }}</b> 筆
-              @if (p.duplicateRecords > 0) { <span class="text-amber-700">（{{ p.duplicateRecords }} 筆已匯入過，會略過）</span> }
-            </span>
-            <span>新增手續費：<b>{{ money(p.newFee, 2) }}</b></span>
-          </div>
-
-          @if (p.duplicateFile) {
-            <div class="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded text-sm">
-              這個檔案已經在 {{ p.duplicateFile.importedAt }} 匯入過（{{ p.duplicateFile.fileName }}），不能重複匯入。
-            </div>
-          } @else if (p.newRecords === 0) {
-            <div class="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded text-sm">
-              報表裡每一筆都已經匯入過了，沒有新資料。
-            </div>
-          }
-
           <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
               <thead>
                 <tr class="text-left text-gray-500 border-b">
-                  <th class="py-2 pr-3 font-medium">月份</th>
+                  <th class="py-2 pr-3 font-medium">檔案</th>
+                  <th class="py-2 pr-3 font-medium">期間</th>
                   <th class="py-2 pr-3 font-medium text-right">新／重複</th>
-                  <th class="py-2 pr-3 font-medium text-right">匯入後實際手續費</th>
-                  <th class="py-2 pr-3 font-medium text-right">報表交易額</th>
-                  <th class="py-2 pr-3 font-medium text-right">iChef 營收</th>
-                  <th class="py-2 pr-3 font-medium text-right">涵蓋率</th>
+                  <th class="py-2 pr-3 font-medium text-right">新增手續費</th>
+                  <th class="py-2 pr-3 font-medium">狀態</th>
+                  <th class="py-2 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
-                @for (m of p.months; track m.month) {
-                  <tr class="border-b last:border-0">
-                    <td class="py-2 pr-3">{{ m.month }}</td>
-                    <td class="py-2 pr-3 text-right">{{ m.newRecords }}／{{ m.duplicateRecords }}</td>
-                    <td class="py-2 pr-3 text-right font-medium">{{ money(m.actualFeeAfter) }}
-                      @if (m.existingActualEntry) { <span class="text-xs text-gray-500">（原 {{ money(m.existingActualEntry.amount) }}）</span> }
+                @for (u of uploads(); track u.id) {
+                  <tr class="border-b last:border-0 align-top">
+                    <td class="py-2 pr-3 text-gray-800 break-all max-w-[18rem]">
+                      {{ u.file.name }}
+                      @if (u.preview && u.preview.months.length) {
+                        <details class="mt-1">
+                          <summary class="text-xs text-indigo-600 cursor-pointer">各月明細（{{ u.preview.months.length }} 個月）</summary>
+                          <table class="mt-1 text-xs">
+                            <thead>
+                              <tr class="text-gray-500">
+                                <th class="pr-3 text-left font-medium">月份</th>
+                                <th class="pr-3 text-right font-medium">新／重複</th>
+                                <th class="pr-3 text-right font-medium">匯入後手續費</th>
+                                <th class="pr-3 text-right font-medium">報表交易額</th>
+                                <th class="pr-3 text-right font-medium">iChef 營收</th>
+                                <th class="text-right font-medium">涵蓋率</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (m of u.preview.months; track m.month) {
+                                <tr>
+                                  <td class="pr-3">{{ m.month }}</td>
+                                  <td class="pr-3 text-right">{{ m.newRecords }}／{{ m.duplicateRecords }}</td>
+                                  <td class="pr-3 text-right">{{ money(m.actualFeeAfter) }}</td>
+                                  <td class="pr-3 text-right">{{ money(m.actualSalesAfter) }}</td>
+                                  <td class="pr-3 text-right">{{ m.ichefSales === null ? '—' : money(m.ichefSales) }}</td>
+                                  <td class="text-right" [class.text-amber-700]="m.coverage !== null && m.coverage < 0.9">{{ percent(m.coverage) }}</td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </details>
+                      }
                     </td>
-                    <td class="py-2 pr-3 text-right">{{ money(m.actualSalesAfter) }}</td>
-                    <td class="py-2 pr-3 text-right">{{ m.ichefSales === null ? '—' : money(m.ichefSales) }}</td>
-                    <td class="py-2 pr-3 text-right" [class.text-amber-700]="m.coverage !== null && m.coverage < 0.9">{{ percent(m.coverage) }}</td>
+                    <td class="py-2 pr-3 whitespace-nowrap">
+                      @if (u.preview) { {{ u.preview.periodStart }} ～ {{ u.preview.periodEnd }} } @else { — }
+                    </td>
+                    <td class="py-2 pr-3 text-right whitespace-nowrap">
+                      @if (u.preview) { {{ u.preview.newRecords }}／{{ u.preview.duplicateRecords }} } @else { — }
+                    </td>
+                    <td class="py-2 pr-3 text-right whitespace-nowrap">
+                      @if (u.preview) { {{ money(u.preview.newFee, 2) }} } @else { — }
+                    </td>
+                    <td class="py-2 pr-3">
+                      <span class="px-2 py-0.5 rounded-full text-xs whitespace-nowrap"
+                        [class.bg-gray-100]="u.status === 'previewing' || u.status === 'importing' || u.status === 'skipped'"
+                        [class.bg-indigo-100]="u.status === 'ready'" [class.text-indigo-800]="u.status === 'ready'"
+                        [class.bg-amber-100]="u.status === 'blocked'" [class.text-amber-800]="u.status === 'blocked'"
+                        [class.bg-red-100]="u.status === 'error'" [class.text-red-700]="u.status === 'error'"
+                        [class.bg-green-100]="u.status === 'imported'" [class.text-green-800]="u.status === 'imported'">
+                        {{ statusText(u) }}
+                      </span>
+                      @if (u.status === 'blocked') {
+                        <div class="text-xs text-amber-700 mt-1">
+                          @if (u.preview?.duplicateFile) { 這個檔案已在 {{ u.preview?.duplicateFile?.importedAt }} 匯入過 } @else { 每一筆都已經匯入過 }
+                        </div>
+                      }
+                      @if (u.error && (u.status === 'error' || u.status === 'skipped')) {
+                        <div class="text-xs mt-1" [class.text-red-700]="u.status === 'error'" [class.text-gray-500]="u.status === 'skipped'">{{ u.error }}</div>
+                      }
+                      @if (u.result) {
+                        <div class="text-xs text-green-800 mt-1">
+                          新增 {{ u.result.insertedRecords }} 筆@if (u.result.skippedRecords) {，略過 {{ u.result.skippedRecords }} 筆重複}
+                        </div>
+                      }
+                    </td>
+                    <td class="py-2 text-right">
+                      @if (!isImporting() && u.status !== 'imported' && u.status !== 'importing') {
+                        <button (click)="removeUpload(u.id)" class="text-xs text-gray-500 hover:text-red-600">移除</button>
+                      }
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -86,25 +125,25 @@
           </div>
           <p class="text-xs text-gray-500">
             涵蓋率＝報表交易額 ÷ iChef 當月該付款方式營收。涵蓋率不到 90% 通常代表報表只有半個月，請再下載完整期間的報表補上（重疊的資料會自動略過）。
-            街口、悠遊付依撥款／結算日分月，涵蓋率僅供參考。
+            街口、悠遊付依撥款／結算日分月，涵蓋率僅供參考。多個檔案期間重疊時，預覽的「新」筆數可能重複計算，實際匯入會自動略過重複的交易。
           </p>
 
-          <div class="flex gap-3">
+          @if (importSummary()) {
+            <div class="bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded text-sm">{{ importSummary() }}</div>
+          }
+
+          <div class="flex flex-wrap items-center gap-3">
             <button (click)="confirmImport()" [disabled]="!canImport()"
               class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 text-sm disabled:opacity-50">
-              {{ isImporting() ? '匯入中...' : '確認匯入' }}
+              @if (isImporting()) { 匯入中... } @else { 匯入 {{ readyCount() }} 個檔案 }
             </button>
-            <button (click)="clearUpload()" class="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">取消</button>
+            <button (click)="clearUpload()" [disabled]="isImporting()" class="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50">清除</button>
+            @if (isPreviewing()) {
+              <span class="text-sm text-gray-500">解析中...</span>
+            } @else if (readyCount() > 0) {
+              <span class="text-sm text-gray-600">預估新增手續費 {{ money(readyFee(), 2) }}</span>
+            }
           </div>
-        </div>
-      }
-
-      @if (importResult(); as r) {
-        <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm space-y-1">
-          <div>已匯入 {{ r.insertedRecords }} 筆@if (r.skippedRecords) {（略過 {{ r.skippedRecords }} 筆重複）}。</div>
-          @for (l of r.ledger; track l.entryId) {
-            <div>{{ l.month }}：{{ l.action === 'created' ? '新增' : '更新' }}流水帳 #{{ l.entryId }}，金額 {{ money(l.amount) }}</div>
-          }
         </div>
       }
     </div>

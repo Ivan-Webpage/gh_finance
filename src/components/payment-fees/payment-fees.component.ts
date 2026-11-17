@@ -17,6 +17,17 @@ import { AuthService } from '../../services/auth.service';
  * 手續費對帳：上傳 Line Pay／街口／悠遊付官方報表 → 預覽 → 確認後寫入「營業費用／金流手續費」流水帳。
  * 每平台每月一筆【實際】分錄；不做任何估算，還沒匯入的月份由「每月對帳狀態」提醒。
  */
+const MAX_FILES = 50;
+
+interface UploadItem {
+  id: number;
+  file: File;
+  status: 'previewing' | 'ready' | 'blocked' | 'error' | 'importing' | 'imported' | 'skipped';
+  preview?: PaymentFeePreview;
+  error?: string;
+  result?: PaymentFeeImportResult;
+}
+
 @Component({
   selector: 'app-payment-fees',
   templateUrl: './payment-fees.component.html',
@@ -39,18 +50,18 @@ export class PaymentFeesComponent {
 
   // 上傳
   platform = signal<PaymentFeePlatform>('Line Pay');
-  file = signal<File | null>(null);
-  preview = signal<PaymentFeePreview | null>(null);
+  uploads = signal<UploadItem[]>([]);
   isPreviewing = signal(false);
   isImporting = signal(false);
   uploadError = signal<string | null>(null);
-  importResult = signal<PaymentFeeImportResult | null>(null);
+  importSummary = signal<string | null>(null);
 
   platformHint = computed(() => this.platforms.find((p) => p.value === this.platform())?.hint ?? '');
-  canImport = computed(() => {
-    const p = this.preview();
-    return !!p && !p.duplicateFile && p.newRecords > 0 && !this.isImporting();
-  });
+  readyCount = computed(() => this.uploads().filter((u) => u.status === 'ready').length);
+  readyFee = computed(() =>
+    this.uploads().filter((u) => u.status === 'ready').reduce((sum, u) => sum + Number(u.preview?.newFee || 0), 0)
+  );
+  canImport = computed(() => this.readyCount() > 0 && !this.isPreviewing() && !this.isImporting());
 
   // 列表
   entries = signal<PaymentFeeEntry[]>([]);
@@ -169,65 +180,99 @@ export class PaymentFeesComponent {
     this.clearUpload();
   }
 
-  onFileSelected(event: Event): void {
+  onFilesSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.file.set(input.files?.[0] ?? null);
-    this.preview.set(null);
-    this.importResult.set(null);
+    const files = Array.from(input.files ?? []);
+    this.importSummary.set(null);
     this.uploadError.set(null);
-    if (this.file()) this.runPreview();
+    if (files.length > MAX_FILES) {
+      this.uploadError.set(`一次最多選 ${MAX_FILES} 個檔案`);
+      input.value = '';
+      return;
+    }
+    this.uploads.set(files.map((file, i) => ({ id: i, file, status: 'previewing' as const })));
+    this.previewAll();
   }
 
   clearUpload(): void {
-    this.file.set(null);
-    this.preview.set(null);
+    this.uploads.set([]);
     this.uploadError.set(null);
     const input = document.getElementById('payment-fee-file') as HTMLInputElement | null;
     if (input) input.value = '';
   }
 
-  async runPreview(): Promise<void> {
-    const file = this.file();
-    if (!file) return;
+  removeUpload(id: number): void {
+    this.uploads.update((list) => list.filter((u) => u.id !== id));
+  }
+
+  private patchUpload(id: number, patch: Partial<UploadItem>): void {
+    this.uploads.update((list) => list.map((u) => (u.id === id ? { ...u, ...patch } : u)));
+  }
+
+  /** 逐一預覽（依序送出，避免同時打太多請求） */
+  private async previewAll(): Promise<void> {
     this.isPreviewing.set(true);
-    this.uploadError.set(null);
-    try {
-      const res = await this.api.previewPaymentFeeReport(file, this.platform());
-      if (res.success && res.data) {
-        this.preview.set(res.data);
-      } else {
-        this.uploadError.set(res.error || '解析失敗');
+    const platform = this.platform();
+    for (const item of this.uploads()) {
+      try {
+        const res = await this.api.previewPaymentFeeReport(item.file, platform);
+        if (res.success && res.data) {
+          const blocked = !!res.data.duplicateFile || res.data.newRecords === 0;
+          this.patchUpload(item.id, { status: blocked ? 'blocked' : 'ready', preview: res.data });
+        } else {
+          this.patchUpload(item.id, { status: 'error', error: res.error || '解析失敗' });
+        }
+      } catch (error: any) {
+        this.patchUpload(item.id, { status: 'error', error: error?.error?.error || '解析失敗，請確認檔案與平台是否相符' });
       }
-    } catch (error: any) {
-      this.uploadError.set(error?.error?.error || '解析失敗，請確認檔案與平台是否相符');
-    } finally {
-      this.isPreviewing.set(false);
     }
+    this.isPreviewing.set(false);
   }
 
   async confirmImport(): Promise<void> {
-    const file = this.file();
-    const preview = this.preview();
-    if (!file || !preview) return;
-    const msg = `確定匯入 ${preview.platform} ${preview.newRecords} 筆手續費（${this.money(preview.newFee)}）？`;
-    if (!confirm(msg)) return;
+    const ready = this.uploads().filter((u) => u.status === 'ready');
+    if (ready.length === 0) return;
+    const fee = ready.reduce((sum, u) => sum + Number(u.preview?.newFee || 0), 0);
+    if (!confirm(`確定匯入 ${ready.length} 個 ${this.platform()} 報表（預估新增手續費 ${this.money(fee)}）？`)) return;
 
     this.isImporting.set(true);
     this.uploadError.set(null);
-    try {
-      const res = await this.api.importPaymentFeeReport(file, preview.platform);
-      if (res.success && res.data) {
-        this.importResult.set(res.data);
-        this.clearUpload();
-        await Promise.all([this.loadList(), this.loadCoverage()]);
-      } else {
-        this.uploadError.set(res.error || '匯入失敗');
+    let inserted = 0;
+    let imported = 0;
+    for (const item of ready) {
+      this.patchUpload(item.id, { status: 'importing' });
+      try {
+        const res = await this.api.importPaymentFeeReport(item.file, this.platform());
+        if (res.success && res.data) {
+          inserted += res.data.insertedRecords;
+          imported += 1;
+          this.patchUpload(item.id, { status: 'imported', result: res.data });
+        } else {
+          this.patchUpload(item.id, { status: 'error', error: res.error || '匯入失敗' });
+        }
+      } catch (error: any) {
+        const msg: string = error?.error?.error || '匯入失敗，請稍後再試';
+        // 前面的檔案已經涵蓋這個檔案的全部資料（期間重疊）：不算錯誤
+        // 或同一批選了內容相同的檔案（409：這個檔案已經匯入過）
+        const skipped = (error?.status === 400 && msg.includes('都已經匯入過')) || error?.status === 409;
+        this.patchUpload(item.id, { status: skipped ? 'skipped' : 'error', error: msg });
       }
-    } catch (error: any) {
-      this.uploadError.set(error?.error?.error || '匯入失敗，請稍後再試');
-    } finally {
-      this.isImporting.set(false);
     }
+    this.importSummary.set(`完成：匯入 ${imported} 個檔案、新增 ${inserted} 筆手續費明細。`);
+    this.isImporting.set(false);
+    await Promise.all([this.loadList(), this.loadCoverage()]);
+  }
+
+  statusText(item: UploadItem): string {
+    return {
+      previewing: '解析中',
+      ready: '可匯入',
+      blocked: '不需匯入',
+      error: '錯誤',
+      importing: '匯入中',
+      imported: '已匯入',
+      skipped: '已略過',
+    }[item.status];
   }
 
   money(value: string | number | null | undefined, digits = 0): string {
