@@ -69,7 +69,7 @@ export interface StoreClosureEntry {
 }
 
 /** 手續費對帳（/api/payment-fees） */
-export type PaymentFeePlatform = 'Line Pay' | '街口' | '悠遊付';
+export type PaymentFeePlatform = 'Line Pay' | '街口' | '悠遊付' | '信用卡';
 
 export interface PaymentFeeEntry {
   entry_id: number;

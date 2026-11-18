@@ -22,11 +22,11 @@
         </div>
         <div class="flex-grow min-w-[16rem]">
           <label class="block text-sm font-medium text-gray-600 mb-1">報表檔案（可一次選多個）</label>
-          <input id="payment-fee-file" type="file" multiple accept=".csv,.xlsx" (change)="onFilesSelected($event)" [disabled]="isImporting()"
+          <input id="payment-fee-file" type="file" multiple accept=".csv,.xlsx,.pdf" (change)="onFilesSelected($event)" [disabled]="isImporting()"
             class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
         </div>
       </div>
-      <p class="text-xs text-gray-500">{{ platformHint() }}。信用卡（中信刷卡機）報表格式確認後再加入。</p>
+      <p class="text-xs text-gray-500">{{ platformHint() }}。</p>
 
       @if (uploadError()) {
         <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm whitespace-pre-line">{{ uploadError() }}</div>
@@ -161,7 +161,7 @@
           } @else if (pendingCount() > 0) {
             已結束的月份中，還有 {{ pendingCount() }} 個「平台×月份」沒有匯入完整的官方報表
           } @else {
-            已結束的月份都已匯入官方報表（信用卡除外）
+            已結束的月份都已匯入官方報表
           }
         </p>
       </div>
@@ -226,7 +226,7 @@
       </div>
       <p class="text-xs text-gray-500">
         判斷方式：官方報表的交易額達到 iChef 該付款方式當月營收的 90% 即算已匯入。街口以撥款日前一天的月份計算；iChef 早期的「Galaxy House 松山銀行會所」付款方式算作街口。
-        信用卡報表格式確認前還不能匯入。
+        信用卡以中信帳單日期的月份計算（通常比刷卡晚 0～3 天，月底的刷卡會算到下個月）。
       </p>
     }
   </div>
