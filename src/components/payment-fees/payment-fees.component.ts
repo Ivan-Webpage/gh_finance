@@ -40,11 +40,11 @@ export class PaymentFeesComponent {
   private auth = inject(AuthService);
 
   readonly platforms: Array<{ value: PaymentFeePlatform | 'auto'; hint: string }> = [
-    { value: 'auto', hint: '系統依檔案內容自動判斷平台，可一次混選 Line Pay（CSV）、街口、悠遊付（xlsx）、信用卡（中信 PDF）的報表' },
+    { value: 'auto', hint: '系統依檔案內容自動判斷平台，可一次混選 Line Pay（CSV）、街口、悠遊付（xlsx）、信用卡（中信 .xls）的報表' },
     { value: 'Line Pay', hint: 'LINE Pay 商家後台 → 請款明細，下載 CSV（檔名像 1ICF_…_CAPTURE.csv）' },
     { value: '街口', hint: '街口商家後台 → 店家發票手續費月報表，下載 .xlsx' },
     { value: '悠遊付', hint: '悠遊付商家後台 → 手續費列表，搜尋後匯出 .xlsx' },
-    { value: '信用卡', hint: '中國信託商店帳務 → 選帳務月份查詢 → 瀏覽器列印「另存為 PDF」（一個月一個檔）' },
+    { value: '信用卡', hint: '中國信託商店帳務 → 商店對帳單查詢，下載 .xls' },
   ];
   readonly sourceLabels: Record<string, string> = { actual: '實際（報表）', estimated: '推算（無資料）', manual: '人工記帳' };
 
