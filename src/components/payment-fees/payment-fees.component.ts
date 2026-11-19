@@ -14,7 +14,7 @@ import {
 import { AuthService } from '../../services/auth.service';
 
 /**
- * 手續費對帳：上傳 Line Pay／街口／悠遊付／信用卡（中信）官方報表 → 預覽 → 確認後寫入「營業費用／金流手續費」流水帳。
+ * 手續費對帳：上傳 Line Pay／街口／悠遊付／信用卡（中信、美國運通）官方報表 → 預覽 → 確認後寫入「營業費用／金流手續費」流水帳。
  * 每平台每月一筆【實際】分錄；不做任何估算，還沒匯入的月份由「每月對帳狀態」提醒。
  */
 const MAX_FILES = 50;
@@ -40,11 +40,11 @@ export class PaymentFeesComponent {
   private auth = inject(AuthService);
 
   readonly platforms: Array<{ value: PaymentFeePlatform | 'auto'; hint: string }> = [
-    { value: 'auto', hint: '系統依檔案內容自動判斷平台，可一次混選 Line Pay（CSV）、街口、悠遊付（xlsx）、信用卡（中信 .xls）的報表' },
+    { value: 'auto', hint: '系統依檔案內容自動判斷平台，可一次混選 Line Pay（CSV）、街口、悠遊付（xlsx）、信用卡（中信 .xls、美國運通卡 PDF）的報表' },
     { value: 'Line Pay', hint: 'LINE Pay 商家後台 → 請款明細，下載 CSV（檔名像 1ICF_…_CAPTURE.csv）' },
     { value: '街口', hint: '街口商家後台 → 店家發票手續費月報表，下載 .xlsx' },
     { value: '悠遊付', hint: '悠遊付商家後台 → 手續費列表，搜尋後匯出 .xlsx' },
-    { value: '信用卡', hint: '中國信託商店帳務 → 商店對帳單查詢，下載 .xls' },
+    { value: '信用卡', hint: '中國信託商店帳務 → 商店對帳單查詢，下載 .xls；美國運通卡：聯合信用卡處理中心特店網路服務系統（estore.nccc.com.tw）下載對帳單 PDF' },
   ];
   readonly sourceLabels: Record<string, string> = { actual: '實際（報表）', estimated: '推算（無資料）', manual: '人工記帳' };
 
