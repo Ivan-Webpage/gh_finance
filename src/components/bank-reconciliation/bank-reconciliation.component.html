@@ -36,7 +36,9 @@
                   <td class="py-2 pr-3 break-all max-w-[16rem]">{{ u.file.name }}</td>
                   <td class="py-2 pr-3">{{ u.preview ? u.preview.bank + ' ' + u.preview.accountNo : '' }}</td>
                   <td class="py-2 pr-3 whitespace-nowrap">{{ u.preview?.periodStart }}～{{ u.preview?.periodEnd }}</td>
-                  <td class="py-2 pr-3 text-right">{{ u.preview ? u.preview.newRowCount + '／' + u.preview.duplicateRowCount : '' }}</td>
+                  <td class="py-2 pr-3 text-right">{{ u.preview ? u.preview.newRowCount + '／' + u.preview.duplicateRowCount : '' }}
+                    @if (u.preview?.autoIgnoreCount) { <div class="text-xs text-gray-500">其中 {{ u.preview?.autoIgnoreCount }} 筆非貸款，自動略過</div> }
+                  </td>
                   <td class="py-2 pr-3 text-right whitespace-nowrap">
                     @if (u.preview) { {{ +u.preview.withdrawalTotal | number:'1.0-0' }}／{{ +u.preview.depositTotal | number:'1.0-0' }} }
                   </td>
@@ -206,9 +208,11 @@
 
         <div>
           <div class="flex items-center justify-between">
-            <h4 class="font-medium text-gray-700">對應流水帳（前後 3 天內，可複選）</h4>
+            <h4 class="font-medium text-gray-700">
+              @if (loanGroup(); as g) { 對應流水帳（{{ g.month }} 台銀貸款利息＋本金） } @else { 對應流水帳（前後 3 天內，可複選） }
+            </h4>
             <span class="text-sm" [class.text-green-700]="selectedTotal() === editingAmount()" [class.text-orange-600]="selectedTotal() !== editingAmount()">
-              已選合計 {{ selectedTotal() | number:'1.0-2' }}／銀行 {{ editingAmount() | number:'1.0-2' }}
+              已選合計 {{ selectedTotal() | number:'1.0-2' }}／{{ loanGroup() ? '本月 ' + loanGroup()!.count + ' 筆扣款合計' : '銀行' }} {{ editingAmount() | number:'1.0-2' }}
             </span>
           </div>
           @if (candidateLoading()) {
@@ -230,7 +234,11 @@
                 }
               </table>
             </div>
-            <p class="text-xs text-gray-500 mt-1">黃底是金額相同的分錄。</p>
+            @if (loanGroup()) {
+              <p class="text-xs text-gray-500 mt-1">台銀每月從公司與個人帳戶共扣 6 筆，流水帳只記利息合計＋本金合計。這兩筆分錄可以跟同月其他扣款共用，請每一筆扣款都對應到這兩筆。</p>
+            } @else {
+              <p class="text-xs text-gray-500 mt-1">黃底是金額相同的分錄。</p>
+            }
           }
           <button (click)="save('link')" [disabled]="isSaving() || selectedEntryIds().size === 0"
             class="mt-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50">對應到已選的流水帳</button>

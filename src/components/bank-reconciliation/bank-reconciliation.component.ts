@@ -5,6 +5,7 @@ import {
   ApiService,
   BankAccountSummary,
   BankLedgerCandidate,
+  BankLoanGroup,
   BankStatementImport,
   BankStatementPreview,
   BankTransaction,
@@ -78,6 +79,7 @@ export class BankReconciliationComponent {
   // 處理視窗
   editing = signal<BankTransaction | null>(null);
   candidates = signal<BankLedgerCandidate[]>([]);
+  loanGroup = signal<BankLoanGroup | null>(null);
   selectedEntryIds = signal<Set<number>>(new Set());
   ignoreNote = signal('');
   isSaving = signal(false);
@@ -88,7 +90,10 @@ export class BankReconciliationComponent {
     const cents = this.candidates().filter((c) => ids.has(c.entry_id)).reduce((sum, c) => sum + Math.round(Math.abs(Number(c.amount)) * 100), 0);
     return cents / 100;
   });
+  /** 比對基準：一般交易＝這筆金額；台銀貸款扣款＝同月全部扣款合計（兩個帳戶） */
   editingAmount = computed(() => {
+    const g = this.loanGroup();
+    if (g) return Number(g.total);
     const t = this.editing();
     return t ? Math.max(Math.abs(Number(t.withdrawal)), Math.abs(Number(t.deposit))) : 0;
   });
@@ -153,6 +158,7 @@ export class BankReconciliationComponent {
     this.isImporting.set(true);
     let total = 0;
     let matched = 0;
+    let ignored = 0;
     for (const item of this.uploads().filter((u) => u.status === 'ready')) {
       this.patchUpload(item.id, { status: 'importing' });
       try {
@@ -160,13 +166,17 @@ export class BankReconciliationComponent {
         if (!res.success || !res.data) throw new Error(res.error || '匯入失敗');
         total += res.data.newRowCount;
         matched += res.data.autoMatched;
-        this.patchUpload(item.id, { status: 'imported', result: `新增 ${res.data.newRowCount} 筆，自動對應 ${res.data.autoMatched} 筆` });
+        ignored += res.data.autoIgnored;
+        this.patchUpload(item.id, {
+          status: 'imported',
+          result: `新增 ${res.data.newRowCount} 筆，自動對應 ${res.data.autoMatched} 筆` + (res.data.autoIgnored ? `，自動略過 ${res.data.autoIgnored} 筆` : ''),
+        });
       } catch (e) {
         this.patchUpload(item.id, { status: 'error', error: this.errorText(e) });
       }
     }
     this.isImporting.set(false);
-    this.uploadMessage.set(`匯入完成：新增 ${total} 筆交易，自動對應 ${matched} 筆流水帳。`);
+    this.uploadMessage.set(`匯入完成：新增 ${total} 筆交易，自動對應 ${matched} 筆` + (ignored ? `，個人帳戶非貸款交易自動略過 ${ignored} 筆` : '') + '。');
     await this.load();
   }
 
@@ -186,7 +196,7 @@ export class BankReconciliationComponent {
     try {
       const res = await this.api.autoMatchBankTransactions(this.filterAccount() || null);
       if (!res.success || !res.data) throw new Error(res.error || '自動對應失敗');
-      this.actionMessage.set(`自動對應了 ${res.data.matched} 筆。`);
+      this.actionMessage.set(`自動對應了 ${res.data.matched} 筆` + (res.data.ignored ? `，自動略過 ${res.data.ignored} 筆` : '') + '。');
       await this.load();
     } catch (e) {
       this.actionMessage.set(this.errorText(e));
@@ -202,11 +212,17 @@ export class BankReconciliationComponent {
     this.ignoreNote.set(t.note ?? '');
     this.modalError.set(null);
     this.candidates.set([]);
+    this.loanGroup.set(null);
     this.candidateLoading.set(true);
     try {
       const res = await this.api.getBankLedgerCandidates(t.txn_id);
       if (!res.success || !res.data) throw new Error(res.error || '讀取候選流水帳失敗');
-      this.candidates.set(res.data);
+      this.candidates.set(res.data.candidates);
+      this.loanGroup.set(res.data.loanGroup);
+      // 貸款扣款還沒對應時，預設勾選同月台銀利息＋本金
+      if (res.data.loanGroup && t.entries.length === 0) {
+        this.selectedEntryIds.set(new Set(res.data.candidates.map((x) => x.entry_id)));
+      }
     } catch (e) {
       this.modalError.set(this.errorText(e));
     } finally {

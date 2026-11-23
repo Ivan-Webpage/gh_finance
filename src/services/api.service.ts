@@ -134,6 +134,13 @@ export interface BankStatementPreview {
   withdrawalTotal: string;
   depositTotal: string;
   alreadyImported: boolean;
+  autoIgnoreCount: number;
+}
+
+export interface BankLoanGroup {
+  month: string;
+  count: number;
+  total: string;
 }
 
 export interface BankLedgerCandidate {
@@ -3323,19 +3330,19 @@ export class ApiService {
     return firstValueFrom(this.http.post<ApiResponse<BankStatementPreview>>(`${this.baseUrl}/bank-reconciliation/preview`, form));
   }
 
-  importBankStatement(file: File): Promise<ApiResponse<{ importId: number; rowCount: number; newRowCount: number; autoMatched: number }>> {
+  importBankStatement(file: File): Promise<ApiResponse<{ importId: number; rowCount: number; newRowCount: number; autoMatched: number; autoIgnored: number }>> {
     const form = new FormData();
     form.append('file', file, file.name);
-    return firstValueFrom(this.http.post<ApiResponse<{ importId: number; rowCount: number; newRowCount: number; autoMatched: number }>>(`${this.baseUrl}/bank-reconciliation/import`, form));
+    return firstValueFrom(this.http.post<ApiResponse<{ importId: number; rowCount: number; newRowCount: number; autoMatched: number; autoIgnored: number }>>(`${this.baseUrl}/bank-reconciliation/import`, form));
   }
 
-  autoMatchBankTransactions(accountNo: string | null): Promise<ApiResponse<{ matched: number }>> {
-    return firstValueFrom(this.http.post<ApiResponse<{ matched: number }>>(`${this.baseUrl}/bank-reconciliation/auto-match`, { accountNo }));
+  autoMatchBankTransactions(accountNo: string | null): Promise<ApiResponse<{ matched: number; ignored: number }>> {
+    return firstValueFrom(this.http.post<ApiResponse<{ matched: number; ignored: number }>>(`${this.baseUrl}/bank-reconciliation/auto-match`, { accountNo }));
   }
 
-  getBankLedgerCandidates(txnId: number): Promise<ApiResponse<BankLedgerCandidate[]>> {
+  getBankLedgerCandidates(txnId: number): Promise<ApiResponse<{ candidates: BankLedgerCandidate[]; loanGroup: BankLoanGroup | null }>> {
     const params = new HttpParams().set('txnId', String(txnId));
-    return firstValueFrom(this.http.get<ApiResponse<BankLedgerCandidate[]>>(`${this.baseUrl}/bank-reconciliation/candidates`, { params }));
+    return firstValueFrom(this.http.get<ApiResponse<{ candidates: BankLedgerCandidate[]; loanGroup: BankLoanGroup | null }>>(`${this.baseUrl}/bank-reconciliation/candidates`, { params }));
   }
 
   updateBankTransaction(body: { txnId: number; action: 'link' | 'ignore' | 'reset'; entryIds?: number[]; note?: string }): Promise<ApiResponse<unknown>> {
