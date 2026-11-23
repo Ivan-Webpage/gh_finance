@@ -68,6 +68,84 @@ export interface StoreClosureEntry {
   reason: string | null;
 }
 
+/** 銀行對帳（/api/bank-reconciliation） */
+export type BankTxnStatus = 'unmatched' | 'matched' | 'ignored';
+
+export interface BankLinkedEntry {
+  entryId: number;
+  entryDate: string;
+  itemGroup: string;
+  subjectName: string;
+  amount: string;
+  description: string | null;
+}
+
+export interface BankTransaction {
+  txn_id: number;
+  bank: string;
+  account_no: string;
+  txn_date: string;
+  txn_time: string;
+  withdrawal: string;
+  deposit: string;
+  balance: string;
+  summary: string | null;
+  memo: string | null;
+  counterparty: string | null;
+  status: BankTxnStatus;
+  note: string | null;
+  updated_by: string | null;
+  entries: BankLinkedEntry[];
+}
+
+export interface BankAccountSummary {
+  bank: string;
+  account_no: string;
+  first_date: string;
+  last_date: string;
+  total: number;
+  unmatched: number;
+  matched: number;
+  ignored: number;
+}
+
+export interface BankStatementImport {
+  import_id: number;
+  bank: string;
+  account_no: string;
+  file_name: string;
+  period_start: string | null;
+  period_end: string | null;
+  row_count: number;
+  new_row_count: number;
+  imported_by: string | null;
+  imported_at: string;
+}
+
+export interface BankStatementPreview {
+  bank: string;
+  accountNo: string;
+  fileName: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  rowCount: number;
+  newRowCount: number;
+  duplicateRowCount: number;
+  withdrawalTotal: string;
+  depositTotal: string;
+  alreadyImported: boolean;
+}
+
+export interface BankLedgerCandidate {
+  entry_id: number;
+  entry_date: string;
+  item_group: string;
+  subject_name: string;
+  amount: string;
+  description: string | null;
+  same_amount: boolean;
+}
+
 /** 手續費對帳（/api/payment-fees） */
 export type PaymentFeePlatform = 'Line Pay' | '街口' | '悠遊付' | '信用卡';
 
@@ -3227,6 +3305,41 @@ export class ApiService {
   deleteStoreClosure(id: string): Promise<ApiResponse<unknown>> {
     const params = new HttpParams().set('id', id);
     return firstValueFrom(this.http.delete<ApiResponse<unknown>>(`${this.baseUrl}/store-closures`, { params }));
+  }
+
+  // ========== 銀行對帳 (bank-reconciliation) ==========
+
+  getBankReconciliation(filters: { account?: string; status?: string; from?: string; to?: string }): Promise<ApiResponse<{ transactions: BankTransaction[]; accounts: BankAccountSummary[]; imports: BankStatementImport[] }>> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params = params.set(key, value);
+    }
+    return firstValueFrom(this.http.get<ApiResponse<{ transactions: BankTransaction[]; accounts: BankAccountSummary[]; imports: BankStatementImport[] }>>(`${this.baseUrl}/bank-reconciliation`, { params }));
+  }
+
+  previewBankStatement(file: File): Promise<ApiResponse<BankStatementPreview>> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return firstValueFrom(this.http.post<ApiResponse<BankStatementPreview>>(`${this.baseUrl}/bank-reconciliation/preview`, form));
+  }
+
+  importBankStatement(file: File): Promise<ApiResponse<{ importId: number; rowCount: number; newRowCount: number; autoMatched: number }>> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return firstValueFrom(this.http.post<ApiResponse<{ importId: number; rowCount: number; newRowCount: number; autoMatched: number }>>(`${this.baseUrl}/bank-reconciliation/import`, form));
+  }
+
+  autoMatchBankTransactions(accountNo: string | null): Promise<ApiResponse<{ matched: number }>> {
+    return firstValueFrom(this.http.post<ApiResponse<{ matched: number }>>(`${this.baseUrl}/bank-reconciliation/auto-match`, { accountNo }));
+  }
+
+  getBankLedgerCandidates(txnId: number): Promise<ApiResponse<BankLedgerCandidate[]>> {
+    const params = new HttpParams().set('txnId', String(txnId));
+    return firstValueFrom(this.http.get<ApiResponse<BankLedgerCandidate[]>>(`${this.baseUrl}/bank-reconciliation/candidates`, { params }));
+  }
+
+  updateBankTransaction(body: { txnId: number; action: 'link' | 'ignore' | 'reset'; entryIds?: number[]; note?: string }): Promise<ApiResponse<unknown>> {
+    return firstValueFrom(this.http.put<ApiResponse<unknown>>(`${this.baseUrl}/bank-reconciliation/transactions`, body));
   }
 
   // ========== 手續費對帳 (payment-fees) ==========

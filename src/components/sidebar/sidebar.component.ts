@@ -71,6 +71,7 @@ export class SidebarComponent implements OnInit {
         { path: '/accounts-payable', icon: 'cash-outline', name: '應付帳款' },
         { path: '/auto-debits', icon: 'repeat-outline', name: '固定自動扣繳' },
         { path: '/payment-fees', icon: 'card-outline', name: '手續費對帳' },
+        { path: '/bank-reconciliation', icon: 'business-outline', name: '銀行對帳' },
       ]
     },
     {
@@ -126,6 +127,7 @@ export class SidebarComponent implements OnInit {
       '/line-users',
       '/monthly-targets',
       '/accounts-payable',
+      '/bank-reconciliation',
       '/off-book-finance',
       '/product-cost',
       '/tarakou-whisky-sales',

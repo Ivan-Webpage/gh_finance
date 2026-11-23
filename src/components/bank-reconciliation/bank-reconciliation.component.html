@@ -1,0 +1,263 @@
+<div class="space-y-6">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900">銀行對帳</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      上傳銀行明細後，系統會自動把金額相同、日期前後 3 天內、而且只有唯一候選的流水帳對應起來；其他交易請逐筆處理。
+      這個頁面不會新增、修改或刪除流水帳。
+    </p>
+  </div>
+
+  <!-- 上傳 -->
+  <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+    <h2 class="text-lg font-semibold text-gray-800">上傳銀行明細</h2>
+    <div>
+      <input type="file" multiple accept=".csv" (change)="onFilesSelected($event)" [disabled]="isImporting()"
+        class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+      <p class="text-xs text-gray-500 mt-1">目前支援台灣銀行網銀「存摺歷史明細查詢」下載的 CSV。期間重疊的檔案可以放心上傳，已匯入的交易會自動略過。</p>
+    </div>
+
+    @if (uploads().length > 0) {
+      <div class="border rounded-lg p-4 space-y-3 bg-gray-50">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-3 font-medium">檔案</th>
+                <th class="py-2 pr-3 font-medium">帳號</th>
+                <th class="py-2 pr-3 font-medium">期間</th>
+                <th class="py-2 pr-3 font-medium text-right">新／重複</th>
+                <th class="py-2 pr-3 font-medium text-right">支出／存入合計</th>
+                <th class="py-2 font-medium">狀態</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of uploads(); track u.id) {
+                <tr class="border-b last:border-0 align-top">
+                  <td class="py-2 pr-3 break-all max-w-[16rem]">{{ u.file.name }}</td>
+                  <td class="py-2 pr-3">{{ u.preview ? u.preview.bank + ' ' + u.preview.accountNo : '' }}</td>
+                  <td class="py-2 pr-3 whitespace-nowrap">{{ u.preview?.periodStart }}～{{ u.preview?.periodEnd }}</td>
+                  <td class="py-2 pr-3 text-right">{{ u.preview ? u.preview.newRowCount + '／' + u.preview.duplicateRowCount : '' }}</td>
+                  <td class="py-2 pr-3 text-right whitespace-nowrap">
+                    @if (u.preview) { {{ +u.preview.withdrawalTotal | number:'1.0-0' }}／{{ +u.preview.depositTotal | number:'1.0-0' }} }
+                  </td>
+                  <td class="py-2">
+                    @switch (u.status) {
+                      @case ('previewing') { <span class="text-gray-500">預覽中…</span> }
+                      @case ('ready') { <span class="text-green-700">可匯入</span> }
+                      @case ('importing') { <span class="text-gray-500">匯入中…</span> }
+                      @case ('imported') { <span class="text-green-700">{{ u.result }}</span> }
+                      @default { <span class="text-red-600">{{ u.error }}</span> }
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button (click)="importAll()" [disabled]="readyCount() === 0 || isImporting()"
+            class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+            確認匯入（{{ readyCount() }} 個檔案）
+          </button>
+          <button (click)="clearUploads()" [disabled]="isImporting()" class="px-4 py-2 rounded-lg border text-sm text-gray-700 hover:bg-gray-100">清除</button>
+          @if (uploadMessage()) { <span class="text-sm text-green-700">{{ uploadMessage() }}</span> }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- 帳戶統計 -->
+  @if (accounts().length > 0) {
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      @for (a of accounts(); track a.account_no) {
+        <div class="bg-white p-4 rounded-xl shadow-md">
+          <div class="font-semibold text-gray-800">{{ a.bank }} {{ a.account_no }}</div>
+          <div class="text-xs text-gray-500">{{ a.first_date }}～{{ a.last_date }}，共 {{ a.total }} 筆</div>
+          <div class="mt-2 flex gap-4 text-sm">
+            <span class="text-red-600">未處理 {{ a.unmatched }}</span>
+            <span class="text-green-700">已對應 {{ a.matched }}</span>
+            <span class="text-gray-600">不需入帳 {{ a.ignored }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- 交易列表 -->
+  <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">帳號</label>
+        <select [ngModel]="filterAccount()" (ngModelChange)="setFilter('account', $event)" class="border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+          <option value="">全部</option>
+          @for (a of accounts(); track a.account_no) { <option [value]="a.account_no">{{ a.account_no }}</option> }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">狀態</label>
+        <select [ngModel]="filterStatus()" (ngModelChange)="setFilter('status', $event)" class="border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+          <option value="">全部</option>
+          <option value="unmatched">未處理</option>
+          <option value="matched">已對應</option>
+          <option value="ignored">不需入帳</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">起日</label>
+        <input type="date" [ngModel]="filterFrom()" (ngModelChange)="setFilter('from', $event)" class="border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">迄日</label>
+        <input type="date" [ngModel]="filterTo()" (ngModelChange)="setFilter('to', $event)" class="border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+      </div>
+      <div class="flex-grow min-w-[10rem]">
+        <label class="block text-xs text-gray-500 mb-1">關鍵字（摘要、備註、金額）</label>
+        <input type="text" [ngModel]="filterKeyword()" (ngModelChange)="filterKeyword.set($event); page.set(1)" class="w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+      </div>
+      <button (click)="runAutoMatch()" [disabled]="isAutoMatching()" class="px-4 py-2 rounded-lg border border-indigo-300 text-indigo-700 text-sm hover:bg-indigo-50 disabled:opacity-50">
+        重新自動對應
+      </button>
+    </div>
+    @if (actionMessage()) { <div class="text-sm text-gray-700">{{ actionMessage() }}</div> }
+    @if (listError()) { <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{{ listError() }}</div> }
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-500 border-b">
+            <th class="py-2 pr-3 font-medium">日期</th>
+            <th class="py-2 pr-3 font-medium">帳號</th>
+            <th class="py-2 pr-3 font-medium">摘要／備註</th>
+            <th class="py-2 pr-3 font-medium text-right">金額</th>
+            <th class="py-2 pr-3 font-medium text-right">餘額</th>
+            <th class="py-2 pr-3 font-medium">狀態／對應流水帳</th>
+            <th class="py-2 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (isLoading()) {
+            <tr><td colspan="7" class="py-6 text-center text-gray-500">讀取中…</td></tr>
+          } @else if (pageRows().length === 0) {
+            <tr><td colspan="7" class="py-6 text-center text-gray-500">沒有符合條件的交易</td></tr>
+          }
+          @for (t of pageRows(); track t.txn_id) {
+            <tr class="border-b last:border-0 align-top">
+              <td class="py-2 pr-3 whitespace-nowrap">{{ t.txn_date }}<div class="text-xs text-gray-400">{{ t.txn_time }}</div></td>
+              <td class="py-2 pr-3 text-xs text-gray-500">…{{ t.account_no.slice(-4) }}</td>
+              <td class="py-2 pr-3">{{ t.summary }}<div class="text-xs text-gray-500 break-all">{{ t.memo }}</div></td>
+              <td class="py-2 pr-3 text-right whitespace-nowrap" [class.text-red-600]="amountOf(t) < 0" [class.text-green-700]="amountOf(t) > 0">
+                {{ amountOf(t) | number:'1.0-2' }}
+              </td>
+              <td class="py-2 pr-3 text-right whitespace-nowrap text-gray-500">{{ +t.balance | number:'1.0-0' }}</td>
+              <td class="py-2 pr-3">
+                <span class="inline-block px-2 py-0.5 rounded text-xs"
+                  [class.bg-red-50]="t.status === 'unmatched'" [class.text-red-700]="t.status === 'unmatched'"
+                  [class.bg-green-50]="t.status === 'matched'" [class.text-green-700]="t.status === 'matched'"
+                  [class.bg-gray-100]="t.status === 'ignored'" [class.text-gray-600]="t.status === 'ignored'">{{ statusLabels[t.status] }}</span>
+                @if (t.note) { <span class="text-xs text-gray-600 ml-1">{{ t.note }}</span> }
+                @for (e of t.entries; track e.entryId) {
+                  <div class="text-xs text-gray-600">#{{ e.entryId }} {{ e.entryDate }} {{ e.subjectName }} {{ +e.amount | number:'1.0-2' }}</div>
+                }
+              </td>
+              <td class="py-2 text-right">
+                <button (click)="openEditor(t)" class="text-indigo-600 hover:underline text-sm">處理</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (totalPages() > 1) {
+      <div class="flex items-center justify-center gap-3 text-sm">
+        <button (click)="page.set(page() - 1)" [disabled]="page() <= 1" class="px-3 py-1 border rounded disabled:opacity-40">上一頁</button>
+        <span>{{ page() }} / {{ totalPages() }}（共 {{ filtered().length }} 筆）</span>
+        <button (click)="page.set(page() + 1)" [disabled]="page() >= totalPages()" class="px-3 py-1 border rounded disabled:opacity-40">下一頁</button>
+      </div>
+    }
+  </div>
+
+  <!-- 匯入紀錄 -->
+  @if (imports().length > 0) {
+    <details class="bg-white p-6 rounded-xl shadow-md">
+      <summary class="font-semibold text-gray-800 cursor-pointer">匯入紀錄（{{ imports().length }}）</summary>
+      <table class="min-w-full text-sm mt-3">
+        <thead><tr class="text-left text-gray-500 border-b"><th class="py-1 pr-3">時間</th><th class="py-1 pr-3">檔案</th><th class="py-1 pr-3">帳號</th><th class="py-1 pr-3">期間</th><th class="py-1 pr-3 text-right">筆數（新增）</th><th class="py-1">操作者</th></tr></thead>
+        <tbody>
+          @for (i of imports(); track i.import_id) {
+            <tr class="border-b last:border-0"><td class="py-1 pr-3">{{ i.imported_at }}</td><td class="py-1 pr-3 break-all">{{ i.file_name }}</td><td class="py-1 pr-3">{{ i.account_no }}</td><td class="py-1 pr-3">{{ i.period_start }}～{{ i.period_end }}</td><td class="py-1 pr-3 text-right">{{ i.row_count }}（{{ i.new_row_count }}）</td><td class="py-1">{{ i.imported_by }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </details>
+  }
+
+  <!-- 處理視窗 -->
+  @if (editing(); as t) {
+    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" (click)="closeEditor()">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-4" (click)="$event.stopPropagation()">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800">處理銀行交易</h3>
+          <p class="text-sm text-gray-600 mt-1">
+            {{ t.txn_date }} {{ t.txn_time }}　{{ t.summary }}　{{ t.memo }}<br>
+            金額 <b [class.text-red-600]="amountOf(t) < 0">{{ amountOf(t) | number:'1.0-2' }}</b>
+            @if (t.counterparty) { 　對方帳號 {{ t.counterparty }} }
+          </p>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="font-medium text-gray-700">對應流水帳（前後 3 天內，可複選）</h4>
+            <span class="text-sm" [class.text-green-700]="selectedTotal() === editingAmount()" [class.text-orange-600]="selectedTotal() !== editingAmount()">
+              已選合計 {{ selectedTotal() | number:'1.0-2' }}／銀行 {{ editingAmount() | number:'1.0-2' }}
+            </span>
+          </div>
+          @if (candidateLoading()) {
+            <p class="text-sm text-gray-500 py-3">讀取中…</p>
+          } @else if (candidates().length === 0) {
+            <p class="text-sm text-gray-500 py-3">前後 3 天內沒有可對應的流水帳。</p>
+          } @else {
+            <div class="max-h-72 overflow-y-auto border rounded-lg mt-2">
+              <table class="min-w-full text-sm">
+                @for (c of candidates(); track c.entry_id) {
+                  <tr class="border-b last:border-0 cursor-pointer hover:bg-gray-50" [class.bg-yellow-50]="c.same_amount" (click)="toggleEntry(c.entry_id)">
+                    <td class="py-1 px-2"><input type="checkbox" [checked]="selectedEntryIds().has(c.entry_id)" (click)="$event.stopPropagation(); toggleEntry(c.entry_id)"></td>
+                    <td class="py-1 pr-2 text-gray-500">#{{ c.entry_id }}</td>
+                    <td class="py-1 pr-2 whitespace-nowrap">{{ c.entry_date }}</td>
+                    <td class="py-1 pr-2">{{ c.item_group }}／{{ c.subject_name }}</td>
+                    <td class="py-1 pr-2 text-right whitespace-nowrap">{{ +c.amount | number:'1.0-2' }}</td>
+                    <td class="py-1 pr-2 text-xs text-gray-500">{{ c.description }}</td>
+                  </tr>
+                }
+              </table>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">黃底是金額相同的分錄。</p>
+          }
+          <button (click)="save('link')" [disabled]="isSaving() || selectedEntryIds().size === 0"
+            class="mt-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50">對應到已選的流水帳</button>
+        </div>
+
+        <div class="border-t pt-4">
+          <h4 class="font-medium text-gray-700">或標記為不需入帳</h4>
+          <div class="flex flex-wrap gap-2 mt-2">
+            @for (r of ignoreReasons; track r) {
+              <button (click)="ignoreNote.set(r)" class="px-2 py-1 rounded border text-xs text-gray-700 hover:bg-gray-100">{{ r }}</button>
+            }
+          </div>
+          <input type="text" [ngModel]="ignoreNote()" (ngModelChange)="ignoreNote.set($event)" placeholder="原因（必填）"
+            class="mt-2 w-full border-gray-300 rounded-lg text-sm p-2 bg-gray-50">
+          <button (click)="save('ignore')" [disabled]="isSaving() || !ignoreNote().trim()"
+            class="mt-2 px-4 py-2 rounded-lg bg-gray-700 text-white text-sm hover:bg-gray-800 disabled:opacity-50">標記為不需入帳</button>
+        </div>
+
+        @if (modalError()) { <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">{{ modalError() }}</div> }
+
+        <div class="flex justify-between border-t pt-4">
+          @if (t.status !== 'unmatched') {
+            <button (click)="save('reset')" [disabled]="isSaving()" class="px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm hover:bg-red-50">取消對應／標記</button>
+          } @else { <span></span> }
+          <button (click)="closeEditor()" class="px-4 py-2 rounded-lg border text-sm text-gray-700 hover:bg-gray-100">關閉</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
